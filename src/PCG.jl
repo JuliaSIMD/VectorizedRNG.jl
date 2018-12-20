@@ -5,22 +5,24 @@ const W16 = REGISTER_SIZE >> 1
 
 TypeVectorWidth(::Type{Float64}) = W64
 TypeVectorWidth(::Type{Float32}) = W32
+TypeVectorWidth(::Type{UInt64}) = W64
 TypeVectorWidth(::Type{Int64}) = W64
+TypeVectorWidth(::Type{UInt32}) = W32
 TypeVectorWidth(::Type{Int32}) = W32
 TypeVectorWidth(::Type{T}) where T = REGISTER_SIZE ÷ sizeof(T)
 
-abstract type PCG{N} end
+abstract type AbstractPCG{N} <: Random.AbstractRNG end
+abstract type AbstractPCG_XSH_RR{N} <: AbstractPCG{N} end
 
-
-mutable struct PCGCore{N} <: PCG{N}
-    state::NTuple{N,Vec{W64,Int64}}
-    increment::NTuple{N,Vec{W64,Int64}}
-    multiplier::Vec{W64,Int64}
+mutable struct PCGCore{N} <: AbstractPCG_XSH_RR{N}
+    state::NTuple{N,Vec{W64,UInt64}}
+    increment::NTuple{N,Vec{W64,UInt64}}
+    multiplier::Vec{W64,UInt64}
 end
-mutable struct PCGcached64{N,W64_} <: PCG{N}
-    state::NTuple{N,Vec{W64,Int64}}
-    increment::NTuple{N,Vec{W64,Int64}}
-    multiplier::Vec{W64,Int64}
+mutable struct PCGcached64{N,W64_} <: AbstractPCG_XSH_RR{N}
+    state::NTuple{N,Vec{W64,UInt64}}
+    increment::NTuple{N,Vec{W64,UInt64}}
+    multiplier::Vec{W64,UInt64}
     uniform64::Vec{W64_,Float64}
     exponential64::Vec{W64_,Float64}
     normal64::Vec{W64_,Float64}
@@ -28,10 +30,10 @@ mutable struct PCGcached64{N,W64_} <: PCG{N}
     exponentialcount64::Int
     normalcount64::Int
 end
-mutable struct PCGcached32{N,W32_} <: PCG{N}
-    state::NTuple{N,Vec{W64,Int64}}
-    increment::NTuple{N,Vec{W64,Int64}}
-    multiplier::Vec{W64,Int64}
+mutable struct PCGcached32{N,W32_} <: AbstractPCG_XSH_RR{N}
+    state::NTuple{N,Vec{W64,UInt64}}
+    increment::NTuple{N,Vec{W64,UInt64}}
+    multiplier::Vec{W64,UInt64}
     uniform32::Vec{W32_,Float32}
     exponential32::Vec{W32_,Float32}
     normal32::Vec{W32_,Float32}
@@ -39,10 +41,10 @@ mutable struct PCGcached32{N,W32_} <: PCG{N}
     exponentialcount32::Int
     normalcount32::Int
 end
-mutable struct PCGcached{N,W64_,W32_} <: PCG{N}
-    state::NTuple{N,Vec{W64,Int64}}
-    increment::NTuple{N,Vec{W64,Int64}}
-    multiplier::Vec{W64,Int64}
+mutable struct PCGcached{N,W64_,W32_} <: AbstractPCG_XSH_RR{N}
+    state::NTuple{N,Vec{W64,UInt64}}
+    increment::NTuple{N,Vec{W64,UInt64}}
+    multiplier::Vec{W64,UInt64}
     uniform64::Vec{W64_,Float64}
     exponential64::Vec{W64_,Float64}
     normal64::Vec{W64_,Float64}
@@ -55,7 +57,7 @@ mutable struct PCGcached{N,W64_,W32_} <: PCG{N}
     uniformcount32::Int
     exponentialcount32::Int
     normalcount32::Int
-    function PCGcached{N,W64_,W32_}(state::NTuple{N,Vec{W64,Int64}}, increment::NTuple{N,Vec{W64,Int64}}, multiplier::Vec{W64,Int64}) where {N,W64_,W32_}
+    function PCGcached{N,W64_,W32_}(state::NTuple{N,Vec{W64,UInt64}}, increment::NTuple{N,Vec{W64,UInt64}}, multiplier::Vec{W64,UInt64}) where {N,W64_,W32_}
         rng = new{N,W64_,W32_}(state, increment, multiplier)
         rng.uniformcount64 = W64_
         rng.exponentialcount64 = W64_
@@ -69,21 +71,21 @@ end
 const PCG_cached_64{N,W64_} = Union{PCGcached64{N,W64_}, PCGcached{N,W64_}}
 const PCG_cached_32{N,W32_} = Union{PCGcached32{N,W32_}, PCGcached{N,<:Any,W32_}}
 
-@inline Base.pointer(rng::PCG) = Base.unsafe_convert(Ptr{Vec{W64,Int64}}, pointer_from_objref(rng))
+@inline Base.pointer(rng::AbstractPCG) = Base.unsafe_convert(Ptr{Vec{W64,UInt64}}, pointer_from_objref(rng))
 
 cache64_offset(::Type{PCGcached{N,W64_,W32_}}) where {N,W64_,W32_} = cache64_offset(N)
 cache32_offset(::Type{PCGcached{N,W64_,W32_}}) where {N,W64_,W32_} = cache32_offset(N,W64_)
 cache32_offset(::Type{PCGcached32{N,W32_}}) where {N,W32_} = cache64_offset(N)
 @noinline function cache64_offset(N)
-    W64 * (2N+1) * sizeof(Int64)
+    W64 * (2N+1) * sizeof(UInt64)
 end
 @noinline function cache32_offset(N, W64_)
-    (W64 * (2N+1) + 3W64_) * sizeof(Int64)
+    (W64 * (2N+1) + 3W64_) * sizeof(UInt64)
 end
 
-function PCG4Core(state::NTuple{N,Vec{W64,Int64}}, increment::NTuple{N,Vec{W64,Int64}}) where N
+function PCG4Core(state::NTuple{N,Vec{W64,UInt64}}, increment::NTuple{N,Vec{W64,UInt64}}) where N
     PCGCore(
-        state, increment, vbroadcast(Vec{W64,Int64}, 6364136223846793005)
+        state, increment, vbroadcast(Vec{W64,UInt64}, 6364136223846793005)
     )
 end
 
@@ -93,95 +95,45 @@ end
 Rounds integers up to the nearest odd integer.
 """
 make_odd(x::Integer) = x | 0x01
-function PCGCore(state::NTuple{N,Vec{W64,Int64}}) where N
+function PCGCore(state::NTuple{N,Vec{W64,UInt64}}) where N
     step = typemax(Int) ÷ (N*W64)
     PCGCore(
         state,
-        ntuple(i -> ntuple(inc -> Core.VecElement(make_odd((W64*(i-1)+inc)*step )), Val(W64)), Val(N)),
-        vbroadcast(Vec{W64,Int64}, 6364136223846793005)
+        ntuple(i -> ntuple(inc -> Core.VecElement(reinterpret(UInt, make_odd((W64*(i-1)+inc)*step ))), Val(W64)), Val(N)),
+        vbroadcast(Vec{W64,UInt64}, 0x5851f42d4c957f2d)
     )
 end
 
 function PCGCore{N}(rng = Random.GLOBAL_RNG) where N # create random initial state
-    PCGCore(ntuple(i -> ntuple(s -> Core.VecElement(rand(rng, Int)), Val(W64)), Val(N)))
+    PCGCore(ntuple(i -> ntuple(s -> Core.VecElement(rand(rng, UInt64)), Val(W64)), Val(N)))
 end
-@generated function PCGcached(state::NTuple{N,Vec{W64,Int64}}) where N
+@generated function PCGcached(state::NTuple{N,Vec{W64,UInt64}}) where N
     W32_ = N * W64
     W64_ = W32_ >> 1
     :(PCGcached{$N,$W64_,$W32_}(state))
 end
-function PCGcached{N,W64_,W32_}(state::NTuple{N,Vec{W64,Int64}}) where {N,W32_,W64_}
+function PCGcached{N,W64_,W32_}(state::NTuple{N,Vec{W64,UInt64}}) where {N,W32_,W64_}
     step = typemax(Int) ÷ (N*W64)
     PCGcached{N,W64_,W32_}(
         state,
-        ntuple(i -> ntuple(inc -> Core.VecElement(make_odd((W64*(i-1)+inc)*step )), Val(W64)), Val(N)),
-        vbroadcast(Vec{W64,Int64}, 6364136223846793005)
+        ntuple(i -> ntuple(inc -> Core.VecElement(reinterpret(UInt, make_odd((W64*(i-1)+inc)*step ))), Val(W64)), Val(N)),
+        vbroadcast(Vec{W64,UInt64}, 6364136223846793005)
     )
 end
 function PCGcached{N}(rng = Random.GLOBAL_RNG) where N # create random initial state
-    PCGcached(ntuple(i -> ntuple(s -> Core.VecElement(rand(rng, Int)), Val(W64)), Val(N)))
+    PCGcached(ntuple(i -> ntuple(s -> Core.VecElement(rand(rng, UInt64)), Val(W64)), Val(N)))
 end
 function PCGcached{N,W64_,W32_}(rng = Random.GLOBAL_RNG) where {N,W32_,W64_} # create random initial state
-    PCGcached{N,W64_,W32_}(ntuple(i -> ntuple(s -> Core.VecElement(rand(rng, Int)), Val(W64)), Val(N)))
+    PCGcached{N,W64_,W32_}(ntuple(i -> ntuple(s -> Core.VecElement(rand(rng, UInt64)), Val(W64)), Val(N)))
 end
 
-
-# @generated function Random.rand(rng::PCG{1}, ::Type{Vec{W32,Int32}})
-#     output = Expr(:tuple,
-#         [:(VE(xorshifted1[$i].value >> rot1[$i].value)) for i ∈ 1:2:W32]...,
-#         [:(VE(xorshifted2[$i].value >> rot2[$i].value)) for i ∈ 1:2:W32]...
-#     )
-#     quote
-#         $(Expr(:meta, :inline))
-#         oldstate1 = rng.state
-#         rng.state = vmuladd(rng.multiplier, oldstate1, rng.increment)
-#         xorshifted1 = pirate_reinterpret(Vec{16,Int32}, vright_bitshift(
-#             vxor(
-#                 vright_bitshift(oldstate1, 18), oldstate1
-#             ), 27
-#         ))
-#         rot1 = pirate_reinterpret(Vec{16,Int32},vright_bitshift(oldstate1, 59))
-#         oldstate2 = rng.state
-#         rng.state = vmuladd(rng.multiplier, oldstate2, rng.increment)
-#         xorshifted2 = pirate_reinterpret(Vec{16,Int32}, vright_bitshift(
-#             vxor(
-#                 vright_bitshift(oldstate2, 18), oldstate2
-#             ), 27
-#         ))
-#         rot2 = pirate_reinterpret(Vec{16,Int32},vright_bitshift(oldstate2, 59))
-#
-#         $output
-#     end
-# end
-# @generated function Random.rand(rng::PCG{N}, ::Type{Vec{W32,Int32}}) where N
-#     output = Expr(:tuple,
-#         [:(VE(xorshifted1[$i].value >> rot1[$i].value)) for i ∈ 1:2:W32]...,
-#         [:(VE(xorshifted2[$i].value >> rot2[$i].value)) for i ∈ 1:2:W32]...
-#     )
-#     quote
-#         $(Expr(:meta, :inline))
-#         prng = pointer(rng)
-#         oldstate1 = unsafe_load(prng)
-#         oldstate2 = unsafe_load(prng,2)
-#         unsafe_store!(prng, vmuladd(rng.multiplier, oldstate1, unsafe_load(prng,$(N+1))))
-#         unsafe_store!(prng, vmuladd(rng.multiplier, oldstate2, unsafe_load(prng,$(N+2))),2)
-#
-#         xorshifted1 = pirate_reinterpret(Vec{16,Int32}, vright_bitshift(
-#             vxor(
-#                 vright_bitshift(oldstate1, 18), oldstate1
-#             ), 27
-#         ))
-#         rot1 = pirate_reinterpret(Vec{16,Int32},vright_bitshift(oldstate1, 59))
-#         xorshifted2 = pirate_reinterpret(Vec{16,Int32}, vright_bitshift(
-#             vxor(
-#                 vright_bitshift(oldstate2, 18), oldstate2
-#             ), 27
-#         ))
-#         rot2 = pirate_reinterpret(Vec{16,Int32},vright_bitshift(oldstate2, 59))
-#
-#         $output
-#     end
-# end
+@inline rotate(x, r) = x >> r | x << (-r & 31)
+@generated function rotate(x::Vec{W,T1}, r::Vec{W,T2}) where {W,T1,T2}
+    quote
+        $(Expr(:meta, :inline))
+        $(Expr(:tuple, [:(VE(rotate(x[$w].value, r[$w].value))) for w ∈ 1:W]...))
+    end
+end
 
 function rand_pcg_int32_quote(N, W)
     output = Expr(:tuple)
@@ -208,16 +160,16 @@ function rand_pcg_int32_quote(N, W)
                 xorshifted = Symbol(:xorshifted_, i)
                 rot = Symbol(:rot_, i)
                 push!(q.args, quote
-                    $xorshifted = pirate_reinterpret(Vec{$W32,Int32}, vright_bitshift(
+                    $xorshifted = pirate_reinterpret(Vec{$W32,UInt32}, vright_bitshift(
                         vxor(
                             vright_bitshift($state, 18), $state
                         ), 27
                     ))
-                    $rot = pirate_reinterpret(Vec{$W32,Int32},vright_bitshift($state, 59))
+                    $rot = pirate_reinterpret(Vec{$W32,UInt32},vright_bitshift($state, 59))
                     $state = vmuladd(multiplier, $state, $(Symbol(:increment_, n)))
                 end)
                 for w ∈ 1:2:W32
-                    push!(output.args, :(VE($xorshifted[$w].value >> $rot[$w].value)))
+                    push!(output.args, :(VE(rotate($xorshifted[$w].value, $rot[$w].value))))
                 end
             end
         end
@@ -227,16 +179,16 @@ function rand_pcg_int32_quote(N, W)
             xorshifted = Symbol(:xorshifted_, i)
             rot = Symbol(:rot_, i)
             push!(q.args, quote
-                $xorshifted = pirate_reinterpret(Vec{$W32,Int32}, vright_bitshift(
+                $xorshifted = pirate_reinterpret(Vec{$W32,UInt32}, vright_bitshift(
                     vxor(
                         vright_bitshift($state, 18), $state
                     ), 27
                 ))
-                $rot = pirate_reinterpret(Vec{$W32,Int32},vright_bitshift($state, 59))
+                $rot = pirate_reinterpret(Vec{$W32,UInt32},vright_bitshift($state, 59))
                 $state = vmuladd(multiplier, $state, $(Symbol(:increment_, n)))
             end)
             for w ∈ 1:2:W32
-                push!(output.args, :(VE($xorshifted[$w].value >> $rot[$w].value)))
+                push!(output.args, :(VE(rotate($xorshifted[$w].value, $rot[$w].value))))
             end
         end
         for n ∈ 1:N
@@ -252,15 +204,15 @@ function rand_pcg_int32_quote(N, W)
             push!(q.args, quote
                 $state = unsafe_load(prng, $n)
                 unsafe_store!(prng, vmuladd(rng.multiplier, $state, unsafe_load(prng,$(N+n))), $n)
-                $xorshifted = pirate_reinterpret(Vec{$W32,Int32}, vright_bitshift(
+                $xorshifted = pirate_reinterpret(Vec{$W32,UInt32}, vright_bitshift(
                     vxor(
                         vright_bitshift($state, 18), $state
                     ), 27
                 ))
-                $rot = pirate_reinterpret(Vec{$W32,Int32},vright_bitshift($state, 59))
+                $rot = pirate_reinterpret(Vec{$W32,UInt32},vright_bitshift($state, 59))
             end)
             for w ∈ 1:2:W32
-                push!(output.args, :(VE($xorshifted[$w].value >> $rot[$w].value)))
+                push!(output.args, :(VE(rotate($xorshifted[$w].value, $rot[$w].value))))
             end
         end
     end
@@ -302,7 +254,7 @@ uniform distribution would get complicated.
 @inline mask(x, ::Type{Float64}) = reinterpret(Float64,(x & 0x000fffffffffffff) | 0x3ff0000000000000)
 @inline mask(x, ::Type{Float32}) = reinterpret(Float32,(x & 0x007fffff) | 0x3f800000)
 
-@generated function Random.rand(rng::PCG{N}, ::Type{Vec{W,Int32}}) where {N,W}
+@generated function Random.rand(rng::AbstractPCG_XSH_RR{N}, ::Type{Vec{W,UInt32}}) where {N,W}
     rand_pcg_int32_quote(N, W)
 end
 function rand_pcg_float_quote(N, W,::Type{Float32})
@@ -321,17 +273,17 @@ function rand_pcg_float_quote(N,W,::Type{Float64})
         push!(output.args, :(VE(2.0 - mask(int[$w].value, Float64))))
     end
     quote
-        int = pirate_reinterpret(Vec{$W,Int64}, $(rand_pcg_int32_quote(N, W << 1)))
+        int = pirate_reinterpret(Vec{$W,UInt64}, $(rand_pcg_int32_quote(N, W << 1)))
         $output
     end
 end
-@generated function Random.rand(rng::PCG{N}, ::Type{Vec{W,T}}) where {N,W,T}
+@generated function Random.rand(rng::AbstractPCG_XSH_RR{N}, ::Type{Vec{W,T}}) where {N,W,T}
     rand_pcg_float_quote(N,W,T)
 end
 function subset_vec(name, W, offset = 0)
     Expr(:tuple, [:($name[$(offset+w)]) for w ∈ 1:W]...)
 end
-# @generated function Random.randexp(rng::PCG{N}, ::Type{Vec{W,Float32}})
+# @generated function Random.randexp(rng::AbstractPCG_XSH_RR{N}, ::Type{Vec{W,Float32}})
 #     NW, r = divrem(W, W32)
 #     output = Expr(:tuple)
 #     q = quote
@@ -340,7 +292,7 @@ end
 #     for n ∈ 1:NW
 #         e_n = Symbol(:e_,n)
 #         push!(q.args,
-#             :($e_n = SIMDPirates.vsub(SLEEFwrap.log_fast($(subset_vec(:u,W32,(n-1)*W32)))))
+#             :($e_n = SIMDPirates.vabs(SLEEFwrap.log_fast($(subset_vec(:u,W32,(n-1)*W32)))))
 #         )
 #         for w ∈ 1:W
 #             push!(output.args, :($e_n[$w]))
@@ -349,7 +301,7 @@ end
 #     if r > 0
 #         e_n = Symbol(:e_,NW+1)
 #         push!(q.args,
-#             :($e_n = SIMDPirates.vsub(SLEEFwrap.log_fast($(subset_vec(:u,r,(NW-1)*W32)))))
+#             :($e_n = SIMDPirates.vabs(SLEEFwrap.log_fast($(subset_vec(:u,r,(NW-1)*W32)))))
 #         )
 #         for w ∈ 1:r
 #             push!(output.args, :($e_n[$w]))
@@ -358,7 +310,7 @@ end
 #     push!(q.args, output)
 #     q
 # end
-# @generated function randmexp(rng::PCG{N}, ::Type{Vec{W,Float32}})
+# @generated function randmexp(rng::AbstractPCG_XSH_RR{N}, ::Type{Vec{W,Float32}})
 #     NW, r = divrem(W, W32)
 #     output = Expr(:tuple)
 #     q = quote
@@ -385,7 +337,7 @@ end
 #     push!(q.args, output)
 #     q
 # end
-@generated function Random.randexp(rng::PCG{N}, ::Type{Vec{W,T}}) where {N,W,T}
+@generated function Random.randexp(rng::AbstractPCG_XSH_RR{N}, ::Type{Vec{W,T}}) where {N,W,T}
     WT = TypeVectorWidth(T)
     NW, r = divrem(W, WT)
     output = Expr(:tuple)
@@ -395,7 +347,7 @@ end
     for n ∈ 1:NW
         e_n = Symbol(:e_,n)
         push!(q.args,
-            :($e_n = SIMDPirates.vsub(SLEEFwrap.log_fast($(subset_vec(:u,WT,(n-1)*WT)))))
+            :($e_n = SIMDPirates.vabs(SLEEFwrap.log_fast($(subset_vec(:u,WT,(n-1)*WT)))))
         )
         for w ∈ 1:WT
             push!(output.args, :($e_n[$w]))
@@ -404,7 +356,7 @@ end
     if r > 0
         e_n = Symbol(:e_,NW+1)
         push!(q.args,
-            :($e_n = SIMDPirates.vsub(SLEEFwrap.log_fast($(subset_vec(:u,r,NW*WT)))))
+            :($e_n = SIMDPirates.vabs(SLEEFwrap.log_fast($(subset_vec(:u,r,NW*WT)))))
         )
         for w ∈ 1:r
             push!(output.args, :($e_n[$w]))
@@ -413,7 +365,7 @@ end
     push!(q.args, output)
     q
 end
-@generated function randmexp(rng::PCG{N}, ::Type{Vec{W,T}}) where {N,W,T}
+@generated function randmexp(rng::AbstractPCG_XSH_RR{N}, ::Type{Vec{W,T}}) where {N,W,T}
     WT = TypeVectorWidth(T)
     NW, r = divrem(W, WT)
     output = Expr(:tuple)
@@ -441,7 +393,7 @@ end
     push!(q.args, output)
     q
 end
-@generated function Random.randn(rng::PCG{N}, ::Type{Vec{W,T}}) where {N,W,T}
+@generated function Random.randn(rng::AbstractPCG_XSH_RR{N}, ::Type{Vec{W,T}}) where {N,W,T}
     WT = TypeVectorWidth(T)
     NW, r = divrem(W >> 1, WT)
     # workaround
@@ -458,7 +410,7 @@ end
         push!(q.args, quote
             $u1_n = SLEEFwrap.log_fast($(subset_vec(:u,WT,(n-1)*2WT)))
             $u2_n =                    $(subset_vec(:u,WT,(n-1)*2WT + WT))
-            $u1_n = SIMDPirates.vsqrt( SIMDPirates.vsub( SIMDPirates.vadd($u1_n, $u1_n) ) )
+            $u1_n = SIMDPirates.vsqrt( SIMDPirates.vabs( SIMDPirates.vadd($u1_n, $u1_n) ) )
             $u2_n = SIMDPirates.vadd($u2_n, $u2_n)
         end)
         s_n = Symbol(:s_, n)
@@ -494,7 +446,7 @@ end
         push!(q.args, quote
             $u1_n = SLEEFwrap.log_fast($(subset_vec(:u,r,NW*2WT)))
             $u2_n =                    $(subset_vec(:u,r,NW*2WT+r))
-            $u1_n = SIMDPirates.vsqrt( SIMDPirates.vsub( SIMDPirates.vadd($u1_n, $u1_n) ) )
+            $u1_n = SIMDPirates.vsqrt( SIMDPirates.vabs( SIMDPirates.vadd($u1_n, $u1_n) ) )
             $u2_n = SIMDPirates.vadd($u2_n, $u2_n)
         end)
         s_n = Symbol(:s_, NW+1)
@@ -528,63 +480,6 @@ end
     q
 end
 
-#
-# @generated function Random.rand(rng::PCG{1}, ::Type{Vec{W32,Float32}})
-#     output = Expr(:tuple,
-#         [:(VE(xorshifted1[$i].value >> rot1[$i].value)) for i ∈ 1:2:W32]...,
-#         [:(VE(xorshifted2[$i].value >> rot2[$i].value)) for i ∈ 1:2:W32]...
-#     )
-#     quote
-#         $(Expr(:meta, :inline))
-#         oldstate1 = rng.state
-#         rng.state = vmuladd(rng.multiplier, oldstate1, rng.increment)
-#         xorshifted1 = pirate_reinterpret(Vec{16,Int32}, vright_bitshift(
-#             vxor(
-#                 vright_bitshift(oldstate1, 18), oldstate1
-#             ), 27
-#         ))
-#         rot1 = pirate_reinterpret(Vec{16,Int32},vright_bitshift(oldstate1, 59))
-#         oldstate2 = rng.state
-#         rng.state = vmuladd(rng.multiplier, oldstate2, rng.increment)
-#         xorshifted2 = pirate_reinterpret(Vec{16,Int32}, vright_bitshift(
-#             vxor(
-#                 vright_bitshift(oldstate2, 18), oldstate2
-#             ), 27
-#         ))
-#         rot2 = pirate_reinterpret(Vec{16,Int32},vright_bitshift(oldstate2, 59))
-#
-#         $output
-#     end
-# end
-# @generated function Random.rand(rng::PCG{N}, ::Type{Vec{W32,Float32}}) where N
-#     output = Expr(:tuple,
-#         [:(VE(xorshifted1[$i].value >> rot1[$i].value)) for i ∈ 1:2:W32]...,
-#         [:(VE(xorshifted2[$i].value >> rot2[$i].value)) for i ∈ 1:2:W32]...
-#     )
-#     quote
-#         $(Expr(:meta, :inline))
-#         prng = pointer(rng)
-#         oldstate1 = unsafe_load(prng)
-#         oldstate2 = unsafe_load(prng,2)
-#         unsafe_store!(prng, vmuladd(rng.multiplier, oldstate1, unsafe_load(prng,$(N+1))))
-#         unsafe_store!(prng, vmuladd(rng.multiplier, oldstate2, unsafe_load(prng,$(N+2)))),2)
-#
-#         xorshifted1 = pirate_reinterpret(Vec{16,Int32}, vright_bitshift(
-#             vxor(
-#                 vright_bitshift(oldstate1, 18), oldstate1
-#             ), 27
-#         ))
-#         rot1 = pirate_reinterpret(Vec{16,Int32},vright_bitshift(oldstate1, 59))
-#         xorshifted2 = pirate_reinterpret(Vec{16,Int32}, vright_bitshift(
-#             vxor(
-#                 vright_bitshift(oldstate2, 18), oldstate2
-#             ), 27
-#         ))
-#         rot2 = pirate_reinterpret(Vec{16,Int32},vright_bitshift(oldstate2, 59))
-#
-#         $output
-#     end
-# end
 function unrolled_rand_quote(NWT, rand_expr, store_expr)
     quote
         L = length(x)
@@ -606,7 +501,7 @@ function unrolled_rand_quote(NWT, rand_expr, store_expr)
     end
 end
 
-@generated function Random.rand!(rng::PCG{N}, x::AbstractArray{T}) where {N,T <: Real}
+@generated function Random.rand!(rng::AbstractPCG_XSH_RR{N}, x::AbstractArray{T}) where {N,T <: Real}
     WT = TypeVectorWidth(T)
     Nhalf = N >> 1
     NWT = Nhalf*WT
@@ -618,7 +513,7 @@ end
     end
     unrolled_rand_quote(NWT, float_q, store_expr)
 end
-@generated function Random.randexp!(rng::PCG{N}, x::AbstractArray{T}) where {N,T <: Real}
+@generated function Random.randexp!(rng::AbstractPCG_XSH_RR{N}, x::AbstractArray{T}) where {N,T <: Real}
     WT = TypeVectorWidth(T)
     Nhalf = N >> 1
     NWT = Nhalf*WT
@@ -628,7 +523,7 @@ end
     end
     unrolled_rand_quote(NWT, :(randexp(rng, Vec{$NWT,$T})), store_expr)
 end
-@generated function Random.randn!(rng::PCG{N}, x::AbstractArray{T}) where {N,T <: Real}
+@generated function Random.randn!(rng::AbstractPCG_XSH_RR{N}, x::AbstractArray{T}) where {N,T <: Real}
     WT = TypeVectorWidth(T)
     Nhalf = N >> 1
     NWT = Nhalf*WT
@@ -638,6 +533,70 @@ end
     end
     unrolled_rand_quote(NWT, :(randn(rng, Vec{$NWT,$T})), store_expr)
 end
+
+
+
+
+
+
+function rand_UInt_quote(N, ::Type{UT}) where UT
+    L64 = 2 * sizeof(UT) ÷ sizeof(UInt64)
+    L64_2 = 2L64
+    W_ratio = W64 ÷ L64
+    increment =   N * W_ratio + 1
+    multiplier = 2N * W_ratio + 1
+    output = Expr(:tuple, [:( VE(rotate(xorshifted[$i].value, rot[$i].value)) ) for i ∈ 1:2:L64_2]...)
+    quote
+        prng = Base.unsafe_convert(Ptr{Vec{$L64,UInt64}}, pointer_from_objref(rng))
+        state = unsafe_load(prng)
+        xorshifted = pirate_reinterpret(Vec{$L64_2,UInt32}, vright_bitshift(
+            vxor(
+                vright_bitshift(state, 18), state
+            ), 27
+        ))
+        rot = pirate_reinterpret(Vec{$L64_2,UInt32},vright_bitshift(state, 59))
+        unsafe_store!(prng, vmuladd(unsafe_load(prng, $multiplier), state, unsafe_load(prng, $increment)))
+
+        pirate_reinterpret(Vec{1,$UT}, $output)[1].value
+    end
+end
+
+@generated function Random.rand(rng::PCGCore{N}, ::Type{UT}) where {UT <: Union{UInt32,UInt64}, N}
+    rand_UInt_quote(N, UT)
+end
+@generated function Random.rand(rng::PCGCore{N}, ::Type{Float64}) where N
+    quote
+        u64 = $(rand_UInt_quote(N, UInt64))
+        2 - mask(u64, Float64)
+    end
+end
+@generated function Random.rand(rng::PCGCore{N}, ::Type{Float32}) where N
+    quote
+        u32 = $(rand_UInt_quote(N, UInt32))
+        2 - mask(u32, Float32)
+    end
+end
+@generated function Random.rand(rng::PCGCore{N}, ::Random.UInt52{UInt64}) where N
+    quote
+        u64 = $(rand_UInt_quote(N, UInt64))
+        u64 & 0x000fffffffffffff
+    end
+end
+@generated function Random.rand(rng::PCGCore{N}, ::Random.UInt23{UInt32}) where N
+    quote
+        u32 = $(rand_UInt_quote(N, UInt32))
+        U32 & 0x007fffff
+    end
+end
+
+
+
+
+
+
+
+
+
 
 @generated function reset_rand64_state!(rng::PCG_cached_64{N,W64_}) where {N,W64_}
     # W32_ = N * W64
@@ -656,6 +615,7 @@ end
         return @inbounds rng.uniform64[1].value
     end
 end
+Random.rand(rng::PCG_cached_64, ::Type{Float64}) = rand(rng)
 function Random.rand(rng::PCG_cached_64{N,W64_}) where {N,W64_}
     if rng.uniformcount64 < W64_
         rng.uniformcount64 += 1
@@ -708,6 +668,7 @@ end
         return unsafe_load(Base.unsafe_convert(Ptr{Float64}, ptr_rng))
     end
 end
+Random.randexp(rng::PCG_cached_64, ::Type{Float64}) = randexp(rng)
 function Random.randexp(rng::PCG_cached_64{N,W64_}) where {N,W64_}
     if rng.exponentialcount64 < W64
         rng.exponentialcount64 += 1
@@ -759,6 +720,7 @@ end
         return unsafe_load(Base.unsafe_convert(Ptr{Float64}, ptr_rng))
     end
 end
+Random.randn(rng::PCG_cached_64, ::Type{Float64}) = randn(rng)
 function Random.randn(rng::PCG_cached_64{N,W64_}) where {N,W64_}
     nc = rng.normalcount64
     if rng.normalcount64 < W64_
