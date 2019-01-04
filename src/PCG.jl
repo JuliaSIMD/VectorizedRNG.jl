@@ -592,17 +592,17 @@ end
     end
     unrolled_rand_quote(NWT, float_q, store_expr)
 end
-@generated function Random.randexp!(rng::AbstractPCG_XSH_RR{N}, x::AbstractArray{T}) where {N,T <: Real}
+@generated function Random.randexp!(rng::PCG, x::AbstractArray{T}) where {N,T <: Real,PCG<:AbstractPCG{N}}
     WT = TypeVectorWidth(T)
     Nhalf = adjust_vector_width(N, PCG)
     NWT = Nhalf*WT
     store_expr = quote end
-    for n ∈ 0:Nhalf
+    for n ∈ 0:Nhalf-1
         push!(store_expr.args, :(SIMDPirates.vstore($(subset_vec(:u, WT, n*WT)), ptr_x, i + $(n*WT))))
     end
     unrolled_rand_quote(NWT, :(randexp(rng, Vec{$NWT,$T})), store_expr)
 end
-@generated function Random.randn!(rng::AbstractPCG_XSH_RR{N}, x::AbstractArray{T}) where {N,T <: Real}
+@generated function Random.randn!(rng::PCG, x::AbstractArray{T}) where {N,T <: Real,PCG<:AbstractPCG{N}}
     WT = TypeVectorWidth(T)
     Nhalf = adjust_vector_width(N, PCG)
     NWT = Nhalf*WT
