@@ -11,8 +11,12 @@ const W32 = REGISTER_SIZE >> 2
 const W16 = REGISTER_SIZE >> 1
 
 
+
+
 include("multipliers.jl")
 include("PCG.jl")
 include("random_distributions.jl")
+
+const GLOBAL_vPCG = PCG{4}()
 
 end # module

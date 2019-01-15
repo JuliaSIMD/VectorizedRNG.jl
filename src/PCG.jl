@@ -26,7 +26,7 @@ abstract type  AbstractPCG{N} end
 mutable struct PCG{N} <: AbstractPCG{N}
     state::NTuple{N,Vec{W64,UInt64}}
     multiplier::NTuple{N,Vec{W64,UInt64}}
-    increment::Vec{W64,UInt64}
+    increment::UInt64
 end
 
 @inline Base.pointer(rng::AbstractPCG) = Base.unsafe_convert(Ptr{UInt64}, pointer_from_objref(rng))
@@ -39,7 +39,7 @@ end
         PCG(
             (Base.Cartesian.@ntuple $N n -> (Base.Cartesian.@ntuple $W64 w -> Core.VecElement(rand(UInt64)))),
             (Base.Cartesian.@ntuple $N n -> multipliers[Base.Threads.atomic_add!(MULT_NUMBER, 1)]),
-            (Base.Cartesian.@ntuple $W64 w -> Core.VecElement(one(UInt64)))
+            one(UInt64)
         )
     end
 end
@@ -56,9 +56,6 @@ function adjust_vector_width(W, @nospecialize T)
     W
 end
 
-# adjust_vector_width(W, ::Type{<:AbstractPCG_XSH_RR}) = W >> 1
-# adjust_vector_width(W, ::Type{<:AbstractPCG_RXS_M_XS}) = W
-
 
 
 @inline rotate(x, r) = x >> r | x << (-r & 31)
@@ -72,19 +69,21 @@ end
 
 function rand_pcgPCG_RXS_M_XS_int64_quote(N, W)
     output = Expr(:tuple)
-    Nreps, r = divrem(W, W64)
-    r == 0 || throw("0 != $W % $W64 = $r.")
+    WV = min(W, W64)
+    # vector_size = 8WV
+    Nreps, r = divrem(W, WV)
+    r == 0 || throw("0 != $W % $WV = $r.")
     q = quote
         $(Expr(:meta, :inline))
         prng = pointer(rng)
-        increment = rng.increment
+        increment = vbroadcast(Vec{$WV,UInt64}, rng.increment)
     end
     if Nreps > N
         NNrep, rr = divrem(Nreps, N)
         for n ∈ 1:N
             push!(q.args, quote
-                $(Symbol(:state_, n)) = vload(Vec{W64,UInt64}, prng + $(REGISTER_SIZE * (n-1)) )
-                $(Symbol(:multiplier_, n)) = vload(Vec{W64,UInt64}, prng + $(REGISTER_SIZE * (N + n-1)) )
+                $(Symbol(:state_, n)) = vload(Vec{$WV,UInt64}, prng + $(REGISTER_SIZE * (n-1)) )
+                $(Symbol(:multiplier_, n)) = vload(Vec{$WV,UInt64}, prng + $(REGISTER_SIZE * (N + n-1)) )
             end)
         end
         i = 0
@@ -103,7 +102,7 @@ function rand_pcgPCG_RXS_M_XS_int64_quote(N, W)
                     $state = vmuladd($(Symbol(:multiplier_, n)), $state, increment)
                     $out = vxor($xorshifted, vright_bitshift($xorshifted, UInt(43)))
                 end)
-                for w ∈ 1:W64
+                for w ∈ 1:WV
                     push!(output.args, :(@inbounds $out[$w]))
                 end
             end
@@ -122,7 +121,7 @@ function rand_pcgPCG_RXS_M_XS_int64_quote(N, W)
                 $state = vmuladd($(Symbol(:multiplier_, n)), $state, increment)
                 $out = vxor($xorshifted, vright_bitshift($xorshifted, UInt(43)))
             end)
-            for w ∈ 1:W64
+            for w ∈ 1:WV
                 push!(output.args, :(@inbounds $out[$w]))
             end
         end
@@ -138,16 +137,16 @@ function rand_pcgPCG_RXS_M_XS_int64_quote(N, W)
             count = Symbol(:count_, n)
             out = Symbol(:out_, n)
             push!(q.args, quote
-                $state = vload(Vec{W64,UInt64}, prng + $(REGISTER_SIZE * (n-1)) )
+                $state = vload(Vec{$WV,UInt64}, prng + $(REGISTER_SIZE * (n-1)) )
                 $count = vadd(UInt(5), vright_bitshift($state, UInt(59)))
                 $xorshifted = vmul(vxor(
                         vright_bitshift($state, $count), $state
                     ), 0xaef17502108ef2d9)
-                $state = vmuladd(vload(Vec{W64,UInt64}, prng + $(REGISTER_SIZE * (N + n-1)) ), $state, increment)
+                $state = vmuladd(vload(Vec{$WV,UInt64}, prng + $(REGISTER_SIZE * (N + n-1)) ), $state, increment)
                 $out = vxor($xorshifted, vright_bitshift($xorshifted, UInt(43)))
                 vstore($state,  prng + $(REGISTER_SIZE * (n-1)))
             end)
-            for w ∈ 1:W64
+            for w ∈ 1:WV
                 push!(output.args, :(@inbounds $out[$w]))
             end
         end
@@ -158,19 +157,21 @@ end
 
 function rand_pcgPCG_XSH_RR_int32_quote(N, W)
     output = Expr(:tuple)
-    Nreps, r = divrem(W, W64)
-    r == 0 || throw("0 != $W % $W64 = $r.")
+    WV = min(W, W64)
+    WV32 = 2WV
+    Nreps, r = divrem(W, WV)
+    r == 0 || throw("0 != $W % $WV = $r.")
     q = quote
         $(Expr(:meta, :inline))
         prng = pointer(rng)
-        increment = rng.increment
+        increment = vbroadcast(Vec{$WV,UInt64}, rng.increment)
     end
     if Nreps > N
         NNrep, rr = divrem(Nreps, N)
         for n ∈ 1:N
             push!(q.args, quote
-                $(Symbol(:state_, n)) = vload(Vec{W64,UInt64}, prng + $(REGISTER_SIZE * (n-1)) )
-                $(Symbol(:multiplier_, n)) = vload(Vec{W64,UInt64}, prng + $(REGISTER_SIZE * (N + n-1)) )
+                $(Symbol(:state_, n)) = vload(Vec{$WV,UInt64}, prng + $(REGISTER_SIZE * (n-1)) )
+                $(Symbol(:multiplier_, n)) = vload(Vec{$WV,UInt64}, prng + $(REGISTER_SIZE * (N + n-1)) )
             end)
         end
         push!(q.args, :(multiplier = rng.multiplier))
@@ -182,15 +183,15 @@ function rand_pcgPCG_XSH_RR_int32_quote(N, W)
                 xorshifted = Symbol(:xorshifted_, i)
                 rot = Symbol(:rot_, i)
                 push!(q.args, quote
-                    $xorshifted = pirate_reinterpret(Vec{$W32,UInt32}, vright_bitshift(
+                    $xorshifted = pirate_reinterpret(Vec{$WV32,UInt32}, vright_bitshift(
                         vxor(
                             vright_bitshift($state, 18), $state
                         ), 27
                     ))
-                    $rot = pirate_reinterpret(Vec{$W32,UInt32},vright_bitshift($state, 59))
+                    $rot = pirate_reinterpret(Vec{$WV32,UInt32},vright_bitshift($state, 59))
                     $state = vmuladd($(Symbol(:multiplier_, n)), $state, increment)
                 end)
-                for w ∈ 1:2:W32
+                for w ∈ 1:2:WV32
                     push!(output.args, :(@inbounds Core.VecElement(rotate($xorshifted[$w].value, $rot[$w].value))))
                 end
             end
@@ -201,15 +202,15 @@ function rand_pcgPCG_XSH_RR_int32_quote(N, W)
             xorshifted = Symbol(:xorshifted_, i)
             rot = Symbol(:rot_, i)
             push!(q.args, quote
-                $xorshifted = pirate_reinterpret(Vec{$W32,UInt32}, vright_bitshift(
+                $xorshifted = pirate_reinterpret(Vec{$WV32,UInt32}, vright_bitshift(
                     vxor(
                         vright_bitshift($state, 18), $state
                     ), 27
                 ))
-                $rot = pirate_reinterpret(Vec{$W32,UInt32},vright_bitshift($state, 59))
+                $rot = pirate_reinterpret(Vec{$WV32,UInt32},vright_bitshift($state, 59))
                 $state = vmuladd($(Symbol(:multiplier_, n)), $state, increment)
             end)
-            for w ∈ 1:2:W32
+            for w ∈ 1:2:WV32
                 push!(output.args, :(@inbounds Core.VecElement(rotate($xorshifted[$w].value, $rot[$w].value))))
             end
         end
@@ -224,19 +225,19 @@ function rand_pcgPCG_XSH_RR_int32_quote(N, W)
             xorshifted = Symbol(:xorshifted_, n)
             rot = Symbol(:rot_, n)
             push!(q.args, quote
-                $state = vload(Vec{W64,UInt64}, prng + $(REGISTER_SIZE * (n-1)) )
+                $state = vload(Vec{$WV,UInt64}, prng + $(REGISTER_SIZE * (n-1)) )
                 vstore(
-                    vmuladd(vload(Vec{W64,UInt64}, prng + $(REGISTER_SIZE * (N + n-1)) ), $state, increment),
+                    vmuladd(vload(Vec{$WV,UInt64}, prng + $(REGISTER_SIZE * (N + n-1)) ), $state, increment),
                     prng + $(REGISTER_SIZE * (n-1))
                 )
-                $xorshifted = pirate_reinterpret(Vec{$W32,UInt32}, vright_bitshift(
+                $xorshifted = pirate_reinterpret(Vec{$WV32,UInt32}, vright_bitshift(
                     vxor(
                         vright_bitshift($state, 18), $state
                     ), 27
                 ))
-                $rot = pirate_reinterpret(Vec{$W32,UInt32},vright_bitshift($state, 59))
+                $rot = pirate_reinterpret(Vec{$WV32,UInt32},vright_bitshift($state, 59))
             end)
-            for w ∈ 1:2:W32
+            for w ∈ 1:2:WV32
                 push!(output.args, :(@inbounds Core.VecElement(rotate($xorshifted[$w].value, $rot[$w].value))))
             end
         end
@@ -501,7 +502,7 @@ function randn_quote(N, W, T, PCG_TYPE)
         # workaround for https://github.com/JuliaLang/julia/issues/30426
         # AFAIK r * sizeof(T) < 64 for all supported use cases
         # if r * sizeof(T) < 64
-        push!(q.args, :(($s_n, $c_n) = SLEEF.sincos_fast(vmul($u2_n, vπ)) ))
+        push!(q.args, :(($s_n, $c_n) = SLEEF.sincos_fast(vmul($u2_n, π)) ))
         # else
         #     sc_n = Symbol(:sc_, NW+1)
         #     push!(q.args,  quote
