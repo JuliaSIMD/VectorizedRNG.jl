@@ -502,7 +502,7 @@ function randn_quote(N, W, T, PCG_TYPE)
         # workaround for https://github.com/JuliaLang/julia/issues/30426
         # AFAIK r * sizeof(T) < 64 for all supported use cases
         # if r * sizeof(T) < 64
-        push!(q.args, :(($s_n, $c_n) = SLEEF.sincos_fast(vmul($u2_n, π)) ))
+        push!(q.args, :(($s_n, $c_n) = SLEEF.sincos_fast(vmul($u2_n, $(T(π)))) ))
         # else
         #     sc_n = Symbol(:sc_, NW+1)
         #     push!(q.args,  quote
