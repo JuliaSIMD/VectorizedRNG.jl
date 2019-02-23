@@ -127,7 +127,7 @@ function rand_pcgPCG_RXS_M_XS_int64_quote(N, W)
         end
         for n ∈ 1:N
             push!(q.args, quote
-                vstore($(Symbol(:state_, n)),  prng + $(REGISTER_SIZE * (n-1)))
+                vstore!(prng + $(REGISTER_SIZE * (n-1)), $(Symbol(:state_, n)))
             end)
         end
     else # Nreps <= N
@@ -144,7 +144,7 @@ function rand_pcgPCG_RXS_M_XS_int64_quote(N, W)
                     ), 0xaef17502108ef2d9)
                 $state = vmuladd(vload(Vec{$WV,UInt64}, prng + $(REGISTER_SIZE * (N + n-1)) ), $state, increment)
                 $out = vxor($xorshifted, vright_bitshift($xorshifted, UInt(43)))
-                vstore($state,  prng + $(REGISTER_SIZE * (n-1)))
+                vstore!(prng + $(REGISTER_SIZE * (n-1)), $state)
             end)
             for w ∈ 1:WV
                 push!(output.args, :(@inbounds $out[$w]))
@@ -216,7 +216,7 @@ function rand_pcgPCG_XSH_RR_int32_quote(N, W)
         end
         for n ∈ 1:N
             push!(q.args, quote
-                vstore($(Symbol(:state_, n)),  prng + $(REGISTER_SIZE * (n-1)))
+                vstore!(prng + $(REGISTER_SIZE * (n-1)), $(Symbol(:state_, n)))
             end)
         end
     else # Nreps <= N
@@ -226,9 +226,9 @@ function rand_pcgPCG_XSH_RR_int32_quote(N, W)
             rot = Symbol(:rot_, n)
             push!(q.args, quote
                 $state = vload(Vec{$WV,UInt64}, prng + $(REGISTER_SIZE * (n-1)) )
-                vstore(
-                    vmuladd(vload(Vec{$WV,UInt64}, prng + $(REGISTER_SIZE * (N + n-1)) ), $state, increment),
-                    prng + $(REGISTER_SIZE * (n-1))
+                vstore!(
+                    prng + $(REGISTER_SIZE * (n-1)),
+                    vmuladd(vload(Vec{$WV,UInt64}, prng + $(REGISTER_SIZE * (N + n-1)) ), $state, increment)
                 )
                 $xorshifted = pirate_reinterpret(Vec{$WV32,UInt32}, vright_bitshift(
                     vxor(
@@ -565,7 +565,7 @@ end
     float_q = :(rand(rng, Vec{$NWT,$T}, $PCG_TYPE))
     store_expr = quote end
     for n ∈ 0:Nhalf-1
-        push!(store_expr.args, :(vstore($(subset_vec(:u, WT, n*WT)), ptr_x, i + $(n*WT))))
+        push!(store_expr.args, :(vstore!(ptr_x, i + $(n*WT), $(subset_vec(:u, WT, n*WT)))))
     end
     unrolled_rand_quote(NWT, float_q, store_expr)
 end
@@ -575,7 +575,7 @@ end
     NWT = Nhalf*WT
     store_expr = quote end
     for n ∈ 0:Nhalf-1
-        push!(store_expr.args, :(vstore($(subset_vec(:u, WT, n*WT)), ptr_x, i + $(n*WT))))
+        push!(store_expr.args, :(vstore!(ptr_x, $(subset_vec(:u, WT, n*WT)), i + $(n*WT))))
     end
     unrolled_rand_quote(NWT, :(randexp(rng, Vec{$NWT,$T})), store_expr)
 end
@@ -585,7 +585,7 @@ end
     NWT = Nhalf*WT
     store_expr = quote end
     for n ∈ 0:Nhalf-1
-        push!(store_expr.args, :(vstore($(subset_vec(:u, WT, n*WT)), ptr_x, i + $(n*WT))))
+        push!(store_expr.args, :(vstore!(ptr_x, $(subset_vec(:u, WT, n*WT)), i + $(n*WT))))
     end
     unrolled_rand_quote(NWT, :(randn(rng, Vec{$NWT,$T})), store_expr)
 end
