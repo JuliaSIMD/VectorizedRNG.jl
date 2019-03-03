@@ -21,7 +21,7 @@ function default_pcg_type(W, T)
     end
 end
 
-abstract type  AbstractPCG{N} end
+abstract type  AbstractPCG{N} <: Random.AbstractRNG end
 
 mutable struct PCG{N} <: AbstractPCG{N}
     state::NTuple{N,Vec{W64,UInt64}}
