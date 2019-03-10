@@ -376,7 +376,7 @@ function randexp_quote(N, W, T, PCG_TYPE)
     for n ∈ 1:NW
         e_n = Symbol(:e_,n)
         push!(q.args,
-            :($e_n = vabs(SLEEF.log_fast($(subset_vec(:u,WT,(n-1)*WT)))))
+            :($e_n = vabs(SLEEFPirates.log_fast($(subset_vec(:u,WT,(n-1)*WT)))))
         )
         for w ∈ 1:WT
             push!(output.args, :(@inbounds $e_n[$w]))
@@ -385,7 +385,7 @@ function randexp_quote(N, W, T, PCG_TYPE)
     if r > 0
         e_n = Symbol(:e_,NW+1)
         push!(q.args,
-            :($e_n = vabs(SLEEF.log_fast($(subset_vec(:u,r,NW*WT)))))
+            :($e_n = vabs(SLEEFPirates.log_fast($(subset_vec(:u,r,NW*WT)))))
         )
         for w ∈ 1:r
             push!(output.args, :(@inbounds $e_n[$w]))
@@ -413,7 +413,7 @@ function randnegexp_quote(N, W, T, PCG_TYPE)
     for n ∈ 1:NW
         e_n = Symbol(:e_,n)
         push!(q.args,
-            :($e_n = SLEEF.log_fast($(subset_vec(:u,WT,(n-1)*WT))))
+            :($e_n = SLEEFPirates.log_fast($(subset_vec(:u,WT,(n-1)*WT))))
         )
         for w ∈ 1:WT
             push!(output.args, :($e_n[$w]))
@@ -422,7 +422,7 @@ function randnegexp_quote(N, W, T, PCG_TYPE)
     if r > 0
         e_n = Symbol(:e_,NW+1)
         push!(q.args,
-            :($e_n = SLEEF.log_fast($(subset_vec(:u,r,NW*WT))))
+            :($e_n = SLEEFPirates.log_fast($(subset_vec(:u,r,NW*WT))))
         )
         for w ∈ 1:r
             push!(output.args, :($e_n[$w]))
@@ -456,7 +456,7 @@ function randn_quote(N, W, T, PCG_TYPE)
         u2_n = Symbol(:u2_, n)
         # get the vectors u_1 and u_2
         push!(q.args, quote
-            $u1_n = SLEEF.log_fast($(subset_vec(:u,WT,(n-1)*2WT)))
+            $u1_n = SLEEFPirates.log_fast($(subset_vec(:u,WT,(n-1)*2WT)))
             $u2_n =                    $(subset_vec(:u,WT,(n-1)*2WT + WT))
             $u1_n = vsqrt( vabs( vadd($u1_n, $u1_n) ) )
             $u2_n = vadd($u2_n, $u2_n)
@@ -465,11 +465,11 @@ function randn_quote(N, W, T, PCG_TYPE)
         c_n = Symbol(:c_, n)
         # workaround for https://github.com/JuliaLang/julia/issues/30426
         # if splitsincos
-        push!(q.args, :(($s_n, $c_n) = SLEEF.sincos_fast(vmul($u2_n, vπ))) )
+        push!(q.args, :(($s_n, $c_n) = SLEEFPirates.sincos_fast(vmul($u2_n, vπ))) )
         # else
         #     sc_n = Symbol(:sc_, n)
         #     push!(q.args,  quote
-        #         $sc_n = SLEEF.sincos_fast(vmul($u2_n, vπ))
+        #         $sc_n = SLEEFPirates.sincos_fast(vmul($u2_n, vπ))
         #         $s_n = $(subset_vec(sc_n, WT, 0))
         #         $c_n = $(subset_vec(sc_n, WT, WT))
         #     end)
@@ -492,7 +492,7 @@ function randn_quote(N, W, T, PCG_TYPE)
         u2_n = Symbol(:u2_, NW+1)
         # get the vectors u_1 and u_2
         push!(q.args, quote
-            $u1_n = SLEEF.log_fast($(subset_vec(:u,r,NW*2WT)))
+            $u1_n = SLEEFPirates.log_fast($(subset_vec(:u,r,NW*2WT)))
             $u2_n =                    $(subset_vec(:u,r,NW*2WT+r))
             $u1_n = vsqrt( vabs( vadd($u1_n, $u1_n) ) )
             $u2_n = vadd($u2_n, $u2_n)
@@ -502,11 +502,11 @@ function randn_quote(N, W, T, PCG_TYPE)
         # workaround for https://github.com/JuliaLang/julia/issues/30426
         # AFAIK r * sizeof(T) < 64 for all supported use cases
         # if r * sizeof(T) < 64
-        push!(q.args, :(($s_n, $c_n) = SLEEF.sincos_fast(vmul($u2_n, $(T(π)))) ))
+        push!(q.args, :(($s_n, $c_n) = SLEEFPirates.sincos_fast(vmul($u2_n, $(T(π)))) ))
         # else
         #     sc_n = Symbol(:sc_, NW+1)
         #     push!(q.args,  quote
-        #         $sc_n = SLEEF.sincos_fast(vmul($u2_n, vπ))
+        #         $sc_n = SLEEFPirates.sincos_fast(vmul($u2_n, vπ))
         #         $s_n = $(subset_vec(sc_n, r, 0))
         #         $c_n = $(subset_vec(sc_n, r, r))
         #     end)

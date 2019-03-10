@@ -1,6 +1,6 @@
 module VectorizedRNG
 
-using VectorizationBase, SIMDPirates, SLEEF, Random
+using VectorizationBase, SIMDPirates, SLEEFPirates, Random
 using VectorizationBase: VE, REGISTER_SIZE
 using SIMDPirates: pirate_reinterpret, vxor, vor, vand, vright_bitshift,
                         vbroadcast, vadd, vmul, vsub, vabs, vsqrt,
