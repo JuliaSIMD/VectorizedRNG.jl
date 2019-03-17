@@ -48,7 +48,7 @@ The performance advantage increases when we generate single precision numbers:
 ```julia
 julia> x32 = Vector{Float32}(undef, 1024);
 
-julia> @benchmark rand!($x32) # using dSFMA
+julia> @benchmark rand!($x32) # using dSFMT
 BenchmarkTools.Trial:
   memory estimate:  0 bytes
   allocs estimate:  0
