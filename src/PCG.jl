@@ -95,12 +95,12 @@ function rand_pcgPCG_RXS_M_XS_int64_quote(N, W)
                 count = Symbol(:count_, i)
                 out = Symbol(:out_, i)
                 push!(q.args, quote
-                    $count = vadd(UInt(5), vright_bitshift($state, UInt(59)))
+                    $count = vadd(vbroadcast(Vec{8,UInt}, UInt(5)), vright_bitshift($state, Val{59}()))
                     $xorshifted = vmul(vxor(
                             vright_bitshift($state, $count), $state
                         ), 0xaef17502108ef2d9)
                     $state = vmuladd($(Symbol(:multiplier_, n)), $state, increment)
-                    $out = vxor($xorshifted, vright_bitshift($xorshifted, UInt(43)))
+                    $out = vxor($xorshifted, vright_bitshift($xorshifted, Val{43}()))
                 end)
                 for w ∈ 1:WV
                     push!(output.args, :(@inbounds $out[$w]))
@@ -114,12 +114,12 @@ function rand_pcgPCG_RXS_M_XS_int64_quote(N, W)
             count = Symbol(:count_, i)
             out = Symbol(:out_, i)
             push!(q.args, quote
-                $count = vadd(UInt(5), vright_bitshift($state, UInt(59)))
+                $count = vadd(vbroadcast(Vec{8,UInt}, UInt(5)), vright_bitshift($state, Val{59}()))
                 $xorshifted = vmul(vxor(
                         vright_bitshift($state, $count), $state
                     ), 0xaef17502108ef2d9)
                 $state = vmuladd($(Symbol(:multiplier_, n)), $state, increment)
-                $out = vxor($xorshifted, vright_bitshift($xorshifted, UInt(43)))
+                $out = vxor($xorshifted, vright_bitshift($xorshifted, Val{43}()))
             end)
             for w ∈ 1:WV
                 push!(output.args, :(@inbounds $out[$w]))
@@ -138,12 +138,12 @@ function rand_pcgPCG_RXS_M_XS_int64_quote(N, W)
             out = Symbol(:out_, n)
             push!(q.args, quote
                 $state = vload(Vec{$WV,UInt64}, prng + $(REGISTER_SIZE * (n-1)) )
-                $count = vadd(UInt(5), vright_bitshift($state, UInt(59)))
+                $count = vadd(vbroadcast(Vec{8,UInt}, UInt(5)), vright_bitshift($state, Val{59}()))
                 $xorshifted = vmul(vxor(
                         vright_bitshift($state, $count), $state
                     ), 0xaef17502108ef2d9)
                 $state = vmuladd(vload(Vec{$WV,UInt64}, prng + $(REGISTER_SIZE * (N + n-1)) ), $state, increment)
-                $out = vxor($xorshifted, vright_bitshift($xorshifted, UInt(43)))
+                $out = vxor($xorshifted, vright_bitshift($xorshifted, Val{43}()))
                 vstore!(prng + $(REGISTER_SIZE * (n-1)), $state)
             end)
             for w ∈ 1:WV
@@ -185,10 +185,10 @@ function rand_pcgPCG_XSH_RR_int32_quote(N, W)
                 push!(q.args, quote
                     $xorshifted = pirate_reinterpret(Vec{$WV32,UInt32}, vright_bitshift(
                         vxor(
-                            vright_bitshift($state, 18), $state
-                        ), 27
+                            vright_bitshift($state, vbroadcast(Vec{8,UInt}, 18)), $state
+                        ), vbroadcast(Vec{8,UInt}, 27)
                     ))
-                    $rot = pirate_reinterpret(Vec{$WV32,UInt32},vright_bitshift($state, 59))
+                    $rot = pirate_reinterpret(Vec{$WV32,UInt32},vright_bitshift($state, vbroadcast(Vec{8,UInt}, 59)))
                     $state = vmuladd($(Symbol(:multiplier_, n)), $state, increment)
                 end)
                 for w ∈ 1:2:WV32
@@ -204,10 +204,10 @@ function rand_pcgPCG_XSH_RR_int32_quote(N, W)
             push!(q.args, quote
                 $xorshifted = pirate_reinterpret(Vec{$WV32,UInt32}, vright_bitshift(
                     vxor(
-                        vright_bitshift($state, 18), $state
-                    ), 27
+                        vright_bitshift($state, vbroadcast(Vec{8,UInt}, 18)), $state
+                    ), vbroadcast(Vec{8,UInt}, 27)
                 ))
-                $rot = pirate_reinterpret(Vec{$WV32,UInt32},vright_bitshift($state, 59))
+                $rot = pirate_reinterpret(Vec{$WV32,UInt32},vright_bitshift($state, vbroadcast(Vec{8,UInt}, 59)))
                 $state = vmuladd($(Symbol(:multiplier_, n)), $state, increment)
             end)
             for w ∈ 1:2:WV32
@@ -232,10 +232,10 @@ function rand_pcgPCG_XSH_RR_int32_quote(N, W)
                 )
                 $xorshifted = pirate_reinterpret(Vec{$WV32,UInt32}, vright_bitshift(
                     vxor(
-                        vright_bitshift($state, 18), $state
-                    ), 27
+                        vright_bitshift($state, vbroadcast(Vec{8,UInt}, 18)), $state
+                    ), vbroadcast(Vec{8,UInt}, 27)
                 ))
-                $rot = pirate_reinterpret(Vec{$WV32,UInt32},vright_bitshift($state, 59))
+                $rot = pirate_reinterpret(Vec{$WV32,UInt32},vright_bitshift($state, vbroadcast(Vec{8,UInt}, 59)))
             end)
             for w ∈ 1:2:WV32
                 push!(output.args, :(@inbounds Core.VecElement(rotate($xorshifted[$w].value, $rot[$w].value))))

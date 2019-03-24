@@ -14,7 +14,7 @@ They have been optimized for avx-512. Small vector sizes are supported, but no p
 ```julia
 julia> using BenchmarkTools, Random, VectorizedRNG
 
-julia> julia> pcg_rxs_m_xs = VectorizedRNG.PCG_RXS_M_XS{4}();
+julia> pcg_rxs_m_xs = VectorizedRNG.PCG_RXS_M_XS{4}();
 
 julia> x = Vector{Float64}(undef, 1024);
 
