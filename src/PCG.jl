@@ -34,16 +34,25 @@ end
 
 
 
-@generated function PCG{N}() where N
+@generated function PCG{N}(offset = 0) where N
     quote
         PCG(
             (Base.Cartesian.@ntuple $N n -> (Base.Cartesian.@ntuple $W64 w -> Core.VecElement(rand(UInt64)))),
-            (Base.Cartesian.@ntuple $N n -> multipliers[Base.Threads.atomic_add!(MULT_NUMBER, 1)]),
+            (Base.Cartesian.@ntuple $N n -> multipliers[Base.Threads.atomic_add!(MULT_NUMBER, 1) + offset]),
             one(UInt64)
         )
     end
 end
 
+@generated function PCG(seeds::NTuple{N,UInt64}, offset = 0) where N
+    quote
+        PCG(
+            (Base.Cartesian.@ntuple $N n -> (Base.Cartesian.@ntuple $W64 w -> Core.VecElement(seeds[n]))),
+            (Base.Cartesian.@ntuple $N n -> multipliers[Base.Threads.atomic_add!(MULT_NUMBER, 1) + offset]),
+            one(UInt64)
+        )
+    end
+end
 
 function adjust_vector_width(W, @nospecialize T)
     if T == XSH_RR
