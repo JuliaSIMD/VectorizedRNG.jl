@@ -44,10 +44,14 @@ end
     end
 end
 
-@generated function PCG(seeds::NTuple{N,UInt64}, offset = 0) where N
+@generated function PCG(seeds::NTuple{WN,UInt64}, offset = 0) where WN
+    W, Wshift = VectorizationBase.pick_vector_width_shift(Float64)
+    Wm1 = W - 1
+    N = WN >> Wshift
+    @assert WN & Wm1 == 0
     quote
         PCG(
-            (Base.Cartesian.@ntuple $N n -> (Base.Cartesian.@ntuple $W64 w -> Core.VecElement(seeds[n]))),
+            (Base.Cartesian.@ntuple $N n -> (Base.Cartesian.@ntuple $W64 w -> Core.VecElement(seeds[w + $W * (n-1)]))),
             (Base.Cartesian.@ntuple $N n -> multipliers[Base.Threads.atomic_add!(MULT_NUMBER, 1) + offset]),
             one(UInt64)
         )
