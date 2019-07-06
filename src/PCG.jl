@@ -63,8 +63,8 @@ end
 @generated function random_init_pcg!(pcg::PCG{N}, offset = 0) where {N}
     quote
         pcg.state = Base.Cartesian.@ntuple $N n -> (Base.Cartesian.@ntuple $W64 w -> Core.VecElement(rand(UInt64)))
-        pcg.multiplier = Base.Cartesian.@ntuple $N n -> multipliers[Base.Threads.atomic_add!(MULT_NUMBER, 1) + offset * N]
-        pcg.increment = one(UInt64)
+        pcg.multiplier = Base.Cartesian.@ntuple $N n -> multipliers[(Base.Threads.atomic_add!(MULT_NUMBER, 1) + offset * N - 1) % 128 + 1]
+        pcg.increment = one(UInt64) + 2 * ((MULT_NUMBER[] + offset * N - 1) ÷ 128)
     end
 end
 
