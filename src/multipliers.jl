@@ -1,5 +1,5 @@
 
-const multipliers = reinterpret(NTuple{W64,Core.VecElement{UInt64}}, [
+const MULTIPLIERS = reinterpret(NTuple{W64,Core.VecElement{UInt64}}, [
     0x90ce6ecbad5e33b5, 0x8e987534660406e5, 0x94f81c5d3ea19f7d, 0x4d8f7249bbed3b8d, 0x20e9a48f613d5095, 0xc9146b8612b821fd, 0x4bcd1484b5f3b87d, 0x75a87f79488371cd,
     0xf16f2bb2bfc0d84d, 0x66987e63da316b95, 0xa3fd2ef5eb2da91d, 0x6888131c4fe09715, 0x97a67452539c6295, 0x6eb22b3c1d60056d, 0x32119d665a69e39d, 0x6131d13af2a186f5,
     0xc0e4219837eb840d, 0x6b0a1120d571f245, 0xa08fd2d501c42fad, 0x628679e666cc08e5, 0xfab86b2311f6bd7d, 0xa551d12fbe849dad, 0x5fc35a1ac6ea60f5, 0x146e6de04b53b1c5,
