@@ -744,7 +744,7 @@ function rand_loop_quote(N, T, rngexpr)
     W = TypeVectorWidth(T)
     quote
         ptr_A = pointer(A)
-        L = length(x)
+        L = length(A)
         nrep, nrem = divrem(L, $(N*W))
         GC.@preserve A begin
             for i ∈ 0:nrep-1
@@ -756,13 +756,11 @@ function rand_loop_quote(N, T, rngexpr)
             nrem == 0 && return A
             r = $rngexpr(rng, NTuple{$N,Vec{$W,$T}})
             nremrep, nremrem = divrem(nrem, $W)
-            if nremrep > 0
-                Base.Cartesian.@nexprs $nremrep n -> begin
-                    @inbounds SIMDPirates.vstore!(ptr_A + $(sizeof(T)*W) * ( (n-1) + $(N)*nrep ), r[n])
-                end
+            for n ∈ 1:nremrep
+                @inbounds SIMDPirates.vstore!(ptr_A + $(sizeof(T)*W) * ( (n-1) + $(N)*nrep ), r[n])
             end
             if nremrem > 0
-                @inbounds SIMDPirates.vstore!(ptr_A + $(sizeof(T)*W) * ( (n-1) + $(N)*nrep + nremrep ), r[1+nremrep], $(mask_type(T))(2^nremrem-1))
+                @inbounds SIMDPirates.vstore!(ptr_A + $(sizeof(T)*W) * (nremrep + $(N)*nrep ), r[1+nremrep], $(VectorizationBase.mask_type(T))(2^nremrem-1))
             end
             return A
         end
@@ -770,13 +768,16 @@ function rand_loop_quote(N, T, rngexpr)
     
 end
 
-@generated function Random.rand!(rng::PCG{N}, x::AbstractArray{T}, ::Type{PCG_TYPE} = RXS_M_XS) where {N,T <: Real, PCG_TYPE <: AbstractPCG_TYPE}
+@generated function Random.rand!(rng::PCG{N}, A::AbstractArray{T}, ::Type{PCG_TYPE} = RXS_M_XS) where {N,T <: Real, PCG_TYPE <: AbstractPCG_TYPE}
     rand_loop_quote(adjust_vector_width(N, PCG_TYPE), T, :rand)
 end
-@generated function Random.randexp!(rng::PCG{N}, x::AbstractArray{T}, ::Type{PCG_TYPE} = RXS_M_XS) where {N,T <: Real, PCG_TYPE <: AbstractPCG_TYPE}
+@generated function Random.randexp!(rng::PCG{N}, A::AbstractArray{T}, ::Type{PCG_TYPE} = RXS_M_XS) where {N,T <: Real, PCG_TYPE <: AbstractPCG_TYPE}
     rand_loop_quote(adjust_vector_width(N, PCG_TYPE), T, :randexp)
 end
-@generated function Random.randn!(rng::PCG{N}, x::AbstractArray{T}, ::Type{PCG_TYPE} = RXS_M_XS) where {N,T <: Real, PCG_TYPE <: AbstractPCG_TYPE}
+@generated function Random.randn!(
+    rng::PCG{N}, A::AbstractArray{T}, ::Type{PCG_TYPE} = RXS_M_XS
+) where {N, T <: Real, PCG_TYPE <: AbstractPCG_TYPE}
+#) where {T <: Real, N, PCG_TYPE <: AbstractPCG_TYPE}
     rand_loop_quote(adjust_vector_width(N, PCG_TYPE), T, :randn)
 end
 
