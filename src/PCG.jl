@@ -40,10 +40,12 @@ mutable struct PCG{N} <: AbstractPCG{N}
         pcg
     end        
 end
-
-
+struct PtrPCG{N} <: AbstractPCG{N}
+    ptr::Ptr{UInt64}
+end
 
 @inline Base.pointer(rng::AbstractPCG) = Base.unsafe_convert(Ptr{UInt64}, pointer_from_objref(rng))
+@inline Base.pointer(rng::PtrPCG) = rng.ptr
 # @inline Base.pointer(rng::AbstractPCG) = Base.unsafe_convert(Ptr{Vec{W64,UInt64}}, pointer_from_objref(rng))
 
 
@@ -60,12 +62,20 @@ end
 end
 
 
-@generated function random_init_pcg!(pcg::PCG{N}, offset = 0) where {N}
-    quote
-        pcg.state = Base.Cartesian.@ntuple $N n -> (Base.Cartesian.@ntuple $W64 w -> Core.VecElement(rand(UInt64)))
-        pcg.multiplier = Base.Cartesian.@ntuple $N n -> MULTIPLIERS[(Base.Threads.atomic_add!(MULT_NUMBER, 1) + offset * N - 1) % $(length(MULTIPLIERS)) + 1]
-        pcg.increment = one(UInt64) + 2 * ((MULT_NUMBER[] + offset * N - 1) ÷ $(length(MULTIPLIERS)))
+@generated function random_init_pcg!(pcg::AbstractPCG{N}, offset = 0) where {N}
+    q = quote ptr = pointer(pcg) end
+    reg_size = VectorizationBase.REGISTER_SIZE
+    for n ∈ 0:N-1
+        n_quote = quote
+            # state
+            SIMDPirates.vstore!(ptr + $n * $reg_size, Base.Cartesian.@ntuple $W64 w -> Core.VecElement(rand(UInt64)))
+            # multiplier
+            SIMDPirates.vstore!(ptr + $(N + n) * $reg_size, MULTIPLIERS[(Base.Threads.atomic_add!(MULT_NUMBER, 1) + offset * $N - 1) % $(length(MULTIPLIERS)) + 1])
+        end
+        push!(q.args, n_quote)
     end
+    push!(q.args, :(VectorizationBase.store!(ptr + $(2N)*$reg_size, one(UInt64) + 2 * ((MULT_NUMBER[] + offset * N - 1) ÷ $(length(MULTIPLIERS))) )))
+    q
 end
 
 @generated function PCG(seeds::NTuple{WN,UInt64}, offset = 0) where WN
@@ -103,11 +113,12 @@ function rand_pcgPCG_RXS_M_XS_int64_quote(N, WV, Nreps)
 #    WV = min(W, W64)
     # vector_size = 8WV
 #    Nreps, r = divrem(W, WV)
-#    r == 0 || throw("0 != $W % $WV = $r.")
+    #    r == 0 || throw("0 != $W % $WV = $r.")
+    reg_size = VectorizationBase.REGISTER_SIZE
     q = quote
 #        $(Expr(:meta, :inline))
         prng = pointer(rng)
-        increment = vbroadcast(Vec{$WV,UInt64}, rng.increment)
+        increment = vbroadcast(Vec{$WV,UInt64}, prng + $(2N) * $reg_size)
     end
     if Nreps > N
         NNrep, rr = divrem(Nreps, N)
@@ -214,7 +225,7 @@ function rand_pcgPCG_XSH_RR_int32_quote(N, WV, Nreps)
     q = quote
 #        $(Expr(:meta, :inline))
         prng = pointer(rng)
-        increment = vbroadcast(Vec{$WV,UInt64}, rng.increment)
+        increment = vbroadcast(Vec{$WV,UInt64}, prng + $(2N) * $reg_size)
     end
     if Nreps > N
         NNrep, rr = divrem(Nreps, N)
