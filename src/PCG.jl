@@ -75,6 +75,7 @@ end
         push!(q.args, n_quote)
     end
     push!(q.args, :(VectorizationBase.store!(ptr + $(2N)*$reg_size, one(UInt64) + 2 * ((MULT_NUMBER[] + offset * N - 1) ÷ $(length(MULTIPLIERS))) )))
+    push!(q.args, :pcg)
     q
 end
 
@@ -109,7 +110,7 @@ end
 
 function rand_pcgPCG_RXS_M_XS_int64_quote(N, WV, Nreps)
     output = Expr(:tuple)
-    @assert WV ≤ W64
+    # @assert WV ≤ W64
 #    WV = min(W, W64)
     # vector_size = 8WV
 #    Nreps, r = divrem(W, WV)
@@ -219,9 +220,10 @@ function rand_pcgPCG_XSH_RR_int32_quote(N, WV, Nreps)
     WV32 = 2WV
 #    Nreps, r = divrem(W, WV)
     #    r == 0 || throw("0 != $W % $WV = $r.")
-    if WV > W64
-        throw("WV == $WV > $W64 = W64")
-    end
+    # if WV > 2W64
+        # throw("WV == $WV > $W64 = W64")
+    # end
+    reg_size = VectorizationBase.REGISTER_SIZE
     q = quote
 #        $(Expr(:meta, :inline))
         prng = pointer(rng)
@@ -316,7 +318,11 @@ function rand_pcgPCG_XSH_RR_int32_quote(N, WV, Nreps)
 #            end
         end
     end
-    push!(q.args, output)
+    # if Nreps > 1
+        push!(q.args, output)
+    # else
+        # push!(q.args, last(output.args))
+    # end
     q
 end
 
@@ -393,65 +399,94 @@ end
     end
 end
 
-@generated function Random.rand(rng::PCG{N}, ::Type{Vec{W,UInt32}}) where {N,W}
+@generated function Random.rand(rng::AbstractPCG{N}, ::Type{Vec{W,UInt32}}) where {N,W}
     quote
         $(Expr(:meta,:inline))
-        $(rand_pcgPCG_XSH_RR_int32_quote(N, W, 1))
+        first($(rand_pcgPCG_XSH_RR_int32_quote(N, W, 1)))
     end
 end
-@generated function Random.rand(rng::PCG{N}, ::Type{Vec{W,UInt64}}) where {W,N}
+@generated function Random.rand(rng::AbstractPCG{N}, ::Type{Vec{W,UInt64}}) where {W,N}
     quote
         $(Expr(:meta,:inline))
-        $(rand_pcgPCG_RXS_M_XS_int64_quote(N, W, 1))
+        first($(rand_pcgPCG_RXS_M_XS_int64_quote(N, W, 1)))
     end
 end
-@generated function Random.rand(rng::PCG{P}, ::Type{NTuple{N,Vec{W,UInt32}}}) where {P,N,W}
+@generated function Random.rand(rng::AbstractPCG{P}, ::Type{NTuple{N,Vec{W,UInt32}}}) where {P,N,W}
     quote
         $(Expr(:meta,:inline))
-        $(rand_pcgPCG_XSH_RR_int32_quote(P, W, N))
+        first($(rand_pcgPCG_XSH_RR_int32_quote(P, W, N)))
     end
 end
-@generated function Random.rand(rng::PCG{P}, ::Type{NTuple{N,Vec{W,UInt64}}}) where {P,W,N}
+@generated function Random.rand(rng::AbstractPCG{P}, ::Type{NTuple{N,Vec{W,UInt64}}}) where {P,W,N}
     quote
         $(Expr(:meta,:inline))
-        $(rand_pcgPCG_RXS_M_XS_int64_quote(P, W, N))
+        first($(rand_pcgPCG_RXS_M_XS_int64_quote(P, W, N)))
     end
 end
 
-function rand_pcg_float_quote(N,W,::Type{T},::Type{XSH_RR}) where T
+function rand_pcg_float_quote(N,W,::Type{T},::Type{PCGTYPE},bound=2.0,scale=-1.0) where {T,PCGTYPE}
     intsym = gensym(:int)
     masked = gensym(:masked)
+    res = gensym(:res)
     Wadjust = W64 * W ÷ TypeVectorWidth(T)
-    quote
-        $intsym = $(rand_pcgPCG_XSH_RR_int32_quote(N, Wadjust << 1, 1))
-        $masked = $(mask_expr(Wadjust, UInt32, T, intsym))
-        vsub($(T(2)), $masked)
+    if PCGTYPE == XSH_RR
+        q = quote
+            $intsym = $(rand_pcgPCG_XSH_RR_int32_quote(N, Wadjust << 1, 1))
+        end
+        IntType = UInt32
+    elseif PCGTYPE == RXS_M_XS
+        q = quote
+            $intsym = $(rand_pcgPCG_RXS_M_XS_int64_quote(N, Wadjust, 1))
+        end
+        IntType = UInt64
+    else
+        throw("PCG type $PCGTYPE not recognized.")
     end
-end
-function rand_pcg_float_quote(N,W,::Type{T},::Type{RXS_M_XS}) where T
-    intsym = gensym(:int)
-    masked = gensym(:masked)
-    Wadjust = W64 * W ÷ TypeVectorWidth(T)
-    quote
-        $intsym = $(rand_pcgPCG_RXS_M_XS_int64_quote(N, Wadjust, 1))
-        $masked = $(mask_expr(Wadjust, UInt64, T, intsym))
-        vsub($(T(2)), $masked)
+    # Nreps = cld(W*sizeof(T),VectorizationBase.REGISTER_SIZE)
+    Nreps = 1
+    output = Expr(:tuple,)
+    for n ∈ 1:Nreps
+        res_n = Symbol(res,:_,n)
+        mask_n = Symbol(masked,:_,n)
+        push!(q.args, :($mask_n = $(mask_expr(Wadjust, IntType, T, :($intsym[$n])))))
+        if scale isa Number && scale == one(scale)
+            push!(q.args, :($res_n = vadd($mask_n, $T($bound))))
+        elseif scale isa Number && scale == -one(scale)
+            push!(q.args, :($res_n = vsub($T($bound),$mask_n)))
+        else
+            push!(q.args, :($res_n = SIMDPirates.vmuladd($mask_n, $T($scale), $T($bound))))
+        end
+        push!(output.args, res_n)
     end
+    if Nreps == 1
+        push!(q.args, last(output.args))
+    else
+        push!(q.args, output)
+    end
+    quote @inbounds $q end
 end
-@generated function Random.rand(rng::PCG{N}, ::Type{Vec{W,T}}, ::Type{PCG_TYPE}) where {N,W,T,PCG_TYPE<:AbstractPCG_TYPE}
+@generated function Random.rand(rng::AbstractPCG{N}, ::Type{Vec{W,T}}, ::Type{PCG_TYPE}) where {N,W,T,PCG_TYPE<:AbstractPCG_TYPE}
     quote
         $(Expr(:meta, :inline))
         $(rand_pcg_float_quote(N, W, T, PCG_TYPE))
     end
 end
-@generated function Random.rand(rng::PCG{N}, ::Type{Vec{W,T}}) where {N,W,T}
+@generated function Random.rand(rng::AbstractPCG{N}, ::Type{Vec{W,T}}) where {N,W,T}
     quote
         $(Expr(:meta, :inline))
         $(rand_pcg_float_quote(N, W, T, default_pcg_type(W, T)))
     end
 end
+@generated function Random.rand(rng::AbstractPCG{N}, ::Type{Vec{W,T}},l::T,u::T) where {N,W,T}
+    quote
+        $(Expr(:meta, :inline))
+        s = u - l
+        b = l - s
+        $(rand_pcg_float_quote(N, W, T, default_pcg_type(W, T)),:b,:s)
+    end
+end
 
-function rand_pcg_float_quote(P,W,N,::Type{T},::Type{XSH_RR}) where T
+function rand_pcg_float_quote(P,W,N,::Type{T},::Type{XSH_RR}) where {T}
     intsym = gensym(:int)
     masked = gensym(:masked)
     Wadjust = W64 * W ÷ TypeVectorWidth(T)
@@ -463,7 +498,7 @@ function rand_pcg_float_quote(P,W,N,::Type{T},::Type{XSH_RR}) where T
         ))
     end
 end
-function rand_pcg_float_quote(P,W,N,::Type{T},::Type{RXS_M_XS}) where T
+function rand_pcg_float_quote(P,W,N,::Type{T},::Type{RXS_M_XS}) where {T}
     intsym = gensym(:int)
     masked = gensym(:masked)
     Wadjust = W64 * W ÷ TypeVectorWidth(T)
@@ -477,16 +512,55 @@ function rand_pcg_float_quote(P,W,N,::Type{T},::Type{RXS_M_XS}) where T
         ))
     end
 end
-@generated function Random.rand(rng::PCG{P}, ::Type{NTuple{N,Vec{W,T}}}, ::Type{PCG_TYPE}) where {P,N,W,T,PCG_TYPE<:AbstractPCG_TYPE}
+function rand_pcg_float_quote(P,W,N,::Type{T},::Type{XSH_RR},bound,scale=-1.0) where {T}
+    intsym = gensym(:int)
+    masked = gensym(:masked)
+    Wadjust = W64 * W ÷ TypeVectorWidth(T)
+    quote
+        $intsym = $(rand_pcgPCG_XSH_RR_int32_quote(P, Wadjust, N << 1))
+        @inbounds $(Expr(:tuple,
+               [:(SIMDPirates.vmuladd($scale, $(mask_expr(Wadjust, UInt32, T, :($intsym[$n]))),$bound)) for n ∈ 1:(N << 1)]...
+        ))
+    end
+end
+function rand_pcg_float_quote(P,W,N,::Type{T},::Type{RXS_M_XS},bound,scale=-1.0) where {T}
+    intsym = gensym(:int)
+    masked = gensym(:masked)
+    Wadjust = W64 * W ÷ TypeVectorWidth(T)
+    quote
+        $intsym = $(rand_pcgPCG_RXS_M_XS_int64_quote(P, Wadjust, N))
+#        $masked = $(mask_expr(Wadjust, UInt64, T, intsym))
+#        vsub($(T(2)), $masked)
+        @inbounds $(Expr(:tuple,
+               [:(SIMDPirates.vmuladd($scale, $(mask_expr(Wadjust, UInt64, T, :($intsym[$n]))),$bound)) for n ∈ 1:N]...
+        ))
+    end
+end
+@generated function Random.rand(rng::AbstractPCG{P}, ::Type{NTuple{N,Vec{W,T}}}, ::Type{PCG_TYPE}) where {P,N,W,T,PCG_TYPE<:AbstractPCG_TYPE}
     quote
         $(Expr(:meta, :inline))
         $(rand_pcg_float_quote(P, W, N, T, PCG_TYPE))
     end
 end
-@generated function Random.rand(rng::PCG{P}, ::Type{NTuple{N,Vec{W,T}}}) where {P,N,W,T}
+@generated function Random.rand(rng::AbstractPCG{P}, ::Type{NTuple{N,Vec{W,T}}}) where {P,N,W,T}
     quote
         $(Expr(:meta, :inline))
         $(rand_pcg_float_quote(P, W, N, T, default_pcg_type(W*N, T)))
+    end
+end
+"""
+Returns a closed, open interval.
+Default values are l = 1.0, u = 0.0
+so that it is a (0, 1.0] (ie, an open, closed interval instead)
+"""
+@generated function Random.rand(rng::AbstractPCG{P}, ::Type{NTuple{N,Vec{W,T}}}, l::T, u::T) where {P,N,W,T}
+    quote
+        $(Expr(:meta, :inline))
+        @fastmath begin
+            s = u - l
+            b = l - s
+        end
+        $(rand_pcg_float_quote(P, W, N, T, default_pcg_type(W*N, T),:b,:s))
     end
 end
 
@@ -531,27 +605,27 @@ function randexp_quote(P, W, N, T, PCG_TYPE)
     q
 end
 
-@generated function Random.randexp(rng::PCG{N}, ::Type{Vec{W,T}}, ::Type{PCG_TYPE}) where {W,N,T,PCG_TYPE<:AbstractPCG_TYPE}
+@generated function Random.randexp(rng::AbstractPCG{N}, ::Type{Vec{W,T}}, ::Type{PCG_TYPE}) where {W,N,T,PCG_TYPE<:AbstractPCG_TYPE}
     quote
         $(Expr(:meta,:inline))
         out = $(randexp_quote(N, W, 1, T, PCG_TYPE))
         @inbounds out[1]
     end
 end
-@generated function Random.randexp(rng::PCG{N}, ::Type{Vec{W,T}}) where {N,W,T}
+@generated function Random.randexp(rng::AbstractPCG{N}, ::Type{Vec{W,T}}) where {N,W,T}
     quote
         $(Expr(:meta,:inline))
         out = $(randexp_quote(N, W, 1, T, default_pcg_type(W, T)))
         @inbounds out[1]
     end
 end
-@generated function Random.randexp(rng::PCG{P}, ::Type{NTuple{N,Vec{W,T}}}, ::Type{PCG_TYPE}) where {P, N,W,T,PCG_TYPE<:AbstractPCG_TYPE}
+@generated function Random.randexp(rng::AbstractPCG{P}, ::Type{NTuple{N,Vec{W,T}}}, ::Type{PCG_TYPE}) where {P, N,W,T,PCG_TYPE<:AbstractPCG_TYPE}
     quote
         $(Expr(:meta,:inline))
         $(randexp_quote(P, W, N, T, PCG_TYPE))
     end
 end
-@generated function Random.randexp(rng::PCG{P}, ::Type{NTuple{N,Vec{W,T}}}) where {N,P,W,T}
+@generated function Random.randexp(rng::AbstractPCG{P}, ::Type{NTuple{N,Vec{W,T}}}) where {N,P,W,T}
     quote
         $(Expr(:meta,:inline))
         $(randexp_quote(P, W, N, T, default_pcg_type(W*N, T)))
@@ -590,25 +664,25 @@ function randnegexp_quote(P, W, N, T, PCG_TYPE)
     q
 end
 
-@generated function randnegexp(rng::PCG{N}, ::Type{Vec{W,T}}, ::Type{PCG_TYPE}) where {N,W,T,PCG_TYPE<:AbstractPCG_TYPE}
+@generated function randnegexp(rng::AbstractPCG{N}, ::Type{Vec{W,T}}, ::Type{PCG_TYPE}) where {N,W,T,PCG_TYPE<:AbstractPCG_TYPE}
     quote
         $(Expr(:meta,:inline))
         $(randnegexp_quote(N, W, 1, T, PCG_TYPE))
     end
 end
-@generated function randnegexp(rng::PCG{N}, ::Type{Vec{W,T}}) where {N,W,T}
+@generated function randnegexp(rng::AbstractPCG{N}, ::Type{Vec{W,T}}) where {N,W,T}
     quote
         $(Expr(:meta,:inline))
         $(randnegexp_quote(N, W, 1, T, default_pcg_type(W, T)))
     end
 end
-@generated function randnegexp(rng::PCG{P}, ::Type{NTuple{N,Vec{W,T}}}, ::Type{PCG_TYPE}) where {N,P,W,T,PCG_TYPE<:AbstractPCG_TYPE}
+@generated function randnegexp(rng::AbstractPCG{P}, ::Type{NTuple{N,Vec{W,T}}}, ::Type{PCG_TYPE}) where {N,P,W,T,PCG_TYPE<:AbstractPCG_TYPE}
     quote
         $(Expr(:meta,:inline))
         $(randnegexp_quote(P, W, N, T, PCG_TYPE))
     end
 end
-@generated function randnegexp(rng::PCG{P}, ::Type{NTuple{N,Vec{W,T}}}) where {N,W,T,P}
+@generated function randnegexp(rng::AbstractPCG{P}, ::Type{NTuple{N,Vec{W,T}}}) where {N,W,T,P}
     quote
         $(Expr(:meta,:inline))
         $(randnegexp_quote(P, W, N, T, default_pcg_type(W*N, T)))
@@ -724,34 +798,34 @@ function randn_quote(P, W, N, T, PCG_TYPE)
     q
 end
 
-@generated function Random.randn(rng::PCG{N}, ::Type{Vec{W,T}}, ::Type{PCG_TYPE}) where {N,W,T,PCG_TYPE<:AbstractPCG_TYPE}
+@generated function Random.randn(rng::AbstractPCG{N}, ::Type{Vec{W,T}}, ::Type{PCG_TYPE}) where {N,W,T,PCG_TYPE<:AbstractPCG_TYPE}
     quote
         $(Expr(:meta,:inline))
         z = $(randn_quote(N, W, 1, T, PCG_TYPE))
         @inbounds z[1]
     end
 end
-@generated function Random.randn(rng::PCG{N}, ::Type{Vec{W,T}}) where {W,N,T}
+@generated function Random.randn(rng::AbstractPCG{N}, ::Type{Vec{W,T}}) where {W,N,T}
     quote
         $(Expr(:meta,:inline))
         z = $(randn_quote(N, W, 1, T, default_pcg_type(W, T)))
         @inbounds z[1]
     end
 end
-@generated function Random.randn(rng::PCG{P}, ::Type{NTuple{N,Vec{W,T}}}, ::Type{PCG_TYPE}) where {N,P,W,T,PCG_TYPE<:AbstractPCG_TYPE}
+@generated function Random.randn(rng::AbstractPCG{P}, ::Type{NTuple{N,Vec{W,T}}}, ::Type{PCG_TYPE}) where {N,P,W,T,PCG_TYPE<:AbstractPCG_TYPE}
     quote
         $(Expr(:meta,:inline))
         $(randn_quote(P, W, N, T, PCG_TYPE))
     end
 end
-@generated function Random.randn(rng::PCG{P}, ::Type{NTuple{N,Vec{W,T}}}) where {N,P,W,T}
+@generated function Random.randn(rng::AbstractPCG{P}, ::Type{NTuple{N,Vec{W,T}}}) where {N,P,W,T}
     quote
         $(Expr(:meta,:inline))
         $(randn_quote(P, W, N, T, default_pcg_type(W*N, T)))
     end
 end
 
-function rand_loop_quote(N, T, rngexpr)
+function rand_loop_quote(N, T, rngexpr, args...)
     W = TypeVectorWidth(T)
     quote
         ptr_A = pointer(A)
@@ -759,13 +833,13 @@ function rand_loop_quote(N, T, rngexpr)
         nrep, nrem = divrem(L, $(N*W))
         GC.@preserve A begin
             for i ∈ 0:nrep-1
-                r = $rngexpr(rng, NTuple{$N,Vec{$W,$T}})
+                r = $rngexpr(rng, NTuple{$N,Vec{$W,$T}}, $(args...))
                 Base.Cartesian.@nexprs $N n -> begin
                     @inbounds SIMDPirates.vstore!(ptr_A + $(sizeof(T)*W) * ( (n-1) + $(N)*i ), r[n])
                 end
             end
             nrem == 0 && return A
-            r = $rngexpr(rng, NTuple{$N,Vec{$W,$T}})
+            r = $rngexpr(rng, NTuple{$N,Vec{$W,$T}}, $(args...))
             nremrep, nremrem = divrem(nrem, $W)
             for n ∈ 1:nremrep
                 @inbounds SIMDPirates.vstore!(ptr_A + $(sizeof(T)*W) * ( (n-1) + $(N)*nrep ), r[n])
@@ -779,18 +853,27 @@ function rand_loop_quote(N, T, rngexpr)
     
 end
 
-@generated function Random.rand!(rng::PCG{N}, A::AbstractArray{T}, ::Type{PCG_TYPE} = RXS_M_XS) where {N,T <: Real, PCG_TYPE <: AbstractPCG_TYPE}
+@generated function Random.rand!(rng::AbstractPCG{N}, A::AbstractArray{T}, ::Type{PCG_TYPE} = RXS_M_XS) where {N,T <: Real, PCG_TYPE <: AbstractPCG_TYPE}
     rand_loop_quote(adjust_vector_width(N, PCG_TYPE), T, :rand)
 end
-@generated function Random.randexp!(rng::PCG{N}, A::AbstractArray{T}, ::Type{PCG_TYPE} = RXS_M_XS) where {N,T <: Real, PCG_TYPE <: AbstractPCG_TYPE}
+@generated function Random.rand!(rng::AbstractPCG{N}, A::AbstractArray{T}, l::T, u::T, ::Type{PCG_TYPE} = RXS_M_XS) where {N,T <: Real, PCG_TYPE <: AbstractPCG_TYPE}
+    rand_loop_quote(adjust_vector_width(N, PCG_TYPE), T, :rand, :l, :u)
+end
+@generated function Random.randexp!(rng::AbstractPCG{N}, A::AbstractArray{T}, ::Type{PCG_TYPE} = RXS_M_XS) where {N,T <: Real, PCG_TYPE <: AbstractPCG_TYPE}
     rand_loop_quote(adjust_vector_width(N, PCG_TYPE), T, :randexp)
 end
 @generated function Random.randn!(
-    rng::PCG{N}, A::AbstractArray{T}, ::Type{PCG_TYPE} = RXS_M_XS
+    rng::AbstractPCG{N}, A::AbstractArray{T}, ::Type{PCG_TYPE} = RXS_M_XS
 ) where {N, T <: Real, PCG_TYPE <: AbstractPCG_TYPE}
 #) where {T <: Real, N, PCG_TYPE <: AbstractPCG_TYPE}
     rand_loop_quote(adjust_vector_width(N, PCG_TYPE), T, :randn)
 end
+
+
+Random.rand(pcg::AbstractPCG, ::Type{T} = Float64) where {T} = @inbounds rand(pcg,Vec{1,T})[1].value
+Random.rng_native_52(::AbstractPCG) = UInt64
+
+
 
 #=
 function unrolled_rand_quote(NWT, rand_expr, store_expr)
@@ -848,3 +931,5 @@ end
     unrolled_rand_quote(NWT, :(randn(rng, Vec{$NWT,$T})), store_expr)
 end
 =#
+
+
