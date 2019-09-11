@@ -464,6 +464,14 @@ end
         $(rand_pcg_float_quote(N, W, T, PCG_TYPE))
     end
 end
+@generated function Random.rand(rng::AbstractPCG{N}, ::Type{Vec{W,T}}, l::T, u::T, ::Val{PCG_TYPE}) where {N,W,T,PCG_TYPE}
+    quote
+        $(Expr(:meta, :inline))
+        s = u - l
+        b = l - s
+        $(rand_pcg_float_quote(N, W, T, PCG_TYPE,:b,:s))
+    end
+end
 @generated function Random.rand(rng::AbstractPCG{N}, ::Type{Vec{W,T}}) where {N,W,T}
     quote
         $(Expr(:meta, :inline))
@@ -475,11 +483,11 @@ end
         $(Expr(:meta, :inline))
         s = u - l
         b = l - s
-        $(rand_pcg_float_quote(N, W, T, default_pcg_type(W, T)),:b,:s)
+        $(rand_pcg_float_quote(N, W, T, default_pcg_type(W, T),:b,:s))
     end
 end
 
-function rand_pcg_float_quote(P,W,N,::Type{T},pcg_type::PCG_Algorithm) where {T}
+function rand_pcg_float_quote(P,W,N,::Type{T},pcg_type::PCG_Algorithm,bound=2.0,scale=-1.0) where {T}
     intsym = gensym(:int)
     masked = gensym(:masked)
     Wadjust = W64 * W ÷ TypeVectorWidth(T)
@@ -500,58 +508,30 @@ function rand_pcg_float_quote(P,W,N,::Type{T},pcg_type::PCG_Algorithm) where {T}
                                           [:($intsym[$(2n  )][$w]) for w ∈ 1:wh]...))
             end
         end
-        intsymcomb = gensym(:intsymcomb)
-        quote
-            $intsym = $(rand_pcgPCG_XSH_RR_int32_quote(P, wadj2, N2 ))
-            # @show typeof.($intsym)
-            vtwo = SIMDPirates.vbroadcast(Vec{$W,$T}, $(T(2)))
-            @inbounds begin
-                $intsymcomb = $isc_expr
-                $(Expr(:tuple,
-                       [:(SIMDPirates.vsub(vtwo, $(mask_expr(Wadjust, UInt32, T, :($intsymcomb[$n]))))) for n ∈ 1:N]...
-                       ))
-                
-            end
-        end
+        intsymbol = gensym(:intsymcomb)
+        Utype = UInt32
+        intsymgen = rand_pcgPCG_XSH_RR_int32_quote(P, wadj2, N2 )
     elseif pcg_type == RXS_M_XS
-        quote
-            $intsym = $(rand_pcgPCG_RXS_M_XS_int64_quote(P, Wadjust, N))
-            vtwo = SIMDPirates.vbroadcast(Vec{$W,$T}, $(T(2)))
-            @inbounds $(Expr(:tuple,
-                             [:(SIMDPirates.vsub(vtwo, $(mask_expr(Wadjust, UInt64, T, :($intsym[$n]))))) for n ∈ 1:N]...
-                      ))
-        end
+        intsymbol = intsym
+        Utype = UInt64
+        intsymgen = rand_pcgPCG_RXS_M_XS_int64_quote(P, Wadjust, N)
+        isc_expr = intsymbol
     else
         throw("PCG type $pcg_type not yet implemented.")
-    end        
-end
-function rand_pcg_float_quote(P,W,N,::Type{T},pcg_type::PCG_Algorithm,bound,scale=-1.0) where {T}
-    intsym = gensym(:int)
-    masked = gensym(:masked)
-    Wadjust = W64 * W ÷ TypeVectorWidth(T)
-    if pcg_type == XSH_RR
-        if Wadjust < W64
-            wadj2 = Wadjust << 1
-            N2 = N
-        else
-            wadj2 = Wadjust
-            N2 = N << 1
-        end
-        quote
-            $intsym = $(rand_pcgPCG_XSH_RR_int32_quote(P, wadj2, N2 ))
-            @inbounds $(Expr(:tuple,
-                             [:(SIMDPirates.vmuladd($scale, $(mask_expr(Wadjust, UInt32, T, :($intsym[$n]))),$bound)) for n ∈ 1:(N << 1)]...
-                             ))
-        end
-    elseif pcg_type == RXS_M_XS
-        quote
-            $intsym = $(rand_pcgPCG_RXS_M_XS_int64_quote(P, Wadjust, N))
-            @inbounds $(Expr(:tuple,
-                             [:(SIMDPirates.vmuladd($scale, $(mask_expr(Wadjust, UInt64, T, :($intsym[$n]))),$bound)) for n ∈ 1:N]...
-                             ))
-        end        
+    end
+    if scale isa Number && scale == one(scale)
+        q = Expr(:tuple, [:(vadd($(mask_expr(Wadjust, Utype, T, :($intsymbol[$n]))), $T($bound))) for n ∈ 1:N]... )
+    elseif scale isa Number && scale == -one(scale)
+        q = Expr(:tuple, [:(vsub($T($bound), $(mask_expr(Wadjust, Utype, T, :($intsymbol[$n]))))) for n ∈ 1:N]... )
     else
-        throw("PCG type $pcg_type not yet implemented.")
+        q = Expr(:tuple, [:(vmuladd($(mask_expr(Wadjust, Utype, T, :($intsymbol[$n]))), $T($scale), $T($bound))) for n ∈ 1:N]... )
+    end
+    quote
+        $intsym = $intsymgen
+        @inbounds begin
+            $intsymbol = $isc_expr
+            $q
+        end
     end
 end
 @generated function Random.rand(rng::AbstractPCG{P}, ::Type{NTuple{N,Vec{W,T}}}, ::Val{PCG_TYPE}) where {P,N,W,T,PCG_TYPE}
@@ -564,6 +544,16 @@ end
     quote
         $(Expr(:meta, :inline))
         $(rand_pcg_float_quote(P, W, N, T, default_pcg_type(W*N, T)))
+    end
+end
+@generated function Random.rand(rng::AbstractPCG{P}, ::Type{NTuple{N,Vec{W,T}}}, l::T, u::T, ::Val{PCG_TYPE}) where {P,N,W,T,PCG_TYPE}
+    quote
+        $(Expr(:meta, :inline))
+        @fastmath begin
+            s = u - l
+            b = l - s
+        end
+        $(rand_pcg_float_quote(P, W, N, T, PCG_TYPE,:b,:s))
     end
 end
 """
