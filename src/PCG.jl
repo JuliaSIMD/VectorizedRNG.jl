@@ -302,7 +302,7 @@ function rand_pcgPCG_XSH_RR_int32_quote(N, WV, Nreps)
                   $out = @inbounds $(Expr(:tuple, [:(Core.VecElement(rotate($xorshifted[$w].value, $rot[$w].value))) for w ∈ 1:2:WV32]... ))
                 vstore!(prng + $(REGISTER_SIZE * (n-1)), $state)
             end)
-            push!(output.args, :(pirate_reinterpret(Vec{$(WV>>1),UInt64},$yout)))
+            push!(output.args, :(pirate_reinterpret(Vec{$(WV>>1),UInt64},$out)))
         end
     end
     # if Nreps > 1
