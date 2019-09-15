@@ -416,7 +416,7 @@ end
     end
 end
 
-function rand_pcg_float_quote(N,W,::Type{T},PCGTYPE::PCG_Algorithm,bound=2.0,scale=-1.0) where {T}
+function rand_pcg_float_quote(N,W,::Type{T},PCGTYPE::PCG_Algorithm,bound=nextfloat(-one(T)),scale=one(T)) where {T}
     intsym = gensym(:int)
     masked = gensym(:masked)
     res = gensym(:res)
@@ -487,7 +487,7 @@ end
     end
 end
 
-function rand_pcg_float_quote(P,W,N,::Type{T},pcg_type::PCG_Algorithm,bound=2.0,scale=-1.0) where {T}
+function rand_pcg_float_quote(P,W,N,::Type{T},pcg_type::PCG_Algorithm,bound=nextfloat(-one(T)),scale=one(T)) where {T}
     intsym = gensym(:int)
     masked = gensym(:masked)
     Wadjust = W64 * W ÷ TypeVectorWidth(T)
