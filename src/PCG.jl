@@ -84,7 +84,7 @@ end
     end
 end
 
-function adjust_vector_width(W, T)
+@noinline function adjust_vector_width(W, T)
     if T == XSH_RR
         W >>= 1
     elseif T == RXS_M_XS
@@ -95,11 +95,7 @@ function adjust_vector_width(W, T)
     W
 end
 
-
-
-
-
-function rand_pcgPCG_RXS_M_XS_int64_quote(N, WV, Nreps)
+@noinline function rand_pcgPCG_RXS_M_XS_int64_quote(N, WV, Nreps)
     output = Expr(:tuple)
     # @assert WV ≤ W64
 #    WV = min(W, W64)
@@ -205,7 +201,7 @@ end
 #    end
 end
 
-function rand_pcgPCG_XSH_RR_int32_quote(N, WV, Nreps)
+@noinline function rand_pcgPCG_XSH_RR_int32_quote(N, WV, Nreps)
     # @show N, WV, Nreps
     output = Expr(:tuple)
 #    WV = min(W, W64)
@@ -351,7 +347,7 @@ uniform distribution would get complicated.
 """
 @inline mask(x, ::Type{Float64}) = reinterpret(Float64,(x & 0x000fffffffffffff) | 0x3ff0000000000000)
 @inline mask(x, ::Type{Float32}) = reinterpret(Float32,(x & 0x007fffff) | 0x3f800000)
-function mask_expr(N, U, ::Type{Float64}, x = :x)
+@noinline function mask_expr(N, U, ::Type{Float64}, x = :x)
     if U == UInt32
         # N >>= 1
         x_expr = :(pirate_reinterpret(NTuple{$N,Core.VecElement{UInt64}}, $x))
@@ -368,7 +364,7 @@ function mask_expr(N, U, ::Type{Float64}, x = :x)
         )
     end
 end
-function mask_expr(N, U, ::Type{Float32}, x = :x)
+@noinline function mask_expr(N, U, ::Type{Float32}, x = :x)
     if U == UInt32
         x_expr = x
     elseif U == UInt64
@@ -416,7 +412,7 @@ end
     end
 end
 
-function rand_pcg_float_quote(N,W,::Type{T},PCGTYPE::PCG_Algorithm,bound=nextfloat(-one(T)),scale=one(T)) where {T}
+@noinline function rand_pcg_float_quote(N,W,::Type{T},PCGTYPE::PCG_Algorithm,bound=nextfloat(-one(T)),scale=one(T)) where {T}
     intsym = gensym(:int)
     masked = gensym(:masked)
     res = gensym(:res)
@@ -486,8 +482,7 @@ end
         $(rand_pcg_float_quote(N, W, T, default_pcg_type(W, T),:b,:s))
     end
 end
-
-function rand_pcg_float_quote(P,W,N,::Type{T},pcg_type::PCG_Algorithm,bound=nextfloat(-one(T)),scale=one(T)) where {T}
+@noinline function rand_pcg_float_quote(P,W,N,::Type{T},pcg_type::PCG_Algorithm,bound=nextfloat(-one(T)),scale=one(T)) where {T}
     intsym = gensym(:int)
     masked = gensym(:masked)
     Wadjust = W64 * W ÷ TypeVectorWidth(T)
@@ -572,15 +567,7 @@ so that it is a (0, 1.0] (ie, an open, closed interval instead)
     end
 end
 
-
-#function subset_vec(name, W, offset = 0)
-#    Expr(:tuple, [:(@inbounds $name[$(offset+w)]) for w ∈ 1:W]...)
-#end
-
-
-function randexp_quote(P, W, N, T, PCG_TYPE)
-#    WT = TypeVectorWidth(T)
-    #    NW, r = divrem(W, WT)
+@noinline function randexp_quote(P, W, N, T, PCG_TYPE)
     WT = W
     output = Expr(:tuple)
     q = quote
@@ -589,26 +576,9 @@ function randexp_quote(P, W, N, T, PCG_TYPE)
     end
     for n ∈ 1:N
         e_n = Symbol(:e_,n)
-        push!(q.args,
-            :($e_n = @inbounds vabs(SLEEFPirates.log_fast(u[$n])))
-#            :($e_n = vabs(SLEEFPirates.log_fast($(subset_vec(:u,WT,(n-1)*WT)))))
-              )
+        push!(q.args, :($e_n = @inbounds vabs(SLEEFPirates.log_fast(u[$n]))) )
         push!(output.args, e_n)
-#        for w ∈ 1:WT
-#            push!(output.args, :(@inbounds $e_n[$w]))
-#        end
     end
-#=    if r > 0
-        e_n = Symbol(:e_,NW+1)
-        push!(q.args,
-            :($e_n = vabs(SLEEFPirates.log_fast(u[$N])))
-#            :($e_n = vabs(SLEEFPirates.log_fast($(subset_vec(:u,r,NW*WT)))))
-              )
-        push!(output.args, $e_n)
-#        for w ∈ 1:r
-#            push!(output.args, :(@inbounds $e_n[$w]))
-#        end
-    end=#
     push!(q.args, output)
     q
 end
@@ -640,7 +610,7 @@ end
     end
 end
 
-function randnegexp_quote(P, W, N, T, PCG_TYPE)
+@noinline function randnegexp_quote(P, W, N, T, PCG_TYPE)
     WT = TypeVectorWidth(T)
     NW, r = divrem(W, WT)
     output = Expr(:tuple)
@@ -650,24 +620,9 @@ function randnegexp_quote(P, W, N, T, PCG_TYPE)
     end
     for n ∈ 1:NW
         e_n = Symbol(:e_,n)
-        push!(q.args,
-            :($e_n = SLEEFPirates.log_fast(u[$n]))
-#            :($e_n = SLEEFPirates.log_fast($(subset_vec(:u,WT,(n-1)*WT))))
-        )
+        push!(q.args, :($e_n = SLEEFPirates.log_fast(u[$n])) )
         push!(output.args, e_n)
-#        for w ∈ 1:WT
-#            push!(output.args, :($e_n[$w]))
-#        end
     end
-#=    if r > 0
-        e_n = Symbol(:e_,NW+1)
-        push!(q.args,
-            :($e_n = SLEEFPirates.log_fast($(subset_vec(:u,r,NW*WT))))
-        )
-        for w ∈ 1:r
-            push!(output.args, :($e_n[$w]))
-        end
-    end=#
     push!(q.args, output)
     q
 end
@@ -702,14 +657,8 @@ P is the order of the PCG object,
 W is the generated vector width, and
 N is the number of replications.
 """
-function randn_quote(P, W, N, T, PCG_TYPE)
-   # @show P,W,N,PCG_TYPE
-    #    WT = TypeVectorWidth(T)
+@noinline function randn_quote(P, W, N, T, PCG_TYPE)
     WT = W
-#    NW, r = divrem(W >> 1, WT)
-    # workaround
-    # splitsincos = WT * sizeof(T) < 64
-
     output = Expr(:tuple)
     q = quote
 #        $(Expr(:meta, :inline))
@@ -721,8 +670,6 @@ function randn_quote(P, W, N, T, PCG_TYPE)
         u2_n = Symbol(:u2_, n)
         # get the vectors u_1 and u_2
         push!(q.args, quote
-#            $u1_n = SLEEFPirates.log_fast($(subset_vec(:u,WT,(n-1)*2WT)))
-#            $u2_n =                    $(subset_vec(:u,WT,(n-1)*2WT + WT))
             $u1_n = @inbounds SLEEFPirates.log_fast(u[$(2n-1)])
             $u2_n = @inbounds u[$(2n)]
             $u1_n = vsqrt( vabs( vadd($u1_n, $u1_n) ) )
@@ -733,14 +680,6 @@ function randn_quote(P, W, N, T, PCG_TYPE)
         # workaround for https://github.com/JuliaLang/julia/issues/30426
         # if splitsincos
         push!(q.args, :(($s_n, $c_n) = SLEEFPirates.sincos_fast(vmul($u2_n, vπ))) )
-        # else
-        #     sc_n = Symbol(:sc_, n)
-        #     push!(q.args,  quote
-        #         $sc_n = SLEEFPirates.sincos_fast(vmul($u2_n, vπ))
-        #         $s_n = $(subset_vec(sc_n, WT, 0))
-        #         $c_n = $(subset_vec(sc_n, WT, WT))
-        #     end)
-        # end
         z1_n = Symbol(:z1_,n)
         z2_n = Symbol(:z2_,n)
         push!(q.args, quote
@@ -749,12 +688,6 @@ function randn_quote(P, W, N, T, PCG_TYPE)
         end )
         push!(output.args, z1_n)
         push!(output.args, z2_n)
-#=        for w ∈ 1:WT
-            push!(output.args, :(@inbounds $z1_n[$w]))
-        end
-        for w ∈ 1:WT
-            push!(output.args, :(@inbounds $z2_n[$w]))
-        end=#
     end
     if isodd(N)
         n = (N >> 1) + 1
@@ -765,8 +698,6 @@ function randn_quote(P, W, N, T, PCG_TYPE)
               u_odd = @inbounds u[$N]
             $u1_n = @inbounds SLEEFPirates.log_fast($(Expr(:tuple, [:(u_odd[$w]) for w ∈ 1:(W>>1)]...)))
             $u2_n = @inbounds $(Expr(:tuple, [:(u_odd[$w]) for w ∈ ((W>>1)+1):W]...))
-#            $u1_n = SLEEFPirates.log_fast($(subset_vec(:u,r,NW*2WT)))
-#            $u2_n =                    $(subset_vec(:u,r,NW*2WT+r))
             $u1_n = vsqrt( vabs( vadd($u1_n, $u1_n) ) )
             $u2_n = vadd($u2_n, $u2_n)
         end)
@@ -774,18 +705,7 @@ function randn_quote(P, W, N, T, PCG_TYPE)
         c_n = Symbol(:c_, n)
         # workaround for https://github.com/JuliaLang/julia/issues/30426
         # AFAIK r * sizeof(T) < 64 for all supported use cases
-        # if r * sizeof(T) < 64
         push!(q.args, :(($s_n, $c_n) = SLEEFPirates.sincos_fast(vmul($u2_n, $(T(π)))) ))
-        # else
-        #     sc_n = Symbol(:sc_, NW+1)
-        #     push!(q.args,  quote
-        #         $sc_n = SLEEFPirates.sincos_fast(vmul($u2_n, vπ))
-        #         $s_n = $(subset_vec(sc_n, r, 0))
-        #         $c_n = $(subset_vec(sc_n, r, r))
-        #     end)
-        # end
-#        z1_n = Symbol(:z1_,n)
-#        z2_n = Symbol(:z2_,n)
         u_n = Symbol(:u_,n)
         sc_n = Symbol(:sc_,n)
         z_n = Symbol(:z_,n)
@@ -794,17 +714,8 @@ function randn_quote(P, W, N, T, PCG_TYPE)
               $u_n = $(Expr(:tuple, [:($u1_n[$w]) for w ∈ 1:(W>>1)]..., [:($u1_n[$w]) for w ∈ 1:(W>>1)]...))
               $sc_n = $(Expr(:tuple, [:($s_n[$w]) for w ∈ 1:(W>>1)]..., [:($c_n[$w]) for w ∈ 1:(W>>1)]...))
               $z_n = vmul($u_n, $sc_n)
-#            $z1_n = vmul($u1_n, $s_n)
-#            $z2_n = vmul($u1_n, $c_n)
         end )
-#        push!(output.args, Expr(:tuple, [:($z1_n[$w]) for w ∈ 1:(W>>1)]..., [:($z2_n[$w]) for w ∈ 1:(W>>1)]...))
         push!(output.args, z_n)
-#=        for w ∈ 1:r
-            push!(output.args, :(@inbounds $z1_n[$w]))
-        end
-        for w ∈ 1:r
-            push!(output.args, :(@inbounds $z2_n[$w]))
-        end=#
     end
     push!(q.args, output)
     q
@@ -838,7 +749,7 @@ end
     end
 end
 
-function rand_loop_quote(N, T, rngexpr, args...)
+@noinline function rand_loop_quote(N, T, rngexpr, args...)
     W = TypeVectorWidth(T)
     quote
         ptr_A = pointer(A)
