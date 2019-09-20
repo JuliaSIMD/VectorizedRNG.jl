@@ -883,8 +883,12 @@ end
 end
 
 
+Random.rand(pcg::AbstractPCG, ::Type{UInt32}) = Base.unsafe_trunc(UInt32, rand(pcg, UInt64))
+Random.rand(pcg::AbstractPCG, ::Type{Int64}) = reinterpret(Int64, rand(pcg, UInt64))
+Random.rand(pcg::AbstractPCG, ::Type{Int32}) = reinterpret(Int32, rand(pcg, UInt32))
 Random.rand(pcg::AbstractPCG, ::Type{T} = Float64) where {T} = @inbounds rand(pcg,Vec{1,T})[1].value
 Random.rng_native_52(::AbstractPCG) = UInt64
+
 
 
 

@@ -4,3 +4,5 @@
 *.jl.mem
 /docs/build/
 /docs/site/
+src/#*#
+tests/#*#
