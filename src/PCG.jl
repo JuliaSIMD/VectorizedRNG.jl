@@ -769,12 +769,11 @@ end
                 @inbounds SIMDPirates.vstore!(ptr_A + $(sizeof(T)*W) * ( (n-1) + $(N)*nrep ), r[n])
             end
             if nremrem > 0
-                @inbounds SIMDPirates.vstore!(ptr_A + $(sizeof(T)*W) * (nremrep + $(N)*nrep ), r[1+nremrep], $(VectorizationBase.mask(T,nremrem)))
+                @inbounds SIMDPirates.vstore!(ptr_A + $(sizeof(T)*W) * (nremrep + $(N)*nrep ), r[1+nremrep], VectorizationBase.mask(T,nremrem))
             end
             return A
         end
-    end
-    
+    end    
 end
 
 @generated function Random.rand!(rng::AbstractPCG{N}, A::AbstractArray{T}, ::Val{PCG_TYPE} = Val{RXS_M_XS}()) where {N,T <: Real, PCG_TYPE}
@@ -792,6 +791,9 @@ end
 #) where {T <: Real, N, PCG_TYPE}
     rand_loop_quote(adjust_vector_width(N, PCG_TYPE), T, :randn)
 end
+Random.rand(rng::AbstractPCG, dims::Vararg{Integer,N} where N) = rand!(rng, Array{Float64}(undef, dims...))
+Random.randn(rng::AbstractPCG, dims::Vararg{Integer,N} where N) = randn!(rng, Array{Float64}(undef, dims...))
+Random.randexp(rng::AbstractPCG, dims::Vararg{Integer,N} where N) = randexp!(rng, Array{Float64}(undef, dims...))
 
 
 Random.rand(pcg::AbstractPCG, ::Type{UInt32}) = Base.unsafe_trunc(UInt32, rand(pcg, UInt64))
