@@ -791,9 +791,9 @@ end
 #) where {T <: Real, N, PCG_TYPE}
     rand_loop_quote(adjust_vector_width(N, PCG_TYPE), T, :randn)
 end
-Random.rand(rng::AbstractPCG, dims::Vararg{Integer,N} where N) = rand!(rng, Array{Float64}(undef, dims...))
-Random.randn(rng::AbstractPCG, dims::Vararg{Integer,N} where N) = randn!(rng, Array{Float64}(undef, dims...))
-Random.randexp(rng::AbstractPCG, dims::Vararg{Integer,N} where N) = randexp!(rng, Array{Float64}(undef, dims...))
+Random.rand(rng::AbstractPCG, d1::Integer, dims::Vararg{Integer,N} where N) = rand!(rng, Array{Float64}(undef, d1, dims...))
+Random.randn(rng::AbstractPCG, d1::Integer, dims::Vararg{Integer,N} where N) = randn!(rng, Array{Float64}(undef, d1, dims...))
+Random.randexp(rng::AbstractPCG, d1::Integer, dims::Vararg{Integer,N} where N) = randexp!(rng, Array{Float64}(undef, d1, dyims...))
 
 
 Random.rand(pcg::AbstractPCG, ::Type{UInt32}) = Base.unsafe_trunc(UInt32, rand(pcg, UInt64))
