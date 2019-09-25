@@ -6,3 +6,4 @@
 /docs/site/
 src/#*#
 tests/#*#
+*.mem
