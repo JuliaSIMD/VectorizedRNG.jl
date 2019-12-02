@@ -24,5 +24,8 @@ const GLOBAL_vPCG = PCG{4}(undef)
 function __init__()
     random_init_pcg!(GLOBAL_vPCG, myid() - 1)
 end
+
+include("precompile.jl")
+_precompile_()
     
 end # module
