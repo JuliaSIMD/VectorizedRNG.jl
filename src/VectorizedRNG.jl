@@ -20,12 +20,13 @@ include("PCG.jl")
 include("random_distributions.jl")
 
 const GLOBAL_vPCG = PCG{4}(undef)
+include("precompile.jl")
+_precompile_()
 
 function __init__()
     random_init_pcg!(GLOBAL_vPCG, myid() - 1)
+    _precompile_()
 end
 
-include("precompile.jl")
-_precompile_()
     
 end # module
