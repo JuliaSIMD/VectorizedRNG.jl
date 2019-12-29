@@ -10,5 +10,11 @@ SIMDPirates = "21efa798-c60a-11e8-04d3-e1a92915a26a"
 SLEEFPirates = "476501e8-09a2-5ece-8869-fb82de89a1fa"
 VectorizationBase = "3d5dd08c-fd9d-11e8-17fa-ed2836048c2f"
 
+[compat]
+SIMDPirates = "0.1.0"
+SLEEFPirates = "0.1.0"
+VectorizationBase = "0.1.2"
+julia = "1.0.0"
+
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
