@@ -7,9 +7,9 @@
 [![Codecov](https://codecov.io/gh/chriselrod/VectorizedRNG.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/chriselrod/VectorizedRNG.jl)
 
 
-This library provides vectorized PCG random number generators. The larger the host computers SIMD vector width, the better they will perform. On a machine with avx-512, they are much faster than [SIMD-oriented Fast Mersenne Twister (SFMT) ](http://www.math.sci.hiroshima-u.ac.jp/~m-mat/MT/SFMT/), which (if I understand correctly) only requires SSE2, but seems remarkably fast given that. This is the library used by both base Julia and the standard library `Random`.
+This library provides vectorized PCG random number generators. The larger the host computers SIMD vector width, the better they will perform. On a machine with avx-512, they are faster than [SIMD-oriented Fast Mersenne Twister (SFMT) ](http://www.math.sci.hiroshima-u.ac.jp/~m-mat/MT/SFMT/). Base Julia uses dSFMT,  which in a few tests appears to outperform this library on avx2 systems in generating uniformly distributed random numbers.
 
-They have been optimized for avx-512. Small vector sizes are supported, but no promises that they will also be fast. Tests on Ryzen forthcoming.
+This library .
 
 ```julia
 julia> using BenchmarkTools, Random, VectorizedRNG

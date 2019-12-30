@@ -1,11 +1,9 @@
 
 
-TypeVectorWidth(@nospecialize T) = REGISTER_SIZE ÷ sizeof(T)
-
 @enum PCG_Algorithm RXS_M_XS XSH_RR
 
 function default_pcg_type(W, T)
-    if W > TypeVectorWidth(T)
+    if W > VectorizationBase.pick_vector_width(T)
         return RXS_M_XS
     else
         return XSH_RR
@@ -38,9 +36,6 @@ end
 @inline Base.pointer(rng::AbstractPCG) = Base.unsafe_convert(Ptr{UInt64}, pointer_from_objref(rng))
 @inline Base.pointer(rng::PtrPCG) = rng.ptr
 # @inline Base.pointer(rng::AbstractPCG) = Base.unsafe_convert(Ptr{Vec{W64,UInt64}}, pointer_from_objref(rng))
-
-
-
 
 @generated function PCG{N}(offset = 0) where N
     quote
@@ -416,7 +411,7 @@ end
     intsym = gensym(:int)
     masked = gensym(:masked)
     res = gensym(:res)
-    Wadjust = W64 * W ÷ TypeVectorWidth(T)
+    Wadjust = W64 * W ÷ VectorizationBase.pick_vector_width(T)
     if PCGTYPE == XSH_RR
         q = quote
             $intsym = $(rand_pcgPCG_XSH_RR_int32_quote(N, Wadjust << 1, 1, uload))
@@ -485,7 +480,7 @@ end
 @noinline function rand_pcg_float_quote(P,W,N,::Type{T},pcg_type::PCG_Algorithm,bound=nextfloat(-one(T)),scale=one(T); uload::Bool = true) where {T}
     intsym = gensym(:int)
     masked = gensym(:masked)
-    Wadjust = W64 * W ÷ TypeVectorWidth(T)
+    Wadjust = W64 * W ÷ VectorizationBase.pick_vector_width(T)
     # @show P,W,N
     if pcg_type == XSH_RR
         if Wadjust < W64
@@ -684,7 +679,7 @@ end
 end
 
 @noinline function randnegexp_quote(P, W, N, T, PCG_TYPE; uload::Bool = true)
-    WT = TypeVectorWidth(T)
+    WT = VectorizationBase.pick_vector_width(T)
     NW, r = divrem(W, WT)
     output = Expr(:tuple)
     q = quote
@@ -859,7 +854,8 @@ end
 end
 
 @noinline function rand_loop_quote(P, T, rngexpr, args...)
-    W = TypeVectorWidth(T)
+    W, Wshift = VectorizationBase.pick_vector_width_shift(T)
+    Wshift = 
     statetup = Expr(:tuple, [Symbol(:state_,p) for p in 1:P]...)
     multtup = Expr(:tuple, [Symbol(:multiplier_,p) for p in 1:P]...)
     quote
@@ -878,19 +874,22 @@ end
                 end
             end
             if nrem > 0
-                r, $statetup = $rngexpr($statetup, $multtup, increment, NTuple{$P,Vec{$W,$T}}, $(args...))
-                nremrep, nremrem = divrem(nrem, $W)
+                # r, $statetup = $rngexpr($statetup, $multtup, increment, NTuple{$P,Vec{$W,$T}}, $(args...))
+                nremrep = nrem >> $Wshift
+                nremrem = nrem & $(W - 1)
                 for n ∈ 1:nremrep
-                    @inbounds SIMDPirates.vstore!(ptr_A + $(sizeof(T)*W) * ( (n-1) + $(P)*nrep ), r[n])
+                    r_1, state_1 = $rngexpr(state_1, multiplier_1, increment, Vec{$W,$T}, $(args...))
+                    @inbounds SIMDPirates.vstore!(ptr_A + $(sizeof(T)*W) * ( (n-1) + $(P)*nrep ), r_1)
                 end
                 if nremrem > 0
-                    @inbounds SIMDPirates.vstore!(ptr_A + $(sizeof(T)*W) * (nremrep + $(P)*nrep ), r[1+nremrep], VectorizationBase.mask(T,nremrem))
+                    r_1, state_1 = $rngexpr(state_1, multiplier_1, increment, Vec{$W,$T}, $(args...))
+                    @inbounds SIMDPirates.vstore!(ptr_A + $(sizeof(T)*W) * (nremrep + $(P)*nrep ), r_1, VectorizationBase.mask(T,nremrem))
                 end
             end
             $([:(vstore!(prng + $(REGISTER_SIZE * (p-1)), $(Symbol(:state_,p)))) for p in 1:P]...)
             return A
         end
-    end    
+    end
 end
 
 @generated function Random.rand!(rng::AbstractPCG{P}, A::AbstractArray{T}, ::Val{PCG_TYPE} = Val{RXS_M_XS}()) where {T <: Real, P, PCG_TYPE}
