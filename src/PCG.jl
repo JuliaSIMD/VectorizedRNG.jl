@@ -228,17 +228,17 @@ end
                 rot = Symbol(:rot_, i)
                 out = Symbol(:out_,i)
                 push!(q.args, quote
-                      $xorshifted = pirate_reinterpret(Vec{$WV32,UInt32}, vuright_bitshift(
+                      $xorshifted = vreinterpret(Vec{$WV32,UInt32}, vuright_bitshift(
                         vxor(
                             vuright_bitshift($state, vbroadcast(Vec{$WV,UInt64}, 18)), $state
                         ), vbroadcast(Vec{$WV,UInt64}, 27)
                       ))
-                      $rot = pirate_reinterpret(Vec{$WV32,UInt32},vuright_bitshift($state, vbroadcast(Vec{$WV,UInt64}, 59)))
+                      $rot = vreinterpret(Vec{$WV32,UInt32},vuright_bitshift($state, vbroadcast(Vec{$WV,UInt64}, 59)))
                       $state = vmuladd($(Symbol(:multiplier_, n)), $state, increment)
 #                      $out = rotate($xorshifted, $rot)
                       $out = @inbounds $(Expr(:tuple, [:(Core.VecElement(rotate($xorshifted[$w].value, $rot[$w].value))) for w ∈ 1:2:WV32]... ))
                       end)
-                push!(output.args, :(pirate_reinterpret(Vec{$(WV>>>1),UInt64},$out)))
+                push!(output.args, :(vreinterpret(Vec{$(WV>>>1),UInt64},$out)))
                 # push!(output.args, out)
 #               for w ∈ 1:2:WV32
 #                    push!(output.args, :(@inbounds Core.VecElement(rotate($xorshifted[$w].value, $rot[$w].value))))
@@ -252,17 +252,17 @@ end
             rot = Symbol(:rot_, i)
             out = Symbol(:out_,i)
             push!(q.args, quote
-                $xorshifted = pirate_reinterpret(Vec{$WV32,UInt32}, vuright_bitshift(
+                $xorshifted = vreinterpret(Vec{$WV32,UInt32}, vuright_bitshift(
                     vxor(
                         vuright_bitshift($state, vbroadcast(Vec{$WV,UInt}, 18)), $state
                     ), vbroadcast(Vec{$WV,UInt}, 27)
                 ))
-                $rot = pirate_reinterpret(Vec{$WV32,UInt32},vuright_bitshift($state, vbroadcast(Vec{$WV,UInt64}, 59)))
+                $rot = vreinterpret(Vec{$WV32,UInt32},vuright_bitshift($state, vbroadcast(Vec{$WV,UInt64}, 59)))
                 $state = vmuladd($(Symbol(:multiplier_, n)), $state, increment)
                   $out = @inbounds $(Expr(:tuple, [:(Core.VecElement(rotate($xorshifted[$w].value, $rot[$w].value))) for w ∈ 1:2:WV32]... ))
 #                $out = rotate($xorshifted, $rot)
             end)
-            push!(output.args, :(pirate_reinterpret(Vec{$(WV>>>1),UInt64},$out)))
+            push!(output.args, :(vreinterpret(Vec{$(WV>>>1),UInt64},$out)))
             # push!(output.args, out)
 #            for w ∈ 1:2:WV32
 #                push!(output.args, :(@inbounds Core.VecElement(rotate($xorshifted[$w].value, $rot[$w].value))))
@@ -283,17 +283,17 @@ end
             uload && push!(q.args, :($state = vload(Vec{$WV,UInt64}, prng + $(REGISTER_SIZE * (n-1)) )))
             uload && push!(q.args, :($mult  = vload(Vec{$WV,UInt64}, prng + $(REGISTER_SIZE * (N + n-1)) )))
             push!(q.args, quote
-                  $xorshifted = pirate_reinterpret(Vec{$WV32,UInt32}, vuright_bitshift(
+                  $xorshifted = vreinterpret(Vec{$WV32,UInt32}, vuright_bitshift(
                     vxor(
                         vuright_bitshift($state, vbroadcast(Vec{$WV,UInt}, 18)), $state
                     ), vbroadcast(Vec{$WV,UInt}, 27)
                 ))
-                $rot = pirate_reinterpret(Vec{$WV32,UInt32},vuright_bitshift($state, vbroadcast(Vec{$WV,UInt64}, 59)))
+                $rot = vreinterpret(Vec{$WV32,UInt32},vuright_bitshift($state, vbroadcast(Vec{$WV,UInt64}, 59)))
                   $state = vmuladd($mult, $state, increment)
                   $out = @inbounds $(Expr(:tuple, [:(Core.VecElement(rotate($xorshifted[$w].value, $rot[$w].value))) for w ∈ 1:2:WV32]... ))
                   end)
             uload && push!(q.args, :(vstore!(prng + $(REGISTER_SIZE * (n-1)), $state)))
-            push!(output.args, :(pirate_reinterpret(Vec{$(WV>>>1),UInt64},$out)))
+            push!(output.args, :(vreinterpret(Vec{$(WV>>>1),UInt64},$out)))
         end
     end
     # if Nreps > 1
@@ -345,7 +345,7 @@ uniform distribution would get complicated.
 @noinline function mask_expr(N, U, ::Type{Float64}, x = :x)
     if U == UInt32
         # N >>>= 1
-        x_expr = :(pirate_reinterpret(NTuple{$N,Core.VecElement{UInt64}}, $x))
+        x_expr = :(vreinterpret(NTuple{$N,Core.VecElement{UInt64}}, $x))
     elseif U == UInt64
         x_expr = x
     end
@@ -353,7 +353,7 @@ uniform distribution would get complicated.
     quote
         # @show $x
         # @show length($x), $N
-        pirate_reinterpret(
+        vreinterpret(
             NTuple{$N,Core.VecElement{Float64}},
             vor(vand($x_expr, 0x000fffffffffffff), 0x3ff0000000000000)
         )
@@ -363,10 +363,10 @@ end
     if U == UInt32
         x_expr = x
     elseif U == UInt64
-        x_expr = :(pirate_reinterpret(NTuple{$(2N),Core.VecElement{UInt32}}, $x))
+        x_expr = :(vreinterpret(NTuple{$(2N),Core.VecElement{UInt32}}, $x))
     end
     quote
-        pirate_reinterpret(
+        vreinterpret(
             NTuple{$(2N),Core.VecElement{Float32}},
             vor(vand(
                 $x_expr,
