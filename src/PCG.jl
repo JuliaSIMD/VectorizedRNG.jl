@@ -236,7 +236,11 @@ end
                       $rot = vreinterpret(Vec{$WV32,UInt32},vuright_bitshift($state, vbroadcast(Vec{$WV,UInt64}, 59)))
                       $state = vmuladd($(Symbol(:multiplier_, n)), $state, increment)
 #                      $out = rotate($xorshifted, $rot)
-                      $out = @inbounds $(Expr(:tuple, [:(Core.VecElement(rotate($xorshifted[$w].value, $rot[$w].value))) for w ∈ 1:2:WV32]... ))
+                      # $out = @inbounds $(Expr(:tuple, [:(Core.VecElement(rotate($xorshifted[$w].value, $rot[$w].value))) for w ∈ 1:2:WV32]... ))
+                      $out = extract_data(rotate(
+                          SVec(shufflevector($xorshifted, $(Expr(:call,Expr(:curly,:Val,Expr(:tuple, [w for w ∈ 0:2:WV32-1]...)))))),
+                          SVec(shufflevector($rot, $(Expr(:call,Expr(:curly,:Val,Expr(:tuple,[w for w ∈ 0:2:WV32-1]...))))))
+                      ))
                       end)
                 push!(output.args, :(vreinterpret(Vec{$(WV>>>1),UInt64},$out)))
                 # push!(output.args, out)
@@ -259,7 +263,10 @@ end
                 ))
                 $rot = vreinterpret(Vec{$WV32,UInt32},vuright_bitshift($state, vbroadcast(Vec{$WV,UInt64}, 59)))
                 $state = vmuladd($(Symbol(:multiplier_, n)), $state, increment)
-                  $out = @inbounds $(Expr(:tuple, [:(Core.VecElement(rotate($xorshifted[$w].value, $rot[$w].value))) for w ∈ 1:2:WV32]... ))
+                  $out = extract_data(rotate(
+                      SVec(shufflevector($xorshifted, $(Expr(:call,Expr(:curly,:Val,Expr(:tuple,[w for w ∈ 0:2:WV32-1]...)))))),
+                      SVec(shufflevector($rot, $(Expr(:call,Expr(:curly,:Val,Expr(:tuple,[w for w ∈ 0:2:WV32-1]...))))))
+                  ))
 #                $out = rotate($xorshifted, $rot)
             end)
             push!(output.args, :(vreinterpret(Vec{$(WV>>>1),UInt64},$out)))
@@ -290,7 +297,10 @@ end
                 ))
                 $rot = vreinterpret(Vec{$WV32,UInt32},vuright_bitshift($state, vbroadcast(Vec{$WV,UInt64}, 59)))
                   $state = vmuladd($mult, $state, increment)
-                  $out = @inbounds $(Expr(:tuple, [:(Core.VecElement(rotate($xorshifted[$w].value, $rot[$w].value))) for w ∈ 1:2:WV32]... ))
+                  $out = extract_data(rotate(
+                      SVec(shufflevector($xorshifted, $(Expr(:call,Expr(:curly,:Val,Expr(:tuple,[w for w ∈ 0:2:WV32-1]...)))))),
+                      SVec(shufflevector($rot, $(Expr(:call,Expr(:curly,:Val,Expr(:tuple,[w for w ∈ 0:2:WV32-1]...))))))
+                  ))
                   end)
             uload && push!(q.args, :(vstore!(prng + $(REGISTER_SIZE * (n-1)), $state)))
             push!(output.args, :(vreinterpret(Vec{$(WV>>>1),UInt64},$out)))
@@ -855,7 +865,6 @@ end
 
 @noinline function rand_loop_quote(P, T, rngexpr, args...)
     W, Wshift = VectorizationBase.pick_vector_width_shift(T)
-    Wshift = 
     statetup = Expr(:tuple, [Symbol(:state_,p) for p in 1:P]...)
     multtup = Expr(:tuple, [Symbol(:multiplier_,p) for p in 1:P]...)
     quote
@@ -875,15 +884,15 @@ end
             end
             if nrem > 0
                 # r, $statetup = $rngexpr($statetup, $multtup, increment, NTuple{$P,Vec{$W,$T}}, $(args...))
-                nremrep = nrem >> $Wshift
+                nremrep = nrem >>> $Wshift
                 nremrem = nrem & $(W - 1)
                 for n ∈ 1:nremrep
-                    r_1, state_1 = $rngexpr(state_1, multiplier_1, increment, Vec{$W,$T}, $(args...))
-                    @inbounds SIMDPirates.vstore!(ptr_A + $(sizeof(T)*W) * ( (n-1) + $(P)*nrep ), r_1)
+                    r_1, (state_1,) = $rngexpr((state_1,), (multiplier_1,), increment, Tuple{Vec{$W,$T}}, $(args...))
+                    @inbounds SIMDPirates.vstore!(ptr_A + $(sizeof(T)*W) * ( (n-1) + $(P)*nrep ), r_1[1])
                 end
                 if nremrem > 0
-                    r_1, state_1 = $rngexpr(state_1, multiplier_1, increment, Vec{$W,$T}, $(args...))
-                    @inbounds SIMDPirates.vstore!(ptr_A + $(sizeof(T)*W) * (nremrep + $(P)*nrep ), r_1, VectorizationBase.mask(T,nremrem))
+                    r_1, (state_1,) = $rngexpr((state_1,), (multiplier_1,), increment, Tuple{Vec{$W,$T}}, $(args...))
+                    @inbounds SIMDPirates.vstore!(ptr_A + $(sizeof(T)*W) * (nremrep + $(P)*nrep ), r_1[1], VectorizationBase.mask(T,nremrem))
                 end
             end
             $([:(vstore!(prng + $(REGISTER_SIZE * (p-1)), $(Symbol(:state_,p)))) for p in 1:P]...)
