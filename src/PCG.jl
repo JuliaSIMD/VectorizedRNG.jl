@@ -50,17 +50,16 @@ end
 
 @generated function random_init_pcg!(pcg::AbstractPCG{N}, offset = 0) where {N}
     q = quote ptr = pointer(pcg) end
-    reg_size = VectorizationBase.REGISTER_SIZE
     for n ∈ 0:N-1
         n_quote = quote
             # state
-            SIMDPirates.vstore!(ptr + $n * $reg_size, Base.Cartesian.@ntuple $W64 w -> Core.VecElement(rand(UInt64)))
+            SIMDPirates.vstore!(ptr + $n * $REGISTER_SIZE, Base.Cartesian.@ntuple $W64 w -> Core.VecElement(rand(UInt64)))
             # multiplier
-            SIMDPirates.vstore!(ptr + $(N + n) * $reg_size, MULTIPLIERS[(Base.Threads.atomic_add!(MULT_NUMBER, 1) + offset * $N - 1) % $(length(MULTIPLIERS)) + 1])
+            SIMDPirates.vstore!(ptr + $(N + n) * $REGISTER_SIZE, MULTIPLIERS[(Base.Threads.atomic_add!(MULT_NUMBER, 1) + offset * $N - 1) % $(length(MULTIPLIERS)) + 1])
         end
         push!(q.args, n_quote)
     end
-    push!(q.args, :(VectorizationBase.store!(ptr + $(2N)*$reg_size, one(UInt64) + 2 * ((MULT_NUMBER[] + offset * N - 1) ÷ $(length(MULTIPLIERS))) )))
+    push!(q.args, :(VectorizationBase.store!(ptr + $(2N)*$REGISTER_SIZE, one(UInt64) + 2 * ((MULT_NUMBER[] + offset * N - 1) ÷ $(length(MULTIPLIERS))) )))
     push!(q.args, :pcg)
     q
 end
@@ -89,34 +88,54 @@ end
     end
     W
 end
-
-@noinline function rand_pcgPCG_RXS_M_XS_int64_quote(N, WV, Nreps, uload::Bool = true)
-    output = Expr(:tuple)
-    # @assert WV ≤ W64
-#    WV = min(W, W64)
-    # vector_size = 8WV
-#    Nreps, r = divrem(W, WV)
-    #    r == 0 || throw("0 != $W % $WV = $r.")
-    reg_size = VectorizationBase.REGISTER_SIZE
-    # @show uload
-    q = if uload
-        quote
-            prng = pointer(rng)
-            increment = vbroadcast(Vec{$WV,UInt64}, prng + $(2N) * $reg_size)
-        end
-    else
-        quote end
+function name_n_tup_expr(name, N)
+    tup = Expr(:tuple)
+    for n ∈ 1:N
+        name_n = Symbol(name, n)
+        push!(tup.args, name_n);
     end
+    tup
+end
+state_tup_expr(N) = name_n_tup_expr(:state_, N)
+multiplier_tup_expr(N) = name_n_tup_expr(:multiplier_, N)
+out_tup_expr(N) = name_n_tup_expr(:out_, N)
+
+@generated function load_vectors(rng::AbstractPCG{P}, ::Val{N}, ::Val{WV}) where {P,N,WV}
+    @assert 8WV ≤ REGISTER_SIZE
+    loads = min(N,P)
+    q = quote
+        prng = pointer(rng)
+        increment = vbroadcast(Vec{$WV,UInt64}, prng + $(2P) * $REGISTER_SIZE)
+    end
+    states = Expr(:tuple)
+    multipliers = Expr(:tuple)
+    for n ∈ 1:loads
+        state = Symbol(:state_, n)
+        multiplier = Symbol(:multiplier_, n)
+        push!(states.args, state); push!(multipliers.args, multiplier)
+        push!(q.args, quote
+              $state = vload(Vec{$WV,UInt64}, prng + $(REGISTER_SIZE * (n-1)) )
+              $multiplier = vload(Vec{$WV,UInt64}, prng + $(REGISTER_SIZE * (P + n-1)) )
+              end)
+    end
+    push!(q.args, Expr(:tuple, states, multipliers, :increment))
+    q
+end
+@generated function store_state!(rng::AbstractPCG, states::NTuple{N,Vec{W,T}}) where {N,W,T}
+    q = quote
+        prng = pointer(rng)
+    end
+    for n ∈ 1:N
+        push!(q.args, :(vstore!(prng + $(REGISTER_SIZE * (n-1)), @inbounds($(Expr(:ref, :states, n))))))
+    end
+    push!(q.args, nothing)
+    q
+end
+
+@noinline function rand_pcgPCG_RXS_M_XS_int64_quote(N, WV, Nreps)
+    q = quote end
     if Nreps > N
         NNrep, rr = divrem(Nreps, N)
-        if uload
-            for n ∈ 1:N
-                push!(q.args, quote
-                      $(Symbol(:state_, n)) = vload(Vec{$WV,UInt64}, prng + $(REGISTER_SIZE * (n-1)) )
-                      $(Symbol(:multiplier_, n)) = vload(Vec{$WV,UInt64}, prng + $(REGISTER_SIZE * (N + n-1)) )
-                      end)
-            end
-        end
         i = 0
         for nr ∈ 1:NNrep
             for n ∈ 1:N
@@ -133,7 +152,6 @@ end
                     $state = vmuladd($(Symbol(:multiplier_, n)), $state, increment)
                     $out = vxor($xorshifted, vuright_bitshift($xorshifted, Val{43}()))
                 end)
-                push!(output.args, out)
             end
         end
         for n ∈ 1:rr
@@ -150,12 +168,6 @@ end
                 $state = vmuladd($(Symbol(:multiplier_, n)), $state, increment)
                 $out = vxor($xorshifted, vuright_bitshift($xorshifted, Val{43}()))
             end)
-            push!(output.args, out)
-        end
-        if uload
-            for n ∈ 1:N
-                push!(q.args, :(vstore!(prng + $(REGISTER_SIZE * (n-1)), $(Symbol(:state_, n)))))
-            end
         end
     else # Nreps <= N
         for n ∈ 1:Nreps
@@ -164,8 +176,6 @@ end
             count = Symbol(:count_, n)
             out = Symbol(:out_, n)
             mult = Symbol(:multiplier_, n)
-            uload && push!(q.args, :( $state = vload(Vec{$WV,UInt64}, prng + $(REGISTER_SIZE * (n-1)) )))
-            uload && push!(q.args, :( $mult = vload(Vec{$WV,UInt64}, prng + $(REGISTER_SIZE * (N + n-1)) )))
             push!(q.args, quote
                 $count = vadd(vbroadcast(Vec{$WV,UInt64}, UInt64(5)), vuright_bitshift($state, Val{59}()))
                 $xorshifted = vmul(vxor(
@@ -174,51 +184,25 @@ end
                 $state = vmuladd($mult, $state, increment)
                 $out = vxor($xorshifted, vuright_bitshift($xorshifted, Val{43}()))
                   end)
-            uload && push!(q.args, :(vstore!(prng + $(REGISTER_SIZE * (n-1)), $state)))
-            push!(output.args, out)
         end
     end
-    push!(q.args, output)
+    push!(q.args, nothing)
     q
 end
 
 @inline rotate(x, r) = x >>> r | x << (-r & 31)
-#@generated
 @inline function rotate(x::Vec{W,T1}, r::Vec{W,T2}) where {W,T1,T2}
-#    quote
-#        $(Expr(:meta, :inline))
-        xshiftright = SIMDPirates.vuright_bitshift(x, r)
-        nra31 = SIMDPirates.vand(SIMDPirates.vsub(r), SIMDPirates.vbroadcast(Vec{W,T2}, T2(31)))
-        xshiftleft = SIMDPirates.vleft_bitshift(x, nra31)
-        SIMDPirates.vor(xshiftright, xshiftleft)
-#        $(Expr(:tuple, [:(@inbounds Core.VecElement(rotate(x[$w].value, r[$w].value))) for w ∈ 1:W]...))
-#    end
+    xshiftright = SIMDPirates.vuright_bitshift(x, r)
+    nra31 = SIMDPirates.vand(SIMDPirates.vsub(r), SIMDPirates.vbroadcast(Vec{W,T2}, T2(31)))
+    xshiftleft = SIMDPirates.vleft_bitshift(x, nra31)
+    SIMDPirates.vor(xshiftright, xshiftleft)
 end
 
-@noinline function rand_pcgPCG_XSH_RR_int32_quote(N, WV, Nreps, uload::Bool = true)
-    # @show N, WV, Nreps
-    output = Expr(:tuple)
-#    WV = min(W, W64)
+@noinline function rand_pcgPCG_XSH_RR_int32_quote(N, WV, Nreps)
     WV32 = 2WV
-    reg_size = VectorizationBase.REGISTER_SIZE
-    q = if uload
-        quote
-            prng = pointer(rng)
-            increment = vbroadcast(Vec{$WV,UInt64}, prng + $(2N) * $reg_size)
-        end
-    else
-        quote end
-    end
+    q = quote end
     if Nreps > N
         NNrep, rr = divrem(Nreps, N)
-        if uload
-            for n ∈ 1:N
-                push!(q.args, quote
-                      $(Symbol(:state_, n)) = vload(Vec{$WV,UInt64}, prng + $(REGISTER_SIZE * (n-1)) )
-                      $(Symbol(:multiplier_, n)) = vload(Vec{$WV,UInt64}, prng + $(REGISTER_SIZE * (N + n-1)) )
-                      end)
-            end
-        end
         i = 0
         for nr ∈ 1:NNrep
             for n ∈ 1:N
@@ -236,17 +220,11 @@ end
                       $rot = vreinterpret(Vec{$WV32,UInt32},vuright_bitshift($state, vbroadcast(Vec{$WV,UInt64}, 59)))
                       $state = vmuladd($(Symbol(:multiplier_, n)), $state, increment)
 #                      $out = rotate($xorshifted, $rot)
-                      # $out = @inbounds $(Expr(:tuple, [:(Core.VecElement(rotate($xorshifted[$w].value, $rot[$w].value))) for w ∈ 1:2:WV32]... ))
-                      $out = extract_data(rotate(
+                      $out = vreinterpret(Vec{$(WV>>>1),UInt64}, extract_data(rotate(
                           SVec(shufflevector($xorshifted, $(Expr(:call,Expr(:curly,:Val,Expr(:tuple, [w for w ∈ 0:2:WV32-1]...)))))),
                           SVec(shufflevector($rot, $(Expr(:call,Expr(:curly,:Val,Expr(:tuple,[w for w ∈ 0:2:WV32-1]...))))))
-                      ))
+                      )))
                       end)
-                push!(output.args, :(vreinterpret(Vec{$(WV>>>1),UInt64},$out)))
-                # push!(output.args, out)
-#               for w ∈ 1:2:WV32
-#                    push!(output.args, :(@inbounds Core.VecElement(rotate($xorshifted[$w].value, $rot[$w].value))))
-#                end
             end
         end
         for n ∈ 1:rr
@@ -263,22 +241,12 @@ end
                 ))
                 $rot = vreinterpret(Vec{$WV32,UInt32},vuright_bitshift($state, vbroadcast(Vec{$WV,UInt64}, 59)))
                 $state = vmuladd($(Symbol(:multiplier_, n)), $state, increment)
-                  $out = extract_data(rotate(
+                  $out = vreinterpret(Vec{$(WV>>>1),UInt64},extract_data(rotate(
                       SVec(shufflevector($xorshifted, $(Expr(:call,Expr(:curly,:Val,Expr(:tuple,[w for w ∈ 0:2:WV32-1]...)))))),
                       SVec(shufflevector($rot, $(Expr(:call,Expr(:curly,:Val,Expr(:tuple,[w for w ∈ 0:2:WV32-1]...))))))
-                  ))
+                  )))
 #                $out = rotate($xorshifted, $rot)
             end)
-            push!(output.args, :(vreinterpret(Vec{$(WV>>>1),UInt64},$out)))
-            # push!(output.args, out)
-#            for w ∈ 1:2:WV32
-#                push!(output.args, :(@inbounds Core.VecElement(rotate($xorshifted[$w].value, $rot[$w].value))))
-#            end
-        end
-        if uload
-            for n ∈ 1:N
-                push!(q.args, :(vstore!(prng + $(REGISTER_SIZE * (n-1)), $(Symbol(:state_, n)))))
-            end
         end
     else # Nreps <= N
         for n ∈ 1:Nreps
@@ -287,8 +255,6 @@ end
             rot = Symbol(:rot_, n)
             out = Symbol(:out_, n)
             mult = Symbol(:multiplier_,n)
-            uload && push!(q.args, :($state = vload(Vec{$WV,UInt64}, prng + $(REGISTER_SIZE * (n-1)) )))
-            uload && push!(q.args, :($mult  = vload(Vec{$WV,UInt64}, prng + $(REGISTER_SIZE * (N + n-1)) )))
             push!(q.args, quote
                   $xorshifted = vreinterpret(Vec{$WV32,UInt32}, vuright_bitshift(
                     vxor(
@@ -297,28 +263,26 @@ end
                 ))
                 $rot = vreinterpret(Vec{$WV32,UInt32},vuright_bitshift($state, vbroadcast(Vec{$WV,UInt64}, 59)))
                   $state = vmuladd($mult, $state, increment)
-                  $out = extract_data(rotate(
+                  $out = vreinterpret(Vec{$(WV>>>1),UInt64},extract_data(rotate(
                       SVec(shufflevector($xorshifted, $(Expr(:call,Expr(:curly,:Val,Expr(:tuple,[w for w ∈ 0:2:WV32-1]...)))))),
                       SVec(shufflevector($rot, $(Expr(:call,Expr(:curly,:Val,Expr(:tuple,[w for w ∈ 0:2:WV32-1]...))))))
-                  ))
+                  )))
                   end)
-            uload && push!(q.args, :(vstore!(prng + $(REGISTER_SIZE * (n-1)), $state)))
-            push!(output.args, :(vreinterpret(Vec{$(WV>>>1),UInt64},$out)))
         end
     end
-    # if Nreps > 1
-    push!(q.args, output)
-    # else
-        # push!(q.args, last(output.args))
-# end
-    # display(q)
+    push!(q.args, nothing)
     q
 end
 
 
 
+MatchingUInt(::Type{Vec{W,Float64}}) where {W} = Vec{W,UInt64}
+MatchingUInt(::Type{NTuple{N,Vec{W,Float64}}}) where {N,W} = NTuple{N,Vec{W,UInt64}}
 
+@generated MatchingUInt(::Type{Vec{W,Float32}}) where {W} = Vec{cld(W,2),UInt64}
+@generated MatchingUInt(::Type{NTuple{N,Vec{W,Float32}}}) where {N,W} = NTuple{N,Vec{cld(W,2),UInt64}}
 
+@generated MatchingFloat32(::Type{Vec{W,UInt64}}) where {W} = Vec{W<<1,Float32}
 
 
 """
@@ -352,515 +316,182 @@ uniform distribution would get complicated.
 """
 @inline mask(x, ::Type{Float64}) = reinterpret(Float64,(x & 0x000fffffffffffff) | 0x3ff0000000000000)
 @inline mask(x, ::Type{Float32}) = reinterpret(Float32,(x & 0x007fffff) | 0x3f800000)
-@noinline function mask_expr(N, U, ::Type{Float64}, x = :x)
-    if U == UInt32
-        # N >>>= 1
-        x_expr = :(vreinterpret(NTuple{$N,Core.VecElement{UInt64}}, $x))
-    elseif U == UInt64
-        x_expr = x
-    end
-    # throw("Stacktrace!")
-    quote
-        # @show $x
-        # @show length($x), $N
-        vreinterpret(
-            NTuple{$N,Core.VecElement{Float64}},
-            vor(vand($x_expr, 0x000fffffffffffff), 0x3ff0000000000000)
-        )
-    end
-end
-@noinline function mask_expr(N, U, ::Type{Float32}, x = :x)
-    if U == UInt32
-        x_expr = x
-    elseif U == UInt64
-        x_expr = :(vreinterpret(NTuple{$(2N),Core.VecElement{UInt32}}, $x))
-    end
-    quote
-        vreinterpret(
-            NTuple{$(2N),Core.VecElement{Float32}},
-            vor(vand(
-                $x_expr,
-                0x007fffff), 0x3f800000)
-        )
-    end
-end
+@inline mask(v::Vec{W,UInt64}, ::Type{Float64}) where {W} = vreinterpret(Vec{W,Float64}, vor(vand(v, 0x000fffffffffffff), 0x3ff0000000000000))
+@inline mask(v::Vec{W,UInt64}, ::Type{Float32}) where {W} = vreinterpret(MatchingFloat32(Vec{W,UInt64}), vor(vand(v, 0x007fffff), 0x3f800000))
 
-@generated function mask(x::NTuple{N,Core.VecElement{UInt64}}, ::Type{T}) where {N,T}
-    quote
-        $(Expr(:meta, :inline))
-        $(mask_expr(N, UInt64, T))
-    end
-end
-
-@generated function Random.rand(rng::AbstractPCG{N}, ::Type{Vec{W,UInt32}}) where {N,W}
+@generated function random_xsh_rr(state::NTuple{P,Vec{W,UInt64}}, multiplier::NTuple{P,Vec{W,UInt64}}, increment::Vec{W,UInt64}, ::Val{N}) where {N,P,W}
     quote
         $(Expr(:meta,:inline))
-        first($(rand_pcgPCG_XSH_RR_int32_quote(N, W, 1)))
-    end
-end
-@generated function Random.rand(rng::AbstractPCG{N}, ::Type{Vec{W,UInt64}}) where {W,N}
-    quote
-        $(Expr(:meta,:inline))
-        first($(rand_pcgPCG_RXS_M_XS_int64_quote(N, W, 1)))
-    end
-end
-@generated function Random.rand(rng::AbstractPCG{P}, ::Type{NTuple{N,Vec{W,UInt32}}}) where {P,N,W}
-    quote
-        $(Expr(:meta,:inline))
+        $(state_tup_expr(P)) = state
+        $(multiplier_tup_expr(P)) = multiplier
         $(rand_pcgPCG_XSH_RR_int32_quote(P, W, N))
-    end
+        state = $(state_tup_expr(P))
+        out = $(out_tup_expr(N))
+        state, out
+    end    
 end
-@generated function Random.rand(rng::AbstractPCG{P}, ::Type{NTuple{N,Vec{W,UInt64}}}) where {P,W,N}
+@generated function random_rxs_m_xs(state::NTuple{P,Vec{W,UInt64}}, multiplier::NTuple{P,Vec{W,UInt64}}, increment::Vec{W,UInt64}, ::Val{N}) where {N,P,W}
     quote
         $(Expr(:meta,:inline))
+        $(state_tup_expr(P)) = state
+        $(multiplier_tup_expr(P)) = multiplier
         $(rand_pcgPCG_RXS_M_XS_int64_quote(P, W, N))
-    end
+        state = $(state_tup_expr(P))
+        out = $(out_tup_expr(N))
+        state, out
+    end    
+end
+@generated Val2(::Val{N}) where {N} = Val{N<<1}()
+@generated ValH(::Val{N}) where {N} = Val{(N+1)>>>1}()
+@inline function Random.rand(rng::AbstractPCG{P}, ::Type{Vec{W,UInt32}}) where {P,W}
+    state, mult, incr = load_vectors(rng, Val{1}(), ValH(Val{W}()))
+    state, (out,) = random_xsh_rr(state, mult, incr, Val{1}())
+    store_state!(rng, state)
+    out
+end
+@inline function Random.rand(rng::AbstractPCG{P}, ::Type{Vec{W,UInt64}}) where {W,P}
+    state, mult, incr = load_vectors(rng, Val{1}(), Val{W}())
+    state, (out,) = random_rxs_m_xs(state, mult, incr, Val{1}())
+    store_state!(rng, state)
+    out
+end
+@inline function Random.rand(rng::AbstractPCG{P}, ::Type{NTuple{N,Vec{W,UInt32}}}) where {P,W,N}
+    state, mult, incr = load_vectors(rng, Val{N}(), ValH(Val{W}()))
+    state, out = random_xsh_rr(state, mult, incr, Val{N}())
+    store_state!(rng, state)
+    out
+end
+@inline function Random.rand(rng::AbstractPCG{P}, ::Type{NTuple{N,Vec{W,UInt64}}}) where {W,P,N}
+    state, mult, incr = load_vectors(rng, Val{N}(), Val{W}())
+    state, out = random_rxs_m_xs(state, mult, incr, Val{N}())
+    store_state!(rng, state)
+    out
 end
 
-@noinline function rand_pcg_float_quote(N,W,::Type{T},PCGTYPE::PCG_Algorithm,bound=nextfloat(-one(T)),scale=one(T),uload::Bool = true) where {T}
-    intsym = gensym(:int)
-    masked = gensym(:masked)
-    res = gensym(:res)
-    Wadjust = W64 * W ÷ VectorizationBase.pick_vector_width(T)
-    if PCGTYPE == XSH_RR
-        q = quote
-            $intsym = $(rand_pcgPCG_XSH_RR_int32_quote(N, Wadjust << 1, 1, uload))
-        end
-        IntType = UInt32
-    elseif PCGTYPE == RXS_M_XS
-        q = quote
-            $intsym = $(rand_pcgPCG_RXS_M_XS_int64_quote(N, Wadjust, 1, uload))
-        end
-        IntType = UInt64
-    else
-        throw("PCG type $PCGTYPE not recognized.")
-    end
-    # Nreps = cld(W*sizeof(T),VectorizationBase.REGISTER_SIZE)
-    # @show N, W, T
-    Nreps = 1
-    output = Expr(:tuple,)
-    for n ∈ 1:Nreps
-        res_n = Symbol(res,:_,n)
-        mask_n = Symbol(masked,:_,n)
-        push!(q.args, :($mask_n = $(mask_expr(Wadjust, IntType, T, :($intsym[$n])))))
-        if scale isa Number && scale == one(scale)
-            push!(q.args, :($res_n = vadd($mask_n, $T($bound))))
-        elseif scale isa Number && scale == -one(scale)
-            push!(q.args, :($res_n = vsub($T($bound),$mask_n)))
-        else
-            push!(q.args, :($res_n = SIMDPirates.vmuladd($mask_n, $T($scale), $T($bound))))
-        end
-        push!(output.args, res_n)
-    end
-    if Nreps == 1
-        push!(q.args, last(output.args))
-    else
-        push!(q.args, output)
-    end
-    quote @inbounds $q end
+
+@inline oneopenconst(::Type{Float64}) = 0.9999999999999999
+@inline oneopenconst(::Type{Float32}) = 0.99999994f0
+
+"""
+Samples uniformly from (0.0,1.0)
+"""
+@inline function Random.rand(rng::AbstractPCG, ::Type{Vec{W,T}}) where {W,T}
+    u = rand(rng, Vec{W,UInt64})
+    vsub(mask(u, T), oneopenconst(T))
 end
-@generated function Random.rand(rng::AbstractPCG{N}, ::Type{Vec{W,T}}, ::Val{PCG_TYPE}) where {N,W,T,PCG_TYPE}
+"""
+if l < u,
+Samples uniformly from [l,u)
+else,
+Samples uniformly from (u,l]
+
+That is, the "l" side of the interval is closed, and the "u" side is open.
+"""
+@inline function Random.rand(rng::AbstractPCG, ::Type{Vec{W,T}}, l::T, u::T) where {W,T<:Union{Float32,Float64}}
+    s = u - l
+    b = l - s
+    u = rand(rng, MatchingUInt(Vec{W,T}))
+    vfmadd(s, mask(u, T), b)
+end
+
+@generated function Random.rand(rng::AbstractPCG, ::Type{NTuple{N,Vec{W,T}}}) where {N,W,T<:Union{Float32,Float64}}
     quote
-        $(Expr(:meta, :inline))
-        $(rand_pcg_float_quote(N, W, T, PCG_TYPE))
+        $(Expr(:meta,:inline))
+        u = rand(rng, MatchingUInt(NTuple{N,Vec{W,T}}))
+        $(Expr(:tuple, [:(vsub(mask(@inbounds(u[$n]), T), oneopenconst(T))) for n ∈ 1:N]...))
     end
 end
-@generated function Random.rand(rng::AbstractPCG{N}, ::Type{Vec{W,T}}, l::T, u::T, ::Val{PCG_TYPE}) where {N,W,T,PCG_TYPE}
+@generated function Random.rand(rng::AbstractPCG, ::Type{NTuple{N,Vec{W,T}}}, l::T, u::T) where {N,W,T<:Union{Float32,Float64}}
     quote
-        $(Expr(:meta, :inline))
+        $(Expr(:meta,:inline))
         s = u - l
         b = l - s
-        $(rand_pcg_float_quote(N, W, T, PCG_TYPE,:b,:s))
+        u = rand(rng, MatchingUInt(NTuple{N,Vec{W,T}}))
+        $(Expr(:tuple, [:(vfmadd(s, mask(@inbounds(u[$n]), T), b)) for n ∈ 1:N]...))        
     end
 end
-@generated function Random.rand(rng::AbstractPCG{N}, ::Type{Vec{W,T}}) where {N,W,T}
-    quote
-        $(Expr(:meta, :inline))
-        $(rand_pcg_float_quote(N, W, T, default_pcg_type(W, T)))
-    end
-end
-@generated function Random.rand(rng::AbstractPCG{N}, ::Type{Vec{W,T}},l::T,u::T) where {N,W,T}
-    quote
-        $(Expr(:meta, :inline))
-        s = u - l
-        b = l - s
-        $(rand_pcg_float_quote(N, W, T, default_pcg_type(W, T),:b,:s))
-    end
-end
-@noinline function rand_pcg_float_quote(P,W,N,::Type{T},pcg_type::PCG_Algorithm,bound=nextfloat(-one(T)),scale=one(T); uload::Bool = true) where {T}
-    intsym = gensym(:int)
-    masked = gensym(:masked)
-    Wadjust = W64 * W ÷ VectorizationBase.pick_vector_width(T)
-    # @show P,W,N
-    if pcg_type == XSH_RR
-        if Wadjust < W64
-            wadj2 = Wadjust << 1
-            N2 = N
-            isc_expr = intsym
-        else
-            isc_expr = Expr(:tuple,)
-            wadj2 = Wadjust
-            wh = Wadjust >>> 1
-            N2 = N << 1
-            for n ∈ 1:N
-                push!(isc_expr.args, Expr(:tuple,
-                                          [:($intsym[$(2n-1)][$w]) for w ∈ 1:wh]...,
-                                          [:($intsym[$(2n  )][$w]) for w ∈ 1:wh]...))
-            end
-        end
-        intsymbol = gensym(:intsymcomb)
-        Utype = UInt32
-        intsymgen = rand_pcgPCG_XSH_RR_int32_quote(P, wadj2, N2, uload)
-    elseif pcg_type == RXS_M_XS
-        intsymbol = intsym
-        Utype = UInt64
-        intsymgen = rand_pcgPCG_RXS_M_XS_int64_quote(P, Wadjust, N, uload)
-        isc_expr = intsymbol
-    else
-        throw("PCG type $pcg_type not yet implemented.")
-    end
-    if scale isa Number && scale == one(scale)
-        q = Expr(:tuple, [:(vadd($(mask_expr(Wadjust, Utype, T, :($intsymbol[$n]))), $T($bound))) for n ∈ 1:N]... )
-    elseif scale isa Number && scale == -one(scale)
-        q = Expr(:tuple, [:(vsub($T($bound), $(mask_expr(Wadjust, Utype, T, :($intsymbol[$n]))))) for n ∈ 1:N]... )
-    else
-        q = Expr(:tuple, [:(vmuladd($(mask_expr(Wadjust, Utype, T, :($intsymbol[$n]))), $T($scale), $T($bound))) for n ∈ 1:N]... )
-    end
-    quote
-        $intsym = $intsymgen
-        @inbounds begin
-            $intsymbol = $isc_expr
-            $q
-        end
-    end
-end
-@generated function Random.rand(rng::AbstractPCG{P}, ::Type{NTuple{N,Vec{W,T}}}, ::Val{PCG_TYPE}) where {P,N,W,T,PCG_TYPE}
-    quote
-        $(Expr(:meta, :inline))
-        $(rand_pcg_float_quote(P, W, N, T, PCG_TYPE))
-    end
-end
-@generated function Random.rand(rng::AbstractPCG{P}, ::Type{NTuple{N,Vec{W,T}}}) where {P,N,W,T}
-    quote
-        $(Expr(:meta, :inline))
-        $(rand_pcg_float_quote(P, W, N, T, default_pcg_type(W*N, T)))
-    end
-end
-@generated function Random.rand(rng::AbstractPCG{P}, ::Type{NTuple{N,Vec{W,T}}}, l::T, u::T, ::Val{PCG_TYPE}) where {P,N,W,T,PCG_TYPE}
-    quote
-        $(Expr(:meta, :inline))
-        @fastmath begin
-            s = u - l
-            b = l - s
-        end
-        $(rand_pcg_float_quote(P, W, N, T, PCG_TYPE,:b,:s))
-    end
-end
-"""
-Returns a closed, open interval.
-Default values are l = 1.0, u = 0.0
-so that it is a (0, 1.0] (ie, an open, closed interval instead)
-"""
-@generated function Random.rand(rng::AbstractPCG{P}, ::Type{NTuple{N,Vec{W,T}}}, l::T, u::T) where {P,N,W,T}
-    quote
-        $(Expr(:meta, :inline))
-        @fastmath begin
-            s = u - l
-            b = l - s
-        end
-        $(rand_pcg_float_quote(P, W, N, T, default_pcg_type(W*N, T),:b,:s))
-    end
+@inline function randnormal(u1::Vec{W,UInt64}, u2::Vec{W,UInt64}, ::Type{T}) where {W,T<:Union{Float32,Float64}}
+    s, c = randsincos(u1, T)
+    c = vcopysign(c, u2)
+    l = log01(u2,T)
+    # @show s, c, l
+    r = vsqrt(vmul(-2.0,l))
+    vmul(s,r), vmul(c,r)
 end
 
-function extract_scale_mult(P)
-    quote
-        @inbounds begin
-            $([:($(Symbol(:state_,p)) = state[$p]) for p in 1:P]...)
-            $([:($(Symbol(:multiplier_,p)) = mult[$p]) for p in 1:P]...)
+@generated function random_normal(u::NTuple{N,Vec{W,UInt64}}, ::Type{T}) where {N,W,T}
+    q = Expr(:block, Expr(:meta, :inline))
+    ib = Expr(:block)
+    n = 0
+    while n < N - 1
+        push!(ib.args, Expr(:(=), Expr(:tuple, Symbol(:n_,n), Symbol(:n_,n+1)), Expr(:call, :randnormal, Expr(:ref, :u, n+1), Expr(:ref, :u, n+2), T)))
+        n += 2
+    end
+    if n < N # then there is odd remainder
+        # we split the vector in two, gen randnormal, and then recombine.
+        Wh = W >>> 1
+        lm = Expr(:call, Expr(:curly, :Val, Expr(:tuple, collect(0:Wh-1)...)))
+        um = Expr(:call, Expr(:curly, :Val, Expr(:tuple, collect(Wh:W-1)...)))
+        cm = Expr(:call, Expr(:curly, :Val, Expr(:tuple, collect(0:W-1)...)))
+        remq = quote
+            ulast = u[$N]
+            (sₗ, cᵤ) = randnormal(shufflevector(ulast, $lm), shufflevector(ulast, $um), $T)
+            $(Symbol(:n_,N-1)) = shufflevector(sₗ, cᵤ, $cm)
         end
+        push!(ib.args, remq)
     end
-end
-@generated function Random.rand(state::NTuple{P,Vec{W64,UInt64}}, mult::NTuple{P,Vec{W64,UInt64}}, increment::Vec{W64,UInt64}, ::Type{NTuple{N,Vec{W,T}}}, ::Val{PCG_TYPE}) where {P,N,W,T,PCG_TYPE}
-    # out = Expr(:tuple, [Symbol(:out_,n) for n in 1:N]...)
-    statetup = Expr(:tuple, [Symbol(:state_,p) for p in 1:P]...)
-    quote
-        $(Expr(:meta, :inline))
-        $(extract_scale_mult(P))
-        outtup = $(rand_pcg_float_quote(P, W, N, T, PCG_TYPE, uload = false))
-        outtup, $statetup
-    end
-end
-@generated function Random.rand(state::NTuple{P,Vec{W64,UInt64}}, mult::NTuple{P,Vec{W64,UInt64}}, increment::Vec{W64,UInt64}, ::Type{NTuple{N,Vec{W,T}}}) where {P,N,W,T}
-    statetup = Expr(:tuple, [Symbol(:state_,p) for p in 1:P]...)
-    quote
-        $(Expr(:meta, :inline))
-        $(extract_scale_mult(P))
-        outtup = $(rand_pcg_float_quote(P, W, N, T, default_pcg_type(W*N, T), uload = false))
-        outtup, $statetup
-    end
-end
-@generated function Random.rand(state::NTuple{P,Vec{W64,UInt64}}, mult::NTuple{P,Vec{W64,UInt64}}, increment::Vec{W64,UInt64}, ::Type{NTuple{N,Vec{W,T}}}, l::T, u::T, ::Val{PCG_TYPE}) where {P,N,W,T,PCG_TYPE}
-    statetup = Expr(:tuple, [Symbol(:state_,p) for p in 1:P]...)
-    quote
-        $(Expr(:meta, :inline))
-        @fastmath begin
-            s = u - l
-            b = l - s
-        end
-        $(extract_scale_mult(P))
-        outtup = $(rand_pcg_float_quote(P, W, N, T, PCG_TYPE,:b,:s, uload = false))
-        outtup, $statetup
-    end
-end
-@generated function Random.rand(state::NTuple{P,Vec{W64,UInt64}}, mult::NTuple{P,Vec{W64,UInt64}}, increment::Vec{W64,UInt64}, ::Type{NTuple{N,Vec{W,T}}}, l::T, u::T) where {P,N,W,T}
-    statetup = Expr(:tuple, [Symbol(:state_,p) for p in 1:P]...)
-    quote
-        $(Expr(:meta, :inline))
-        @fastmath begin
-            s = u - l
-            b = l - s
-        end
-        $(extract_scale_mult(P))
-        outtup = $(rand_pcg_float_quote(P, W, N, T, default_pcg_type(W*N, T), :b, :s, uload = false))
-        outtup, $statetup
-    end
-end
-
-@noinline function randexp_quote(P, W, N, T, PCG_TYPE; uload::Bool = true)
-    WT = W
-    output = Expr(:tuple)
-    q = quote
-#        $(Expr(:meta, :inline))
-        u = $(rand_pcg_float_quote(P,W,N,T,PCG_TYPE, uload = uload))
-    end
-    for n ∈ 1:N
-        e_n = Symbol(:e_,n)
-        push!(q.args, :($e_n = @inbounds vabs(SLEEFPirates.log_fast(u[$n]))) )
-        push!(output.args, e_n)
-    end
-    push!(q.args, output)
+    push!(q.args, Expr(:macrocall, Symbol("@inbounds"), LineNumberNode(@__LINE__, @__FILE__), ib))
+    push!(q.args, Expr(:tuple, [Symbol(:n_,n) for n ∈ 0:N-1]...))
     q
 end
 
-@generated function Random.randexp(rng::AbstractPCG{P}, ::Type{Vec{W,T}}, ::Val{PCG_TYPE}) where {W,P,T,PCG_TYPE}
-    quote
-        $(Expr(:meta,:inline))
-        out = $(randexp_quote(P, W, 1, T, PCG_TYPE))
-        @inbounds out[1]
-    end
-end
-@generated function Random.randexp(rng::AbstractPCG{P}, ::Type{Vec{W,T}}) where {P,W,T}
-    quote
-        $(Expr(:meta,:inline))
-        out = $(randexp_quote(P, W, 1, T, default_pcg_type(W, T)))
-        @inbounds out[1]
-    end
-end
-@generated function Random.randexp(rng::AbstractPCG{P}, ::Type{NTuple{N,Vec{W,T}}}, ::Val{PCG_TYPE}) where {P, N,W,T,PCG_TYPE}
-    quote
-        $(Expr(:meta,:inline))
-        $(randexp_quote(P, W, N, T, PCG_TYPE))
-    end
-end
-@generated function Random.randexp(rng::AbstractPCG{P}, ::Type{NTuple{N,Vec{W,T}}}) where {N,P,W,T}
-    quote
-        $(Expr(:meta,:inline))
-        $(randexp_quote(P, W, N, T, default_pcg_type(W*N, T)))
-    end
+@inline function Random.randn(rng::AbstractPCG, ::Type{NTuple{N,Vec{W,T}}}) where {N,W,T}
+    u = rand(rng, MatchingUInt(NTuple{N,Vec{W,T}}))
+    random_normal(u, T)
 end
 
-@generated function Random.randexp(state::NTuple{P,Vec{W64,UInt64}}, mult::NTuple{P,Vec{W64,UInt64}}, increment::Vec{W64,UInt64}, ::Type{NTuple{N,Vec{W,T}}}, ::Val{PCG_TYPE}) where {P,N,W,T,PCG_TYPE}
-    statetup = Expr(:tuple, [Symbol(:state_,p) for p in 1:P]...)
-    quote
-        $(Expr(:meta,:inline))
-        $(extract_scale_mult(P))
-        outtup = $(randexp_quote(P, W, N, T, PCG_TYPE, uload = false))
-        outtup, $statetup
-    end
-end
-@generated function Random.randexp(state::NTuple{P,Vec{W64,UInt64}}, mult::NTuple{P,Vec{W64,UInt64}}, increment::Vec{W64,UInt64}, ::Type{NTuple{N,Vec{W,T}}}) where {N,P,W,T}
-    statetup = Expr(:tuple, [Symbol(:state_,p) for p in 1:P]...)
-    quote
-        $(Expr(:meta,:inline))
-        $(extract_scale_mult(P))
-        outtup = $(randexp_quote(P, W, N, T, default_pcg_type(W*N, T), uload = false))
-        outtup, $statetup
-    end
+@inline function random_normal(state::NTuple{P,Vec{W,UInt64}}, mult::NTuple{P,Vec{W,UInt64}}, incr::Vec{W,UInt64}, ::Val{N}, ::Type{T}) where {P,N,W,T}
+    state, u = random_rxs_m_xs(state, mult, incr, Val{N}())
+    state, random_normal(u, T)
 end
 
-@noinline function randnegexp_quote(P, W, N, T, PCG_TYPE; uload::Bool = true)
-    WT = VectorizationBase.pick_vector_width(T)
-    NW, r = divrem(W, WT)
-    output = Expr(:tuple)
-    q = quote
-#        $(Expr(:meta, :inline))
-        u = $(rand_pcg_float_quote(P,W,N,T,PCG_TYPE))
+function random_sample!(f, x::AbstractArray{Float64}, rng::AbstractPCG{4})# where {P}
+    state, mult, incr = load_vectors(rng, Val{4}(), Val{W64}())
+    ptrx = pointer(x)
+    N = length(x)
+    n = 0
+    @inbounds while n < N + 1 - 4W64
+        state, (z₁,z₂,z₃,z₄) = f(state, mult, incr, Val{4}(), Float64)
+        vstore!(ptrx + 8n, z₁); n += W64
+        vstore!(ptrx + 8n, z₂); n += W64
+        vstore!(ptrx + 8n, z₃); n += W64
+        vstore!(ptrx + 8n, z₄); n += W64
     end
-    for n ∈ 1:NW
-        e_n = Symbol(:e_,n)
-        push!(q.args, :($e_n = SLEEFPirates.log_fast(u[$n])) )
-        push!(output.args, e_n)
-    end
-    push!(q.args, output)
-    q
+    mask = VectorizationBase.masktable(Val{W64}(), N & 7)
+    if n < N + 1 - 3W64
+        state, (z₁,z₂,z₃,z₄) = f(state, mult, incr, Val{4}(), Float64)
+        vstore!(ptrx + 8n, z₁); n += W64
+        vstore!(ptrx + 8n, z₂); n += W64
+        vstore!(ptrx + 8n, z₃); n += W64
+        vstore!(ptrx + 8n, z₄, mask);
+    elseif n < N + 1 - 2W64
+        state, (z₁,z₂,z₃) = f(state, mult, incr, Val{3}(), Float64)
+        vstore!(ptrx + 8n, z₁); n += W64
+        vstore!(ptrx + 8n, z₂); n += W64
+        vstore!(ptrx + 8n, z₃, mask);
+    elseif n < N + 1 - 1W64
+        state, (z₁,z₂) = f(state, mult, incr, Val{2}(), Float64)
+        vstore!(ptrx + 8n, z₁); n += W64
+        vstore!(ptrx + 8n, z₂, mask);
+    elseif n < N + 1
+        state, (z₁,) = f(state, mult, incr, Val{1}(), Float64)
+        vstore!(ptrx + 8n, z₁, mask);
+    end        
+    store_state!(rng, state)
+    x
 end
-
-@generated function randnegexp(rng::AbstractPCG{N}, ::Type{Vec{W,T}}, ::Val{PCG_TYPE}) where {N,W,T,PCG_TYPE}
-    quote
-        $(Expr(:meta,:inline))
-        $(randnegexp_quote(N, W, 1, T, PCG_TYPE))
-    end
-end
-@generated function randnegexp(rng::AbstractPCG{N}, ::Type{Vec{W,T}}) where {N,W,T}
-    quote
-        $(Expr(:meta,:inline))
-        $(randnegexp_quote(N, W, 1, T, default_pcg_type(W, T)))
-    end
-end
-@generated function randnegexp(rng::AbstractPCG{P}, ::Type{NTuple{N,Vec{W,T}}}, ::Val{PCG_TYPE}) where {N,P,W,T,PCG_TYPE}
-    quote
-        $(Expr(:meta,:inline))
-        $(randnegexp_quote(P, W, N, T, PCG_TYPE))
-    end
-end
-@generated function randnegexp(rng::AbstractPCG{P}, ::Type{NTuple{N,Vec{W,T}}}) where {N,W,T,P}
-    quote
-        $(Expr(:meta,:inline))
-        $(randnegexp_quote(P, W, N, T, default_pcg_type(W*N, T)))
-    end
-end
-@generated function randnegexp(state::NTuple{P,Vec{W64,UInt64}}, mult::NTuple{P,Vec{W64,UInt64}}, increment::Vec{W64,UInt64}, ::Type{NTuple{N,Vec{W,T}}}, ::Val{PCG_TYPE}) where {N,P,W,T,PCG_TYPE}
-    statetup = Expr(:tuple, [Symbol(:state_,p) for p in 1:P]...)
-    quote
-        $(Expr(:meta,:inline))
-        $(extract_scale_mult(P))
-        outtup = $(randnegexp_quote(P, W, N, T, PCG_TYPE, uload = false))
-        outtup, $statetup
-    end
-end
-@generated function randnegexp(state::NTuple{P,Vec{W64,UInt64}}, mult::NTuple{P,Vec{W64,UInt64}}, increment::Vec{W64,UInt64}, ::Type{NTuple{N,Vec{W,T}}}) where {N,W,T,P}
-    statetup = Expr(:tuple, [Symbol(:state_,p) for p in 1:P]...)
-    quote
-        $(Expr(:meta,:inline))
-        $(extract_scale_mult(P))
-        outtup = $(randnegexp_quote(P, W, N, T, default_pcg_type(W*N, T), uload = false))
-        outtup, $statetup
-    end
-end
-
-"""
-P is the order of the PCG object,
-W is the generated vector width, and
-N is the number of replications.
-"""
-@noinline function randn_quote(P, W, N, T, PCG_TYPE; uload::Bool = true)
-    WT = W
-    output = Expr(:tuple)
-    q = quote
-#        $(Expr(:meta, :inline))
-        u = $(rand_pcg_float_quote(P,W,N,T,PCG_TYPE, uload = uload))
-        vπ = vbroadcast(Vec{$WT, $T}, $(T(π)))
-    end
-    for n ∈ 1:N >>> 1
-        u1_n = Symbol(:u1_, n)
-        u2_n = Symbol(:u2_, n)
-        # get the vectors u_1 and u_2
-        push!(q.args, quote
-            $u1_n = @inbounds SLEEFPirates.log_fast(u[$(2n-1)])
-            $u2_n = @inbounds u[$(2n)]
-            $u1_n = vsqrt( vabs( vadd($u1_n, $u1_n) ) )
-            $u2_n = vadd($u2_n, $u2_n)
-        end)
-        s_n = Symbol(:s_, n)
-        c_n = Symbol(:c_, n)
-        # workaround for https://github.com/JuliaLang/julia/issues/30426
-        # if splitsincos
-        push!(q.args, :(($s_n, $c_n) = SLEEFPirates.sincos_fast(vmul($u2_n, vπ))) )
-        z1_n = Symbol(:z1_,n)
-        z2_n = Symbol(:z2_,n)
-        push!(q.args, quote
-            $z1_n = vmul($u1_n, $s_n)
-            $z2_n = vmul($u1_n, $c_n)
-        end )
-        push!(output.args, z1_n)
-        push!(output.args, z2_n)
-    end
-    if isodd(N)
-        n = (N >>> 1) + 1
-        u1_n = Symbol(:u1_, n)
-        u2_n = Symbol(:u2_, n)
-        # get the vectors u_1 and u_2
-        push!(q.args, quote
-              u_odd = @inbounds u[$N]
-            $u1_n = @inbounds SLEEFPirates.log_fast($(Expr(:tuple, [:(u_odd[$w]) for w ∈ 1:(W>>>1)]...)))
-            $u2_n = @inbounds $(Expr(:tuple, [:(u_odd[$w]) for w ∈ ((W>>>1)+1):W]...))
-            $u1_n = vsqrt( vabs( vadd($u1_n, $u1_n) ) )
-            $u2_n = vadd($u2_n, $u2_n)
-        end)
-        s_n = Symbol(:s_, n)
-        c_n = Symbol(:c_, n)
-        # workaround for https://github.com/JuliaLang/julia/issues/30426
-        # AFAIK r * sizeof(T) < 64 for all supported use cases
-        push!(q.args, :(($s_n, $c_n) = SLEEFPirates.sincos_fast(vmul($u2_n, $(T(π)))) ))
-        u_n = Symbol(:u_,n)
-        sc_n = Symbol(:sc_,n)
-        z_n = Symbol(:z_,n)
-
-        push!(q.args, quote
-              $u_n = $(Expr(:tuple, [:($u1_n[$w]) for w ∈ 1:(W>>>1)]..., [:($u1_n[$w]) for w ∈ 1:(W>>>1)]...))
-              $sc_n = $(Expr(:tuple, [:($s_n[$w]) for w ∈ 1:(W>>>1)]..., [:($c_n[$w]) for w ∈ 1:(W>>>1)]...))
-              $z_n = vmul($u_n, $sc_n)
-        end )
-        push!(output.args, z_n)
-    end
-    push!(q.args, output)
-    q
-end
-
-@generated function Random.randn(rng::AbstractPCG{N}, ::Type{Vec{W,T}}, ::Val{PCG_TYPE}) where {N,W,T,PCG_TYPE}
-    quote
-        $(Expr(:meta,:inline))
-        z = $(randn_quote(N, W, 1, T, PCG_TYPE))
-        @inbounds z[1]
-    end
-end
-# @generated function Random.randn(rng::AbstractPCG{N}, ::Type{Vec{W,T}}) where {N,W,T}
-@generated function Random.randn(rng::AbstractPCG{N}, ::Type{Vec{W,T}}) where {W,N,T}
-    quote
-        $(Expr(:meta,:inline))
-        z = $(randn_quote(N, W, 1, T, default_pcg_type(W, T)))
-        @inbounds z[1]
-    end
-end
-@generated function Random.randn(rng::AbstractPCG{P}, ::Type{NTuple{N,Vec{W,T}}}, ::Val{PCG_TYPE}) where {N,P,W,T,PCG_TYPE}
-    quote
-        $(Expr(:meta,:inline))
-        $(randn_quote(P, W, N, T, PCG_TYPE))
-    end
-end
-@generated function Random.randn(rng::AbstractPCG{P}, ::Type{NTuple{N,Vec{W,T}}}) where {N,P,W,T}
-    quote
-        $(Expr(:meta,:inline))
-        $(randn_quote(P, W, N, T, default_pcg_type(W*N, T)))
-    end
-end
-@generated function Random.randn(state::NTuple{P,Vec{W64,UInt64}}, mult::NTuple{P,Vec{W64,UInt64}}, increment::Vec{W64,UInt64}, ::Type{NTuple{N,Vec{W,T}}}, ::Val{PCG_TYPE}) where {N,P,W,T,PCG_TYPE}
-    statetup = Expr(:tuple, [Symbol(:state_,p) for p in 1:P]...)
-    quote
-        $(Expr(:meta,:inline))
-        $(extract_scale_mult(P))
-        outtup = $(randn_quote(P, W, N, T, PCG_TYPE, uload = false))
-        outtup, $statetup
-    end
-end
-@generated function Random.randn(state::NTuple{P,Vec{W64,UInt64}}, mult::NTuple{P,Vec{W64,UInt64}}, increment::Vec{W64,UInt64}, ::Type{NTuple{N,Vec{W,T}}}) where {N,P,W,T}
-    statetup = Expr(:tuple, [Symbol(:state_,p) for p in 1:P]...)
-    quote
-        $(Expr(:meta,:inline))
-        $(extract_scale_mult(P))
-        outtup = $(randn_quote(P, W, N, T, default_pcg_type(W*N, T), uload = false))
-        outtup, $statetup
-    end
+function Random.randn!(rng::AbstractPCG{4}, x::AbstractVector{Float64})
+    random_sample!(random_normal, x, rng)
 end
 
 @noinline function rand_loop_quote(P, T, rngexpr, args...)

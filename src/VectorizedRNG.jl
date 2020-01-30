@@ -4,17 +4,18 @@ using VectorizationBase, SIMDPirates, SLEEFPirates, Random
 using VectorizationBase: VE, REGISTER_SIZE
 using SIMDPirates: vreinterpret, vxor, vor, vand, vuright_bitshift,
                         vbroadcast, vadd, vmul, vsub, vabs, vsqrt,
-                        extract_data, vstore!
+                        extract_data, vstore!, vcopysign
 
 using Distributed: myid
 
-export local_pcg, rand!, randn!, randexp!
+export local_pcg, rand!, randn!, randexp!, randexp
 
 const W64 = REGISTER_SIZE >> 3
 const W32 = REGISTER_SIZE >> 2
 const W16 = REGISTER_SIZE >> 1
 
 include("multipliers.jl")
+include("special_approximations.jl")
 include("PCG.jl")
 include("random_distributions.jl")
 
@@ -23,8 +24,8 @@ const GLOBAL_vPCGs = Ref{Ptr{UInt64}}()
 local_pcg(i) = PtrPCG{4}(i*9REGISTER_SIZE + GLOBAL_vPCGs[])
 local_pcg() = local_pcg(Base.Threads.threadid() - 1)
 
-include("precompile.jl")
-_precompile_()
+# include("precompile.jl")
+# _precompile_()
 
 function __init__()
     nthreads = Base.Threads.nthreads()
