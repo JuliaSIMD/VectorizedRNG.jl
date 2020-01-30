@@ -459,32 +459,35 @@ end
 
 function random_sample!(f, x::AbstractArray{Float64}, rng::AbstractPCG{2})
     state, mult, incr = load_vectors(rng, Val{2}(), Val{W64}())
+    GC.@preserve x begin
     ptrx = pointer(x)
     N = length(x)
     n = 0
-    @inbounds while n < N + 1 - 2W64
+    while n < N + 1 - 2W64
         state, (z₁,z₂) = f(state, mult, incr, Val{2}(), Float64)
         vstore!(ptrx + 8n, z₁); n += W64
         vstore!(ptrx + 8n, z₂); n += W64
     end
     mask = VectorizationBase.masktable(Val{W64}(), N & (W64-1))
-    if n < N + 1 - 1W64
+    if n < N - 1W64
         state, (z₁,z₂) = f(state, mult, incr, Val{2}(), Float64)
         vstore!(ptrx + 8n, z₁); n += W64
         vstore!(ptrx + 8n, z₂, mask);
-    elseif n < N + 1
+    elseif n < N
         state, (z₁,) = f(state, mult, incr, Val{1}(), Float64)
         vstore!(ptrx + 8n, z₁, mask);
     end        
     store_state!(rng, state)
+    end # GC preserve
     x
 end
 function random_sample!(f, x::AbstractArray{Float64}, rng::AbstractPCG{4})
     state, mult, incr = load_vectors(rng, Val{4}(), Val{W64}())
+    GC.@preserve x begin
     ptrx = pointer(x)
     N = length(x)
     n = 0
-    @inbounds while n < N + 1 - 4W64
+    while n < N + 1 - 4W64
         state, (z₁,z₂,z₃,z₄) = f(state, mult, incr, Val{4}(), Float64)
         vstore!(ptrx + 8n, z₁); n += W64
         vstore!(ptrx + 8n, z₂); n += W64
@@ -492,26 +495,27 @@ function random_sample!(f, x::AbstractArray{Float64}, rng::AbstractPCG{4})
         vstore!(ptrx + 8n, z₄); n += W64
     end
     mask = VectorizationBase.masktable(Val{W64}(), N & (W64-1))
-    if n < N + 1 - 3W64
+    if n < N - 3W64
         state, (z₁,z₂,z₃,z₄) = f(state, mult, incr, Val{4}(), Float64)
         vstore!(ptrx + 8n, z₁); n += W64
         vstore!(ptrx + 8n, z₂); n += W64
         vstore!(ptrx + 8n, z₃); n += W64
         vstore!(ptrx + 8n, z₄, mask);
-    elseif n < N + 1 - 2W64
+    elseif n < N - 2W64
         state, (z₁,z₂,z₃) = f(state, mult, incr, Val{3}(), Float64)
         vstore!(ptrx + 8n, z₁); n += W64
         vstore!(ptrx + 8n, z₂); n += W64
         vstore!(ptrx + 8n, z₃, mask);
-    elseif n < N + 1 - 1W64
+    elseif n < N - W64
         state, (z₁,z₂) = f(state, mult, incr, Val{2}(), Float64)
         vstore!(ptrx + 8n, z₁); n += W64
         vstore!(ptrx + 8n, z₂, mask);
-    elseif n < N + 1
+    elseif n < N
         state, (z₁,) = f(state, mult, incr, Val{1}(), Float64)
         vstore!(ptrx + 8n, z₁, mask);
     end        
     store_state!(rng, state)
+    end # GC preserve
     x
 end
 function Random.randn!(rng::AbstractPCG{4}, x::AbstractVector{Float64})
