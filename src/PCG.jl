@@ -104,6 +104,7 @@ out_tup_expr(N) = name_n_tup_expr(:out_, N)
     @assert 8WV ≤ REGISTER_SIZE
     loads = min(N,P)
     q = quote
+        # $(Expr(:meta,:inline))
         prng = pointer(rng)
         increment = vbroadcast(Vec{$WV,UInt64}, prng + $(2P) * $REGISTER_SIZE)
     end
@@ -123,6 +124,7 @@ out_tup_expr(N) = name_n_tup_expr(:out_, N)
 end
 @generated function store_state!(rng::AbstractPCG, states::NTuple{N,Vec{W,T}}) where {N,W,T}
     q = quote
+        # $(Expr(:meta,:inline))
         prng = pointer(rng)
     end
     for n ∈ 1:N
@@ -455,7 +457,29 @@ end
     state, random_normal(u, T)
 end
 
-function random_sample!(f, x::AbstractArray{Float64}, rng::AbstractPCG{4})# where {P}
+function random_sample!(f, x::AbstractArray{Float64}, rng::AbstractPCG{2})
+    state, mult, incr = load_vectors(rng, Val{2}(), Val{W64}())
+    ptrx = pointer(x)
+    N = length(x)
+    n = 0
+    @inbounds while n < N + 1 - 2W64
+        state, (z₁,z₂) = f(state, mult, incr, Val{2}(), Float64)
+        vstore!(ptrx + 8n, z₁); n += W64
+        vstore!(ptrx + 8n, z₂); n += W64
+    end
+    mask = VectorizationBase.masktable(Val{W64}(), N & (W64-1))
+    if n < N + 1 - 1W64
+        state, (z₁,z₂) = f(state, mult, incr, Val{2}(), Float64)
+        vstore!(ptrx + 8n, z₁); n += W64
+        vstore!(ptrx + 8n, z₂, mask);
+    elseif n < N + 1
+        state, (z₁,) = f(state, mult, incr, Val{1}(), Float64)
+        vstore!(ptrx + 8n, z₁, mask);
+    end        
+    store_state!(rng, state)
+    x
+end
+function random_sample!(f, x::AbstractArray{Float64}, rng::AbstractPCG{4})
     state, mult, incr = load_vectors(rng, Val{4}(), Val{W64}())
     ptrx = pointer(x)
     N = length(x)
@@ -467,7 +491,7 @@ function random_sample!(f, x::AbstractArray{Float64}, rng::AbstractPCG{4})# wher
         vstore!(ptrx + 8n, z₃); n += W64
         vstore!(ptrx + 8n, z₄); n += W64
     end
-    mask = VectorizationBase.masktable(Val{W64}(), N & 7)
+    mask = VectorizationBase.masktable(Val{W64}(), N & (W64-1))
     if n < N + 1 - 3W64
         state, (z₁,z₂,z₃,z₄) = f(state, mult, incr, Val{4}(), Float64)
         vstore!(ptrx + 8n, z₁); n += W64
