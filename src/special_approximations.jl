@@ -37,6 +37,7 @@ end
 @inline suboneopenconst(::Type{Float32}) = 1.9999999f0
 @inline suboneopenconst(::Type{Float64}) = 1.9999999999999998
 @inline function randsincos(u, ::Type{T}) where {T}
+    # return SLEEFPirates.sincos(mask(u, T))
     r = mask(u, T)
     ooc = oneopenconst(T)
     sininput = vsub(r, ooc)
@@ -99,6 +100,7 @@ end
 end
 
 @inline function log01(u::Vec{W,UInt64}, ::Type{Float64}) where {W}
+    # return SIMDPirates.vsub(SIMDPirates.vlog(mask(u, Float64)))
     lz = SIMDPirates.vleading_zeros( u )
     # f = mask(u, Float64) # shift by lz
     f = mask(shift_excess_zeros(u, lz), Float64) # shift by lz
@@ -106,5 +108,6 @@ end
     l2 = vsub(l2h, vadd(lz, 1))
     vmul(0.6931471805599453, l2)
 end
+
 
 

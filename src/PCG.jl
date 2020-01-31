@@ -374,12 +374,15 @@ end
 @inline oneopenconst(::Type{Float64}) = 0.9999999999999999
 @inline oneopenconst(::Type{Float32}) = 0.99999994f0
 
+@inline random_uniform(u::Vec{W,UInt64}, ::Type{T}) where {W,T} = vsub(mask(u, T), oneopenconst(T))
+
+
 """
 Samples uniformly from (0.0,1.0)
 """
 @inline function Random.rand(rng::AbstractPCG, ::Type{Vec{W,T}}) where {W,T}
     u = rand(rng, Vec{W,UInt64})
-    vsub(mask(u, T), oneopenconst(T))
+    random_uniform(u, T)
 end
 """
 if l < u,
@@ -395,13 +398,15 @@ That is, the "l" side of the interval is closed, and the "u" side is open.
     u = rand(rng, MatchingUInt(Vec{W,T}))
     vfmadd(s, mask(u, T), b)
 end
-
-@generated function Random.rand(rng::AbstractPCG, ::Type{NTuple{N,Vec{W,T}}}) where {N,W,T<:Union{Float32,Float64}}
-    quote
-        $(Expr(:meta,:inline))
-        u = rand(rng, MatchingUInt(NTuple{N,Vec{W,T}}))
-        $(Expr(:tuple, [:(vsub(mask(@inbounds(u[$n]), T), oneopenconst(T))) for n ∈ 1:N]...))
-    end
+@generated function random_uniform(u::NTuple{N,Vec{W,UInt64}}, ::Type{T}) where {N,W,T}
+    Expr(
+        :block,
+        Expr(:meta,:inline),
+        Expr(:tuple, [Expr(:call, :random_uniform, Expr(:macrocall, Symbol("@inbounds"), LineNumberNode(@__LINE__,@__FILE__), Expr(:ref, :u, n)), T) for n ∈ 1:N]...)
+    )
+end
+@inline function Random.rand(rng::AbstractPCG, ::Type{NTuple{N,Vec{W,T}}}) where {N,W,T<:Union{Float32,Float64}}
+    random_uniform(rand(rng, MatchingUInt(NTuple{N,Vec{W,T}})), T)
 end
 @generated function Random.rand(rng::AbstractPCG, ::Type{NTuple{N,Vec{W,T}}}, l::T, u::T) where {N,W,T<:Union{Float32,Float64}}
     quote
@@ -412,9 +417,9 @@ end
         $(Expr(:tuple, [:(vfmadd(s, mask(@inbounds(u[$n]), T), b)) for n ∈ 1:N]...))        
     end
 end
+
 @inline function randnormal(u1::Vec{W,UInt64}, u2::Vec{W,UInt64}, ::Type{T}) where {W,T<:Union{Float32,Float64}}
     s, c = randsincos(u1, T)
-    c = vcopysign(c, u2)
     l = log01(u2,T)
     # @show s, c, l
     r = vsqrt(vmul(-2.0,l))
@@ -452,6 +457,10 @@ end
     random_normal(u, T)
 end
 
+@inline function random_uniform(state::NTuple{P,Vec{W,UInt64}}, mult::NTuple{P,Vec{W,UInt64}}, incr::Vec{W,UInt64}, ::Val{N}, ::Type{T}) where {P,N,W,T}
+    state, u = random_rxs_m_xs(state, mult, incr, Val{N}())
+    state, random_uniform(u, T)
+end
 @inline function random_normal(state::NTuple{P,Vec{W,UInt64}}, mult::NTuple{P,Vec{W,UInt64}}, incr::Vec{W,UInt64}, ::Val{N}, ::Type{T}) where {P,N,W,T}
     state, u = random_rxs_m_xs(state, mult, incr, Val{N}())
     state, random_normal(u, T)
@@ -517,6 +526,9 @@ function random_sample!(f, x::AbstractArray{Float64}, rng::AbstractPCG{4})
     store_state!(rng, state)
     end # GC preserve
     x
+end
+function Random.rand!(rng::AbstractPCG{4}, x::AbstractVector{Float64})
+    random_sample!(random_uniform, x, rng)
 end
 function Random.randn!(rng::AbstractPCG{4}, x::AbstractVector{Float64})
     random_sample!(random_normal, x, rng)

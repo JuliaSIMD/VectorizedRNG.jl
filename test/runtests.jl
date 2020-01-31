@@ -6,6 +6,11 @@ using RNGTest, Distributions, Random
 @testset "VectorizedRNG.jl" begin
     # Write your own tests here.
 
+    rn01() = cdf(Normal(), randn())
+    RNGTest.smallcrushTestU01(rn01)
+    
+    rngunif = RNGTest.wrap(local_pcg(), Float64);
+    RNGTest.smallcrushTestU01(rngunif)
 
     struct RandNormal01{T<:VectorizedRNG.AbstractPCG} <: Random.AbstractRNG
         pcg::T
