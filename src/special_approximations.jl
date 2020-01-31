@@ -42,7 +42,7 @@ end
     sininput = vsub(r, ooc)
     s = vcopysign(approx_sin6(sininput), u)
     cosinput = vfnmadd(ooc, r, suboneopenconst(T))
-    c = approx_sin6(cosinput)
+    c = vcopysign( approx_sin6(cosinput), SIMDPirates.vleft_bitshift( u, 1 ) )
     s, c
 end
 
@@ -86,12 +86,24 @@ end
     vfmadd(vfmadd(vfmadd(vfmadd(vfmadd(vfmadd(vfmadd(vfmadd(vfmadd(c9, x, c8), x, c7), x, c6), x, c5), x, c4), x, c3), x, c2), x, c1), x, c0)
 end
 
+# unlikely to do anything, but avoids bias when more than 12 of the leading bits are 0
+@inline function shift_excess_zeros(u::Vec{W,UInt64}, lz::Vec{W,UInt64}) where {W}
+    lzsub = vsub(vreinterpret(Vec{W,Int64}, lz), 11)
+    bitmask = SIMDPirates.vgreater(lzsub, 0)
+    lzshift = vreinterpret(Vec{W,UInt64}, lzsub)
+    vifelse(bitmask, SIMDPirates.vleft_bitshift( u, lzshift ), u)
+
+    # lzsub = vsub(vreinterpret(Vec{W,Int64}, lz), 11)
+    # lzshift = vreinterpret(Vec{W,UInt64}, SIMDPirates.vmax(lzsub, SIMDPirates.vzero(Vec{W,Int64})))
+    # SIMDPirates.vleft_bitshift( u, lzshift )
+end
+
 @inline function log01(u::Vec{W,UInt64}, ::Type{Float64}) where {W}
-    top0 = vand(u, 0x000fffffffffffff)
-    lz = vadd(SIMDPirates.vleading_zeros( SIMDPirates.vleft_bitshift( u, 1 ) ), 1)
-    f = vreinterpret(Vec{W,Float64}, vor(top0, 0x3ff0000000000000))
+    lz = SIMDPirates.vleading_zeros( u )
+    # f = mask(u, Float64) # shift by lz
+    f = mask(shift_excess_zeros(u, lz), Float64) # shift by lz
     l2h = log12_7(f)
-    l2 = vsub(l2h, lz)
+    l2 = vsub(l2h, vadd(lz, 1))
     vmul(0.6931471805599453, l2)
 end
 
