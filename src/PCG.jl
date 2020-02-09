@@ -527,66 +527,13 @@ function random_sample!(f, x::AbstractArray{Float64}, rng::AbstractPCG{4})
     end # GC preserve
     x
 end
-function Random.rand!(rng::AbstractPCG{4}, x::AbstractVector{Float64})
+function Random.rand!(rng::AbstractPCG{4}, x::AbstractArray{Float64})
     random_sample!(random_uniform, x, rng)
 end
-function Random.randn!(rng::AbstractPCG{4}, x::AbstractVector{Float64})
+function Random.randn!(rng::AbstractPCG{4}, x::AbstractArray{Float64})
     random_sample!(random_normal, x, rng)
 end
 
-@noinline function rand_loop_quote(P, T, rngexpr, args...)
-    W, Wshift = VectorizationBase.pick_vector_width_shift(T)
-    statetup = Expr(:tuple, [Symbol(:state_,p) for p in 1:P]...)
-    multtup = Expr(:tuple, [Symbol(:multiplier_,p) for p in 1:P]...)
-    quote
-        ptr_A = pointer(A)
-        prng = pointer(rng)
-        $([:($(Symbol(:state_, p)) = vload(Vec{$W64,UInt64}, prng + $(REGISTER_SIZE * (p-1)) )) for p in 1:P]...)
-        $([:($(Symbol(:multiplier_, p)) = vload(Vec{$W64,UInt64}, prng + $(REGISTER_SIZE * (P + p-1)) )) for p in 1:P]...)
-        increment = vbroadcast(Vec{$W64,UInt64}, prng + $(2P) * REGISTER_SIZE)
-        L = length(A)
-        nrep, nrem = divrem(L, $(P*W))
-        GC.@preserve A begin
-            for i ∈ 0:nrep-1
-                r, $statetup = $rngexpr($statetup, $multtup, increment, NTuple{$P,Vec{$W,$T}}, $(args...))
-                Base.Cartesian.@nexprs $P n -> begin
-                    @inbounds SIMDPirates.vstore!(ptr_A + $(sizeof(T)*W) * ( (n-1) + $(P)*i ), r[n])
-                end
-            end
-            if nrem > 0
-                # r, $statetup = $rngexpr($statetup, $multtup, increment, NTuple{$P,Vec{$W,$T}}, $(args...))
-                nremrep = nrem >>> $Wshift
-                nremrem = nrem & $(W - 1)
-                for n ∈ 1:nremrep
-                    r_1, (state_1,) = $rngexpr((state_1,), (multiplier_1,), increment, Tuple{Vec{$W,$T}}, $(args...))
-                    @inbounds SIMDPirates.vstore!(ptr_A + $(sizeof(T)*W) * ( (n-1) + $(P)*nrep ), r_1[1])
-                end
-                if nremrem > 0
-                    r_1, (state_1,) = $rngexpr((state_1,), (multiplier_1,), increment, Tuple{Vec{$W,$T}}, $(args...))
-                    @inbounds SIMDPirates.vstore!(ptr_A + $(sizeof(T)*W) * (nremrep + $(P)*nrep ), r_1[1], VectorizationBase.mask(T,nremrem))
-                end
-            end
-            $([:(vstore!(prng + $(REGISTER_SIZE * (p-1)), $(Symbol(:state_,p)))) for p in 1:P]...)
-            return A
-        end
-    end
-end
-
-@generated function Random.rand!(rng::AbstractPCG{P}, A::AbstractArray{T}, ::Val{PCG_TYPE} = Val{RXS_M_XS}()) where {T <: Real, P, PCG_TYPE}
-    rand_loop_quote(adjust_vector_width(P, PCG_TYPE), T, :rand)
-end
-@generated function Random.rand!(rng::AbstractPCG{P}, A::AbstractArray{T}, l::T, u::T, ::Val{PCG_TYPE} = Val{RXS_M_XS}()) where {P,T <: Real, PCG_TYPE}
-    rand_loop_quote(adjust_vector_width(P, PCG_TYPE), T, :rand, :l, :u)
-end
-@generated function Random.randexp!(rng::AbstractPCG{P}, A::AbstractArray{T}, ::Val{PCG_TYPE} = Val{RXS_M_XS}()) where {P,T <: Real, PCG_TYPE}
-    rand_loop_quote(adjust_vector_width(P, PCG_TYPE), T, :randexp)
-end
-@generated function Random.randn!(
-    rng::AbstractPCG{P}, A::AbstractArray{T}, ::Val{PCG_TYPE} = Val{RXS_M_XS}()
-) where {P, T <: Real, PCG_TYPE}
-#) where {T <: Real, P, PCG_TYPE}
-    rand_loop_quote(adjust_vector_width(P, PCG_TYPE), T, :randn)
-end
 Random.rand(rng::AbstractPCG, d1::Integer, dims::Vararg{Integer,N} where N) = rand!(rng, Array{Float64}(undef, d1, dims...))
 Random.randn(rng::AbstractPCG, d1::Integer, dims::Vararg{Integer,N} where N) = randn!(rng, Array{Float64}(undef, d1, dims...))
 Random.randexp(rng::AbstractPCG, d1::Integer, dims::Vararg{Integer,N} where N) = randexp!(rng, Array{Float64}(undef, d1, dyims...))
