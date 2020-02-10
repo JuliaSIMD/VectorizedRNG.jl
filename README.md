@@ -7,73 +7,72 @@
 [![Codecov](https://codecov.io/gh/chriselrod/VectorizedRNG.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/chriselrod/VectorizedRNG.jl)
 
 
-This library provides vectorized PCG random number generators. The larger the host computers SIMD vector width, the better they will perform. On a machine with avx-512, they are faster than [SIMD-oriented Fast Mersenne Twister (SFMT) ](http://www.math.sci.hiroshima-u.ac.jp/~m-mat/MT/SFMT/). Base Julia uses dSFMT,  which in a few tests appears to outperform this library on avx2 systems in generating uniformly distributed random numbers.
+This library provides vectorized PCG random number generators. The larger the host computers SIMD vector width, the better they will perform. On a machine with AVX-512, they are faster than [SIMD-oriented Fast Mersenne Twister (SFMT) ](http://www.math.sci.hiroshima-u.ac.jp/~m-mat/MT/SFMT/). Base Julia uses dSFMT,  which in a few tests appears to outperform this library on avx2 systems in generating uniformly distributed random numbers.
 
-This library .
+Testing on an old haswell machine (AVX2-only):
 
 ```julia
 julia> using BenchmarkTools, Random, VectorizedRNG
 
-julia> pcg_rxs_m_xs = VectorizedRNG.PCG_RXS_M_XS{4}();
-
 julia> x = Vector{Float64}(undef, 1024);
 
-julia> @benchmark rand!($x) # uses dSFMT
+julia> @benchmark randn!($x)
 BenchmarkTools.Trial:
   memory estimate:  0 bytes
   allocs estimate:  0
   --------------
-  minimum time:     516.479 ns (0.00% GC)
-  median time:      531.307 ns (0.00% GC)
-  mean time:        553.124 ns (0.00% GC)
-  maximum time:     891.109 ns (0.00% GC)
+  minimum time:     6.328 μs (0.00% GC)
+  median time:      6.657 μs (0.00% GC)
+  mean time:        6.738 μs (0.00% GC)
+  maximum time:     50.580 μs (0.00% GC)
   --------------
   samples:          10000
-  evals/sample:     192
+  evals/sample:     5
 
-julia> @benchmark rand!($pcg_rxs_m_xs, $x)
+julia> @benchmark randn!(local_pcg(), $x)
 BenchmarkTools.Trial:
   memory estimate:  0 bytes
   allocs estimate:  0
   --------------
-  minimum time:     294.776 ns (0.00% GC)
-  median time:      295.386 ns (0.00% GC)
-  mean time:        308.432 ns (0.00% GC)
-  maximum time:     562.986 ns (0.00% GC)
+  minimum time:     3.304 μs (0.00% GC)
+  median time:      3.311 μs (0.00% GC)
+  mean time:        3.465 μs (0.00% GC)
+  maximum time:     31.240 μs (0.00% GC)
   --------------
   samples:          10000
-  evals/sample:     210
+  evals/sample:     8
 ```
-The performance advantage increases when we generate single precision numbers:
+The performance advantage is thanks primarily to a fast SIMD [Box-Muller](https://en.wikipedia.org/wiki/Box%E2%80%93Muller_transform) implementation; `randn(::MersenneTwister)` uses the ziggurat algorithm, which is more efficient for scalars.
+With only AVX2, the `Random` underlying uniform random number generator is faster than `VectorizedRNG`:
+
 ```julia
-julia> x32 = Vector{Float32}(undef, 1024);
-
-julia> @benchmark rand!($x32) # using dSFMT
+julia> @benchmark rand!($x)
 BenchmarkTools.Trial:
   memory estimate:  0 bytes
   allocs estimate:  0
   --------------
-  minimum time:     619.111 ns (0.00% GC)
-  median time:      623.579 ns (0.00% GC)
-  mean time:        651.004 ns (0.00% GC)
-  maximum time:     1.115 μs (0.00% GC)
+  minimum time:     807.052 ns (0.00% GC)
+  median time:      809.753 ns (0.00% GC)
+  mean time:        823.041 ns (0.00% GC)
+  maximum time:     3.731 μs (0.00% GC)
   --------------
   samples:          10000
-  evals/sample:     171
+  evals/sample:     97
 
-julia> @benchmark rand!($pcg_rxs_m_xs, $x32)
+julia> @benchmark rand!(local_pcg(), $x)
 BenchmarkTools.Trial:
   memory estimate:  0 bytes
   allocs estimate:  0
   --------------
-  minimum time:     158.713 ns (0.00% GC)
-  median time:      159.869 ns (0.00% GC)
-  mean time:        166.891 ns (0.00% GC)
-  maximum time:     240.278 ns (0.00% GC)
+  minimum time:     1.428 μs (0.00% GC)
+  median time:      1.528 μs (0.00% GC)
+  mean time:        1.529 μs (0.00% GC)
+  maximum time:     23.094 μs (0.00% GC)
   --------------
   samples:          10000
-  evals/sample:     792
+  evals/sample:     10
 ```
+
 
 The `PCG_RXS_M_XS{N}` generator generates `N*W` bytes at a time, where `W` is vector width (in bytes), while `PCG_XSH_RR_Core{N}` generates `N*W ÷ 2` bytes at a time. `PCG_XSH_RR` is not as fast:
 ```julia

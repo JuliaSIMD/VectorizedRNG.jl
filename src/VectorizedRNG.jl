@@ -17,7 +17,7 @@ const W16 = REGISTER_SIZE >> 1
 include("multipliers.jl")
 include("special_approximations.jl")
 include("PCG.jl")
-include("random_distributions.jl")
+# include("random_distributions.jl")
 
 const GLOBAL_vPCGs = Ref{Ptr{UInt64}}()
 
