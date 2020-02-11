@@ -72,6 +72,64 @@ BenchmarkTools.Trial:
   samples:          10000
   evals/sample:     10
 ```
+This library shines on a system with AVX512:
+```julia
+julia> using BenchmarkTools, Random, VectorizedRNG
+
+julia> x = Vector{Float64}(undef, 1024);
+
+julia> @benchmark randn!($x)
+BenchmarkTools.Trial: 
+  memory estimate:  0 bytes
+  allocs estimate:  0
+  --------------
+  minimum time:     4.019 μs (0.00% GC)
+  median time:      4.241 μs (0.00% GC)
+  mean time:        4.283 μs (0.00% GC)
+  maximum time:     8.550 μs (0.00% GC)
+  --------------
+  samples:          10000
+  evals/sample:     7
+
+julia> @benchmark randn!(local_pcg(), $x)
+BenchmarkTools.Trial: 
+  memory estimate:  0 bytes
+  allocs estimate:  0
+  --------------
+  minimum time:     903.415 ns (0.00% GC)
+  median time:      908.732 ns (0.00% GC)
+  mean time:        909.480 ns (0.00% GC)
+  maximum time:     1.257 μs (0.00% GC)
+  --------------
+  samples:          10000
+  evals/sample:     41
+
+julia> @benchmark rand!($x)
+BenchmarkTools.Trial: 
+  memory estimate:  0 bytes
+  allocs estimate:  0
+  --------------
+  minimum time:     559.565 ns (0.00% GC)
+  median time:      564.726 ns (0.00% GC)
+  mean time:        565.247 ns (0.00% GC)
+  maximum time:     662.941 ns (0.00% GC)
+  --------------
+  samples:          10000
+  evals/sample:     186
+
+julia> @benchmark rand!(local_pcg(), $x)
+BenchmarkTools.Trial: 
+  memory estimate:  0 bytes
+  allocs estimate:  0
+  --------------
+  minimum time:     270.262 ns (0.00% GC)
+  median time:      275.839 ns (0.00% GC)
+  mean time:        275.366 ns (0.00% GC)
+  maximum time:     337.282 ns (0.00% GC)
+  --------------
+  samples:          10000
+  evals/sample:     301
+```
 
 
 The `PCG_RXS_M_XS{N}` generator generates `N*W` bytes at a time, where `W` is vector width (in bytes), while `PCG_XSH_RR_Core{N}` generates `N*W ÷ 2` bytes at a time. `PCG_XSH_RR` is not as fast:
