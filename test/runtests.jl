@@ -34,11 +34,4 @@ end
     
 end
 
-using BenchmarkTools, Random, VectorizedRNG
-x = Vector{Float64}(undef, 1024);
-@benchmark randn!($x)
-@benchmark randn!(local_pcg(), $x)
-
-
-@code_native debuginfo=:none VectorizedRNG.random_sample!(VectorizedRNG.random_normal, local_pcg(), x)
 
