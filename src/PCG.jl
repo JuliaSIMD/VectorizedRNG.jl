@@ -53,13 +53,13 @@ end
     for n ∈ 0:N-1
         n_quote = quote
             # state
-            SIMDPirates.vstore!(ptr + $n * $REGISTER_SIZE, Base.Cartesian.@ntuple $W64 w -> Core.VecElement(rand(UInt64)))
+            SIMDPirates.vstorea!(gep(ptr, $n * $W64), (Base.Cartesian.@ntuple $W64 w -> Core.VecElement(rand(UInt64))))
             # multiplier
-            SIMDPirates.vstore!(ptr + $(N + n) * $REGISTER_SIZE, MULTIPLIERS[(Base.Threads.atomic_add!(MULT_NUMBER, 1) + offset * $N - 1) % $(length(MULTIPLIERS)) + 1])
+            SIMDPirates.vstorea!(gep(ptr, $(N + n) * $W64), MULTIPLIERS[(Base.Threads.atomic_add!(MULT_NUMBER, 1) + offset * $N - 1) % $(length(MULTIPLIERS)) + 1])
         end
         push!(q.args, n_quote)
     end
-    push!(q.args, :(VectorizationBase.store!(ptr + $(2N)*$REGISTER_SIZE, one(UInt64) + 2 * ((MULT_NUMBER[] + offset * N - 1) ÷ $(length(MULTIPLIERS))) )))
+    push!(q.args, :(VectorizationBase.store!(gep(ptr, $(2N)*$W64), one(UInt64) + 2 * ((MULT_NUMBER[] + offset * N - 1) ÷ $(length(MULTIPLIERS))))))
     push!(q.args, :pcg)
     q
 end
@@ -115,8 +115,8 @@ out_tup_expr(N) = name_n_tup_expr(:out_, N)
         multiplier = Symbol(:multiplier_, n)
         push!(states.args, state); push!(multipliers.args, multiplier)
         push!(q.args, quote
-              $state = vload(Vec{$WV,UInt64}, prng + $(REGISTER_SIZE * (n-1)) )
-              $multiplier = vload(Vec{$WV,UInt64}, prng + $(REGISTER_SIZE * (P + n-1)) )
+              $state = vloada(Vec{$WV,UInt64}, prng + $(REGISTER_SIZE * (n-1)))
+              $multiplier = vloada(Vec{$WV,UInt64}, prng + $(REGISTER_SIZE * (P + n-1)))
               end)
     end
     push!(q.args, Expr(:tuple, states, multipliers, :increment))
@@ -128,7 +128,7 @@ end
         prng = pointer(rng)
     end
     for n ∈ 1:N
-        push!(q.args, :(vstore!(prng + $(REGISTER_SIZE * (n-1)), @inbounds($(Expr(:ref, :states, n))))))
+        push!(q.args, :(vstorea!(prng + $(REGISTER_SIZE * (n-1)), @inbounds($(Expr(:ref, :states, n))))))
     end
     push!(q.args, nothing)
     q
@@ -466,7 +466,7 @@ end
     state, random_normal(u, T)
 end
 
-function random_sample!(f, x::AbstractArray{Float64}, rng::AbstractPCG{2})
+function random_sample!(f, rng::AbstractPCG{2}, x::AbstractArray{Float64})
     state, mult, incr = load_vectors(rng, Val{2}(), Val{W64}())
     GC.@preserve x begin
     ptrx = pointer(x)
@@ -490,7 +490,7 @@ function random_sample!(f, x::AbstractArray{Float64}, rng::AbstractPCG{2})
     end # GC preserve
     x
 end
-function random_sample!(f, x::AbstractArray{Float64}, rng::AbstractPCG{4})
+function random_sample!(f, rng::AbstractPCG{4}, x::AbstractArray{Float64})
     state, mult, incr = load_vectors(rng, Val{4}(), Val{W64}())
     GC.@preserve x begin
     ptrx = pointer(x)
@@ -528,10 +528,10 @@ function random_sample!(f, x::AbstractArray{Float64}, rng::AbstractPCG{4})
     x
 end
 function Random.rand!(rng::AbstractPCG{4}, x::AbstractArray{Float64})
-    random_sample!(random_uniform, x, rng)
+    random_sample!(random_uniform, rng, x)
 end
 function Random.randn!(rng::AbstractPCG{4}, x::AbstractArray{Float64})
-    random_sample!(random_normal, x, rng)
+    random_sample!(random_normal, rng, x)
 end
 
 Random.rand(rng::AbstractPCG, d1::Integer, dims::Vararg{Integer,N} where N) = rand!(rng, Array{Float64}(undef, d1, dims...))
