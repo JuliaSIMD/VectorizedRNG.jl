@@ -43,14 +43,6 @@ repo-url = "https://github.com/chriselrod/SIMDPirates.jl"
 uuid = "21efa798-c60a-11e8-04d3-e1a92915a26a"
 version = "0.3.12"
 
-[[SLEEFPirates]]
-deps = ["Libdl", "SIMDPirates", "VectorizationBase"]
-git-tree-sha1 = "21b7521126e466370b7fe22e65bd174f5d703c08"
-repo-rev = "master"
-repo-url = "https://github.com/chriselrod/SLEEFPirates.jl"
-uuid = "476501e8-09a2-5ece-8869-fb82de89a1fa"
-version = "0.3.5"
-
 [[Serialization]]
 uuid = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
 

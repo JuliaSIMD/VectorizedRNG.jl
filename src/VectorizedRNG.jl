@@ -1,6 +1,6 @@
 module VectorizedRNG
 
-using VectorizationBase, SIMDPirates, SLEEFPirates, Random
+using VectorizationBase, SIMDPirates, Random
 using VectorizationBase: VE, REGISTER_SIZE, gep
 using SIMDPirates: vreinterpret, vxor, vor, vand, vuright_bitshift,
                         vbroadcast, vadd, vmul, vsub, vabs, vsqrt,
