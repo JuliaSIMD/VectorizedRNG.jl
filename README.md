@@ -83,10 +83,10 @@ BenchmarkTools.Trial:
   memory estimate:  0 bytes
   allocs estimate:  0
   --------------
-  minimum time:     4.019 μs (0.00% GC)
-  median time:      4.241 μs (0.00% GC)
-  mean time:        4.283 μs (0.00% GC)
-  maximum time:     8.550 μs (0.00% GC)
+  minimum time:     4.057 μs (0.00% GC)
+  median time:      4.267 μs (0.00% GC)
+  mean time:        4.299 μs (0.00% GC)
+  maximum time:     6.935 μs (0.00% GC)
   --------------
   samples:          10000
   evals/sample:     7
@@ -96,23 +96,23 @@ BenchmarkTools.Trial:
   memory estimate:  0 bytes
   allocs estimate:  0
   --------------
-  minimum time:     903.415 ns (0.00% GC)
-  median time:      908.732 ns (0.00% GC)
-  mean time:        909.480 ns (0.00% GC)
-  maximum time:     1.257 μs (0.00% GC)
+  minimum time:     1.162 μs (0.00% GC)
+  median time:      1.166 μs (0.00% GC)
+  mean time:        1.168 μs (0.00% GC)
+  maximum time:     2.322 μs (0.00% GC)
   --------------
   samples:          10000
-  evals/sample:     41
+  evals/sample:     10
 
 julia> @benchmark rand!($x)
 BenchmarkTools.Trial: 
   memory estimate:  0 bytes
   allocs estimate:  0
   --------------
-  minimum time:     559.565 ns (0.00% GC)
-  median time:      564.726 ns (0.00% GC)
-  mean time:        565.247 ns (0.00% GC)
-  maximum time:     662.941 ns (0.00% GC)
+  minimum time:     557.387 ns (0.00% GC)
+  median time:      564.220 ns (0.00% GC)
+  mean time:        564.813 ns (0.00% GC)
+  maximum time:     663.629 ns (0.00% GC)
   --------------
   samples:          10000
   evals/sample:     186
@@ -122,13 +122,92 @@ BenchmarkTools.Trial:
   memory estimate:  0 bytes
   allocs estimate:  0
   --------------
-  minimum time:     270.262 ns (0.00% GC)
-  median time:      275.839 ns (0.00% GC)
-  mean time:        275.366 ns (0.00% GC)
-  maximum time:     337.282 ns (0.00% GC)
+  minimum time:     272.885 ns (0.00% GC)
+  median time:      275.636 ns (0.00% GC)
+  mean time:        275.845 ns (0.00% GC)
+  maximum time:     335.875 ns (0.00% GC)
   --------------
   samples:          10000
-  evals/sample:     301
+  evals/sample:     305
+```
+
+## BigCrush
+
+The generators pass [BigCrush](https://github.com/andreasnoack/RNGTest.jl). After fixing [a bug](https://github.com/andreasnoack/RNGTest.jl/blob/35545de8afc05f447a0a2c73f72e5ec3f326549c/src/RNGTest.jl#L309) on current master, we can run BigCrush in a matter of minutes on a multicore system (10980XE CPU). Testing the uniform number generator:
+```julia
+julia> using Distributed; addprocs(); nprocs()
+37
+
+julia> @everywhere using RNGTest, VectorizedRNG, Random
+
+julia> @everywhere struct U01 <: Random.AbstractRNG end
+
+julia> @everywhere Random.rand!(r::U01, x::AbstractArray) = rand!(local_pcg(), x)
+
+julia> u01 = U01()
+U01()
+
+julia> rngunif = RNGTest.wrap(U01(), Float64);
+
+julia> @time bcjunif = RNGTest.bigcrushJulia(rngunif);
+517.220661 seconds (31.89 M allocations: 1.635 GiB, 0.09% gc time)
+
+julia> minimum(minimum.(bcjunif))
+0.005978468963826811
+
+julia> maximum(maximum.(bcjunif))
+0.9990609584561341
+```
+and applying the cdf to the normal generator:
+```julia
+julia> using Distributed; addprocs(); nprocs()
+37
+
+julia> @everywhere begin;
+	using Random
+	using VectorizedRNG
+	using RNGTest
+	const INVSQRT2 = 1/sqrt(2)
+	@inline function normalcdf(v)
+		T = eltype(v)
+		T(0.5) * ( one(T) + VectorizedRNG.SIMDPirates.verf( v * INVSQRT2 ) )
+	end
+	function normalcdf!(x::AbstractVector{T}) where {T}
+		_W, Wshift = VectorizedRNG.VectorizationBase.pick_vector_width_shift(T)
+		W = VectorizedRNG.VectorizationBase.pick_vector_width_val(T)
+		N = length(x)
+		ptrx = pointer(x)
+		i = 0
+		for _ ∈ 1:(N >>> Wshift)
+			ptrxᵢ = VectorizedRNG.VectorizationBase.gep(ptrx, i)
+			v = VectorizedRNG.SIMDPirates.vload(W, ptrxᵢ)
+			VectorizedRNG.SIMDPirates.vstore!(ptrxᵢ, normalcdf(v))
+			i += _W
+		end
+		if i < N
+			ptrxᵢ = VectorizedRNG.VectorizationBase.gep(ptrx, i)
+			mask = VectorizedRNG.VectorizationBase.mask(T, N & (_W - 1))
+			v = VectorizedRNG.SIMDPirates.vload(W, ptrxᵢ, mask)
+			VectorizedRNG.SIMDPirates.vstore!(ptrxᵢ, normalcdf(v), mask)
+		end
+		x
+	end
+end
+
+julia> @everywhere struct RN01 <: Random.AbstractRNG end
+
+julia> @everywhere Random.rand!(r::RN01, x::AbstractArray) = normalcdf!(randn!(local_pcg(), x))
+
+julia> rngnorm = RNGTest.wrap(RN01(), Float64);
+
+julia> @time bcj = RNGTest.bigcrushJulia(rngnorm);
+596.693903 seconds (31.89 M allocations: 1.635 GiB, 0.08% gc time)
+
+julia> minimum(minimum.(bcj))
+0.020987049198274432
+
+julia> maximum(maximum.(bcj))
+0.9933685809294241
 ```
 
 
