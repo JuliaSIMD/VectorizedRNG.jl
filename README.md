@@ -17,27 +17,27 @@ julia> using BenchmarkTools, Random, VectorizedRNG
 julia> x = Vector{Float64}(undef, 1024);
 
 julia> @benchmark randn!($x)
-BenchmarkTools.Trial:
+BenchmarkTools.Trial: 
   memory estimate:  0 bytes
   allocs estimate:  0
   --------------
-  minimum time:     6.328 μs (0.00% GC)
-  median time:      6.657 μs (0.00% GC)
-  mean time:        6.738 μs (0.00% GC)
-  maximum time:     50.580 μs (0.00% GC)
+  minimum time:     8.505 μs (0.00% GC)
+  median time:      8.926 μs (0.00% GC)
+  mean time:        9.028 μs (0.00% GC)
+  maximum time:     52.038 μs (0.00% GC)
   --------------
   samples:          10000
   evals/sample:     5
 
 julia> @benchmark randn!(local_pcg(), $x)
-BenchmarkTools.Trial:
+BenchmarkTools.Trial: 
   memory estimate:  0 bytes
   allocs estimate:  0
   --------------
-  minimum time:     3.304 μs (0.00% GC)
-  median time:      3.311 μs (0.00% GC)
-  mean time:        3.465 μs (0.00% GC)
-  maximum time:     31.240 μs (0.00% GC)
+  minimum time:     3.924 μs (0.00% GC)
+  median time:      4.203 μs (0.00% GC)
+  mean time:        4.163 μs (0.00% GC)
+  maximum time:     30.179 μs (0.00% GC)
   --------------
   samples:          10000
   evals/sample:     8
@@ -47,27 +47,27 @@ With only AVX2, the `Random` underlying uniform random number generator is faste
 
 ```julia
 julia> @benchmark rand!($x)
-BenchmarkTools.Trial:
+BenchmarkTools.Trial: 
   memory estimate:  0 bytes
   allocs estimate:  0
   --------------
-  minimum time:     807.052 ns (0.00% GC)
-  median time:      809.753 ns (0.00% GC)
-  mean time:        823.041 ns (0.00% GC)
-  maximum time:     3.731 μs (0.00% GC)
+  minimum time:     791.533 ns (0.00% GC)
+  median time:      844.272 ns (0.00% GC)
+  mean time:        846.581 ns (0.00% GC)
+  maximum time:     13.238 μs (0.00% GC)
   --------------
   samples:          10000
-  evals/sample:     97
+  evals/sample:     92
 
 julia> @benchmark rand!(local_pcg(), $x)
-BenchmarkTools.Trial:
+BenchmarkTools.Trial: 
   memory estimate:  0 bytes
   allocs estimate:  0
   --------------
-  minimum time:     1.428 μs (0.00% GC)
-  median time:      1.528 μs (0.00% GC)
-  mean time:        1.529 μs (0.00% GC)
-  maximum time:     23.094 μs (0.00% GC)
+  minimum time:     1.431 μs (0.00% GC)
+  median time:      1.534 μs (0.00% GC)
+  mean time:        1.541 μs (0.00% GC)
+  maximum time:     22.076 μs (0.00% GC)
   --------------
   samples:          10000
   evals/sample:     10
