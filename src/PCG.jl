@@ -402,7 +402,7 @@ end
     Expr(
         :block,
         Expr(:meta,:inline),
-        Expr(:tuple, [Expr(:call, :random_uniform, Expr(:macrocall, Symbol("@inbounds"), LineNumberNode(@__LINE__,@__FILE__), Expr(:ref, :u, n)), T) for n ∈ 1:N]...)
+        Expr(:tuple, [Expr(:call, :random_uniform, Expr(:macrocall, Symbol("@inbounds"), LineNumberNode(@__LINE__,Symbol(@__FILE__)), Expr(:ref, :u, n)), T) for n ∈ 1:N]...)
     )
 end
 @inline function Random.rand(rng::AbstractPCG, ::Type{NTuple{N,Vec{W,T}}}) where {N,W,T<:Union{Float32,Float64}}
@@ -447,7 +447,7 @@ end
         end
         push!(ib.args, remq)
     end
-    push!(q.args, Expr(:macrocall, Symbol("@inbounds"), LineNumberNode(@__LINE__, @__FILE__), ib))
+    push!(q.args, Expr(:macrocall, Symbol("@inbounds"), LineNumberNode(@__LINE__, Symbol(@__FILE__)), ib))
     push!(q.args, Expr(:tuple, [Symbol(:n_,n) for n ∈ 0:N-1]...))
     q
 end
