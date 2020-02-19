@@ -21,10 +21,10 @@ BenchmarkTools.Trial:
   memory estimate:  0 bytes
   allocs estimate:  0
   --------------
-  minimum time:     8.505 μs (0.00% GC)
-  median time:      8.926 μs (0.00% GC)
-  mean time:        9.028 μs (0.00% GC)
-  maximum time:     52.038 μs (0.00% GC)
+  minimum time:     6.320 μs (0.00% GC)
+  median time:      6.740 μs (0.00% GC)
+  mean time:        7.109 μs (0.00% GC)
+  maximum time:     51.131 μs (0.00% GC)
   --------------
   samples:          10000
   evals/sample:     5
@@ -34,13 +34,13 @@ BenchmarkTools.Trial:
   memory estimate:  0 bytes
   allocs estimate:  0
   --------------
-  minimum time:     3.924 μs (0.00% GC)
-  median time:      4.203 μs (0.00% GC)
-  mean time:        4.163 μs (0.00% GC)
-  maximum time:     30.179 μs (0.00% GC)
+  minimum time:     4.334 μs (0.00% GC)
+  median time:      4.363 μs (0.00% GC)
+  mean time:        4.708 μs (0.00% GC)
+  maximum time:     35.323 μs (0.00% GC)
   --------------
   samples:          10000
-  evals/sample:     8
+  evals/sample:     7
 ```
 The performance advantage is thanks primarily to a fast SIMD [Box-Muller](https://en.wikipedia.org/wiki/Box%E2%80%93Muller_transform) implementation; `randn(::MersenneTwister)` uses the ziggurat algorithm, which is more efficient for scalars.
 With only AVX2, the `Random` underlying uniform random number generator is faster than `VectorizedRNG`:
@@ -51,23 +51,23 @@ BenchmarkTools.Trial:
   memory estimate:  0 bytes
   allocs estimate:  0
   --------------
-  minimum time:     791.533 ns (0.00% GC)
-  median time:      844.272 ns (0.00% GC)
-  mean time:        846.581 ns (0.00% GC)
-  maximum time:     13.238 μs (0.00% GC)
+  minimum time:     835.798 ns (0.00% GC)
+  median time:      922.893 ns (0.00% GC)
+  mean time:        941.433 ns (0.00% GC)
+  maximum time:     3.507 μs (0.00% GC)
   --------------
   samples:          10000
-  evals/sample:     92
+  evals/sample:     84
 
 julia> @benchmark rand!(local_pcg(), $x)
 BenchmarkTools.Trial: 
   memory estimate:  0 bytes
   allocs estimate:  0
   --------------
-  minimum time:     1.431 μs (0.00% GC)
-  median time:      1.534 μs (0.00% GC)
-  mean time:        1.541 μs (0.00% GC)
-  maximum time:     22.076 μs (0.00% GC)
+  minimum time:     1.428 μs (0.00% GC)
+  median time:      1.433 μs (0.00% GC)
+  mean time:        1.519 μs (0.00% GC)
+  maximum time:     23.062 μs (0.00% GC)
   --------------
   samples:          10000
   evals/sample:     10
@@ -133,7 +133,7 @@ BenchmarkTools.Trial:
 
 ## BigCrush
 
-The generators pass [BigCrush](https://github.com/andreasnoack/RNGTest.jl). After fixing [a bug](https://github.com/andreasnoack/RNGTest.jl/blob/35545de8afc05f447a0a2c73f72e5ec3f326549c/src/RNGTest.jl#L309) on current master, we can run BigCrush in a matter of minutes on a multicore system (10980XE CPU). Testing the uniform number generator:
+The generators pass [BigCrush](https://github.com/andreasnoack/RNGTest.jl). We can run BigCrush in a matter of minutes on a multicore system (10980XE CPU). Testing the uniform number generator:
 ```julia
 julia> using Distributed; addprocs(); nprocs()
 37
