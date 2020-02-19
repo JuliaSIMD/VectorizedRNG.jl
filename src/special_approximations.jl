@@ -188,24 +188,21 @@ end
     const9 = constv(reinterpret(Float64,167482009228346368))
     decl = "declare <$W x double> @llvm.fma.v$(W)f64(<$W x double>, <$W x double>, <$W x double>)"
     instr = """
-      %m1 = fsub <$W x double> %0, $onev
-      %p1 = fadd <$W x double> %0, $onev
-      %q = fdiv <$W x double> %m1, %p1
-      %pr1 = fmul <$W x double> %q, %q
+      %pr1 = fmul <$W x double> %0, %0
       %fma1 = tail call <$W x double> @llvm.fma.v$(W)f64(<$W x double> %pr1, $const1, $const2)
       %fma2 = tail call <$W x double> @llvm.fma.v$(W)f64(<$W x double> %fma1, <$W x double> %pr1, $const3)
       %fma3 = tail call <$W x double> @llvm.fma.v$(W)f64(<$W x double> %fma2, <$W x double> %pr1, $const4)
       %fma4 = tail call <$W x double> @llvm.fma.v$(W)f64(<$W x double> %fma3, <$W x double> %pr1, $const5)
       %fma5 = tail call <$W x double> @llvm.fma.v$(W)f64(<$W x double> %fma4, <$W x double> %pr1, $const6)
       %fma6 = tail call <$W x double> @llvm.fma.v$(W)f64(<$W x double> %fma5, <$W x double> %pr1, $const7)
-      %fma7 = fmul <$W x double> %q, $const8
+      %fma7 = fmul <$W x double> %0, $const8
       %fma8 = fneg <$W x double> %fma7
-      %fma9 = tail call <$W x double> @llvm.fma.v$(W)f64(<$W x double> %q, <$W x double> $const8, <$W x double> %fma8)
+      %fma9 = tail call <$W x double> @llvm.fma.v$(W)f64(<$W x double> %0, <$W x double> $const8, <$W x double> %fma8)
       %fadd1 = fadd <$W x double> %1, %fma7
       %m2 = fsub <$W x double> %1, %fadd1
       %p2 = fadd <$W x double> %fma7, %m2
       %p3 = fadd <$W x double> %fma9, %p2
-      %pr2 = fmul <$W x double> %q, %pr1
+      %pr2 = fmul <$W x double> %0, %pr1
       %p4 = fadd <$W x double> %fadd1, %p3
       %retv = tail call <$W x double> @llvm.fma.v$(W)f64(<$W x double> %fma6, <$W x double> %pr2, <$W x double> %p4)
       ret <$W x double> %retv
@@ -218,7 +215,10 @@ end
 @inline function log01(u::Vec{W,UInt64}, ::Type{Float64}) where {W}
     lz = SIMDPirates.vleading_zeros( u )
     # f = mask(u, Float64) # shift by lz
-    f = vmul(0.75, mask(shift_excess_zeros(u, lz), Float64)) # shift by lz
+    # f = vmul(0.75, mask(shift_excess_zeros(u, lz), Float64)) # shift by lz
+    # f = vfdiv(vsub(f, 1.0), vadd(f, 1.0))
+    f = mask(shift_excess_zeros(u, lz), Float64) # shift by lz
+    f = vfdiv(vsub(f, 1.3333333333333333), vadd(f, 1.3333333333333333))
     # l2h = log12_9(f)
     l2 = log2_3q(f, vsub(-0.5849625007211561814537389439478165087598144076924810604557526545410982277943579, lz))
     vmul(0.6931471805599453, l2)
