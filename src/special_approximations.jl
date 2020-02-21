@@ -172,7 +172,47 @@ end
     vmul(0.6931471805599453, l2)
 end
 
-
+@static if Base.libllvm_version < v"8"
+@generated function log2_3q(v::Vec{W,Float64}, e::Vec{W,Float64}) where {W}
+    onev = "<double " * join((1.0 for _ ∈ 1:W), ", double ") * ">"
+    constv = x -> "<$W x double> <double " * join((x for _ ∈ 1:W), ", double ") * ">"
+    constvnotyp = x -> "<double " * join((x for _ ∈ 1:W), ", double ") * ">"
+    const1 = constv(reinterpret(Float64,0x3FCC501739F17BA9))
+    const2 = constv(reinterpret(Float64,0x3FCC2B7A962850E9))
+    const3 = constv(reinterpret(Float64,0x3FD0CAAEEB877481))
+    const4 = constv(reinterpret(Float64,0x3FD484AC6A7CB2DD))
+    const5 = constv(reinterpret(Float64,0x3FDA617636C2C254))
+    const6 = constv(reinterpret(Float64,0x3FE2776C50E7EDE9))
+    const7 = constv(reinterpret(Float64,0x3FEEC709DC3A07B2))
+    const8 = constvnotyp(reinterpret(Float64,0x40071547652B82FE))
+    const9 = constv(reinterpret(Float64,167482009228346368))
+    decl = "declare <$W x double> @llvm.fma.v$(W)f64(<$W x double>, <$W x double>, <$W x double>)"
+    instr = """
+      %pr1 = fmul <$W x double> %0, %0
+      %fma1 = tail call <$W x double> @llvm.fma.v$(W)f64(<$W x double> %pr1, $const1, $const2)
+      %fma2 = tail call <$W x double> @llvm.fma.v$(W)f64(<$W x double> %fma1, <$W x double> %pr1, $const3)
+      %fma3 = tail call <$W x double> @llvm.fma.v$(W)f64(<$W x double> %fma2, <$W x double> %pr1, $const4)
+      %fma4 = tail call <$W x double> @llvm.fma.v$(W)f64(<$W x double> %fma3, <$W x double> %pr1, $const5)
+      %fma5 = tail call <$W x double> @llvm.fma.v$(W)f64(<$W x double> %fma4, <$W x double> %pr1, $const6)
+      %fma6 = tail call <$W x double> @llvm.fma.v$(W)f64(<$W x double> %fma5, <$W x double> %pr1, $const7)
+      %fma7 = fmul <$W x double> %0, $const8
+      %fma8 = fsub fast <$W x double> zeroinitializer, %fma7
+      %fma9 = tail call <$W x double> @llvm.fma.v$(W)f64(<$W x double> %0, <$W x double> $const8, <$W x double> %fma8)
+      %fadd1 = fadd <$W x double> %1, %fma7
+      %m2 = fsub <$W x double> %1, %fadd1
+      %p2 = fadd <$W x double> %fma7, %m2
+      %p3 = fadd <$W x double> %fma9, %p2
+      %pr2 = fmul <$W x double> %0, %pr1
+      %p4 = fadd <$W x double> %fadd1, %p3
+      %retv = tail call <$W x double> @llvm.fma.v$(W)f64(<$W x double> %fma6, <$W x double> %pr2, <$W x double> %p4)
+      ret <$W x double> %retv
+    """
+    quote
+        $(Expr(:meta,:inline))
+        Base.llvmcall(($decl, $instr), Vec{$W,Float64}, Tuple{Vec{$W,Float64},Vec{$W,Float64}}, v, e)
+    end
+end
+else
 @generated function log2_3q(v::Vec{W,Float64}, e::Vec{W,Float64}) where {W}
     onev = "<double " * join((1.0 for _ ∈ 1:W), ", double ") * ">"
     constv = x -> "<$W x double> <double " * join((x for _ ∈ 1:W), ", double ") * ">"
@@ -211,6 +251,7 @@ end
         $(Expr(:meta,:inline))
         Base.llvmcall(($decl, $instr), Vec{$W,Float64}, Tuple{Vec{$W,Float64},Vec{$W,Float64}}, v, e)
     end
+end
 end
 @inline function log01(u::Vec{W,UInt64}, ::Type{Float64}) where {W}
     lz = SIMDPirates.vleading_zeros( u )
