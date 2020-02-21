@@ -74,62 +74,66 @@ BenchmarkTools.Trial:
 ```
 This library shines on a system with AVX512:
 ```julia
+julia> using VectorizedRNG
+
+julia> using LoopVectorization
+
 julia> using BenchmarkTools, Random, VectorizedRNG
 
 julia> x = Vector{Float64}(undef, 1024);
 
 julia> @benchmark randn!($x)
-BenchmarkTools.Trial: 
+BenchmarkTools.Trial:
   memory estimate:  0 bytes
   allocs estimate:  0
   --------------
-  minimum time:     4.057 μs (0.00% GC)
-  median time:      4.267 μs (0.00% GC)
-  mean time:        4.299 μs (0.00% GC)
-  maximum time:     6.935 μs (0.00% GC)
+  minimum time:     4.037 μs (0.00% GC)
+  median time:      4.235 μs (0.00% GC)
+  mean time:        4.256 μs (0.00% GC)
+  maximum time:     6.901 μs (0.00% GC)
   --------------
   samples:          10000
   evals/sample:     7
 
 julia> @benchmark randn!(local_pcg(), $x)
-BenchmarkTools.Trial: 
+BenchmarkTools.Trial:
   memory estimate:  0 bytes
   allocs estimate:  0
   --------------
-  minimum time:     1.162 μs (0.00% GC)
-  median time:      1.166 μs (0.00% GC)
-  mean time:        1.168 μs (0.00% GC)
-  maximum time:     2.322 μs (0.00% GC)
+  minimum time:     1.183 μs (0.00% GC)
+  median time:      1.189 μs (0.00% GC)
+  mean time:        1.191 μs (0.00% GC)
+  maximum time:     2.288 μs (0.00% GC)
   --------------
   samples:          10000
   evals/sample:     10
 
 julia> @benchmark rand!($x)
-BenchmarkTools.Trial: 
+BenchmarkTools.Trial:
   memory estimate:  0 bytes
   allocs estimate:  0
   --------------
-  minimum time:     557.387 ns (0.00% GC)
-  median time:      564.220 ns (0.00% GC)
-  mean time:        564.813 ns (0.00% GC)
-  maximum time:     663.629 ns (0.00% GC)
+  minimum time:     563.362 ns (0.00% GC)
+  median time:      568.292 ns (0.00% GC)
+  mean time:        568.997 ns (0.00% GC)
+  maximum time:     668.551 ns (0.00% GC)
   --------------
   samples:          10000
-  evals/sample:     186
+  evals/sample:     185
 
 julia> @benchmark rand!(local_pcg(), $x)
-BenchmarkTools.Trial: 
+BenchmarkTools.Trial:
   memory estimate:  0 bytes
   allocs estimate:  0
   --------------
-  minimum time:     272.885 ns (0.00% GC)
-  median time:      275.636 ns (0.00% GC)
-  mean time:        275.845 ns (0.00% GC)
-  maximum time:     335.875 ns (0.00% GC)
+  minimum time:     273.132 ns (0.00% GC)
+  median time:      274.693 ns (0.00% GC)
+  mean time:        275.009 ns (0.00% GC)
+  maximum time:     354.924 ns (0.00% GC)
   --------------
   samples:          10000
-  evals/sample:     305
-```
+  evals/sample:     303
+  ```
 
 ## BigCrush
 
@@ -139,6 +143,7 @@ julia> using Distributed; addprocs(); nprocs()
 37
 
 julia> @everywhere using RNGTest, VectorizedRNG, Random
+[ Info: Precompiling RNGTest [97cc5700-e6cb-5ca1-8fb2-7f6b45264ecd]
 
 julia> @everywhere struct U01 <: Random.AbstractRNG end
 
@@ -150,49 +155,49 @@ U01()
 julia> rngunif = RNGTest.wrap(U01(), Float64);
 
 julia> @time bcjunif = RNGTest.bigcrushJulia(rngunif);
-517.220661 seconds (31.89 M allocations: 1.635 GiB, 0.09% gc time)
+515.822511 seconds (31.86 M allocations: 1.633 GiB, 0.07% gc time)
 
 julia> minimum(minimum.(bcjunif))
-0.005978468963826811
+0.011956745927781287
 
 julia> maximum(maximum.(bcjunif))
-0.9990609584561341
+0.9789973072036692
 ```
-and applying the cdf to the normal generator:
+and applying the cdf to the normal generator, it runs in under 10 minutes:
 ```julia
 julia> using Distributed; addprocs(); nprocs()
 37
 
 julia> @everywhere begin;
-	using Random
-	using VectorizedRNG
-	using RNGTest
-	const INVSQRT2 = 1/sqrt(2)
-	@inline function normalcdf(v)
-		T = eltype(v)
-		T(0.5) * ( one(T) + VectorizedRNG.SIMDPirates.verf( v * INVSQRT2 ) )
-	end
-	function normalcdf!(x::AbstractVector{T}) where {T}
-		_W, Wshift = VectorizedRNG.VectorizationBase.pick_vector_width_shift(T)
-		W = VectorizedRNG.VectorizationBase.pick_vector_width_val(T)
-		N = length(x)
-		ptrx = pointer(x)
-		i = 0
-		for _ ∈ 1:(N >>> Wshift)
-			ptrxᵢ = VectorizedRNG.VectorizationBase.gep(ptrx, i)
-			v = VectorizedRNG.SIMDPirates.vload(W, ptrxᵢ)
-			VectorizedRNG.SIMDPirates.vstore!(ptrxᵢ, normalcdf(v))
-			i += _W
-		end
-		if i < N
-			ptrxᵢ = VectorizedRNG.VectorizationBase.gep(ptrx, i)
-			mask = VectorizedRNG.VectorizationBase.mask(T, N & (_W - 1))
-			v = VectorizedRNG.SIMDPirates.vload(W, ptrxᵢ, mask)
-			VectorizedRNG.SIMDPirates.vstore!(ptrxᵢ, normalcdf(v), mask)
-		end
-		x
-	end
-end
+        using Random
+        using VectorizedRNG
+        using RNGTest
+        const INVSQRT2 = 1/sqrt(2)
+        @inline function normalcdf(v)
+                T = eltype(v)
+                T(0.5) * ( one(T) + VectorizedRNG.SIMDPirates.verf( v * INVSQRT2 ) )
+        end
+        function normalcdf!(x::AbstractVector{T}) where {T}
+                _W, Wshift = VectorizedRNG.VectorizationBase.pick_vector_width_shift(T)
+                W = VectorizedRNG.VectorizationBase.pick_vector_width_val(T)
+                N = length(x)
+                ptrx = pointer(x)
+                i = 0
+                for _ ∈ 1:(N >>> Wshift)
+                        ptrxᵢ = VectorizedRNG.VectorizationBase.gep(ptrx, i)
+                        v = VectorizedRNG.SIMDPirates.vload(W, ptrxᵢ)
+                        VectorizedRNG.SIMDPirates.vstore!(ptrxᵢ, normalcdf(v))
+                        i += _W
+                end
+                if i < N
+                        ptrxᵢ = VectorizedRNG.VectorizationBase.gep(ptrx, i)
+                        mask = VectorizedRNG.VectorizationBase.mask(T, N & (_W - 1))
+                        v = VectorizedRNG.SIMDPirates.vload(W, ptrxᵢ, mask)
+                        VectorizedRNG.SIMDPirates.vstore!(ptrxᵢ, normalcdf(v), mask)
+                end
+                x
+        end
+       end
 
 julia> @everywhere struct RN01 <: Random.AbstractRNG end
 
@@ -201,15 +206,14 @@ julia> @everywhere Random.rand!(r::RN01, x::AbstractArray) = normalcdf!(randn!(l
 julia> rngnorm = RNGTest.wrap(RN01(), Float64);
 
 julia> @time bcj = RNGTest.bigcrushJulia(rngnorm);
-596.693903 seconds (31.89 M allocations: 1.635 GiB, 0.08% gc time)
+599.973976 seconds (9.77 M allocations: 513.287 MiB, 0.02% gc time)
 
 julia> minimum(minimum.(bcj))
-0.020987049198274432
+0.0007634498380764132
 
 julia> maximum(maximum.(bcj))
-0.9933685809294241
+0.9905810414645684
 ```
-
 
 ***
 
