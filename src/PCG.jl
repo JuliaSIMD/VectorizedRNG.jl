@@ -53,9 +53,9 @@ end
     for n ∈ 0:N-1
         n_quote = quote
             # state
-            SIMDPirates.vstorea!(gep(ptr, $n * $W64), (Base.Cartesian.@ntuple $W64 w -> Core.VecElement(rand(UInt64))))
+            SIMDPirates.storea!(gep(ptr, $n * $W64), (Base.Cartesian.@ntuple $W64 w -> Core.VecElement(rand(UInt64))))
             # multiplier
-            SIMDPirates.vstorea!(gep(ptr, $(N + n) * $W64), MULTIPLIERS[(Base.Threads.atomic_add!(MULT_NUMBER, 1) + offset * $N - 1) % $(length(MULTIPLIERS)) + 1])
+            SIMDPirates.storea!(gep(ptr, $(N + n) * $W64), MULTIPLIERS[(Base.Threads.atomic_add!(MULT_NUMBER, 1) + offset * $N - 1) % $(length(MULTIPLIERS)) + 1])
         end
         push!(q.args, n_quote)
     end
@@ -115,8 +115,8 @@ out_tup_expr(N) = name_n_tup_expr(:out_, N)
         multiplier = Symbol(:multiplier_, n)
         push!(states.args, state); push!(multipliers.args, multiplier)
         push!(q.args, quote
-              $state = vloada(Vec{$WV,UInt64}, prng + $(REGISTER_SIZE * (n-1)))
-              $multiplier = vloada(Vec{$WV,UInt64}, prng + $(REGISTER_SIZE * (P + n-1)))
+              $state = loada(Vec{$WV,UInt64}, prng + $(REGISTER_SIZE * (n-1)))
+              $multiplier = loada(Vec{$WV,UInt64}, prng + $(REGISTER_SIZE * (P + n-1)))
               end)
     end
     push!(q.args, Expr(:tuple, states, multipliers, :increment))
@@ -128,7 +128,7 @@ end
         prng = pointer(rng)
     end
     for n ∈ 1:N
-        push!(q.args, :(vstorea!(prng + $(REGISTER_SIZE * (n-1)), @inbounds($(Expr(:ref, :states, n))))))
+        push!(q.args, :(storea!(prng + $(REGISTER_SIZE * (n-1)), @inbounds($(Expr(:ref, :states, n))))))
     end
     push!(q.args, nothing)
     q
@@ -474,17 +474,17 @@ function random_sample!(f, rng::AbstractPCG{2}, x::AbstractArray{Float64})
     n = 0
     while n < N + 1 - 2W64
         state, (z₁,z₂) = f(state, mult, incr, Val{2}(), Float64)
-        vstore!(ptrx + 8n, z₁); n += W64
-        vstore!(ptrx + 8n, z₂); n += W64
+        store!(ptrx, z₁, n); n += W64
+        store!(ptrx, z₂, n); n += W64
     end
     mask = VectorizationBase.masktable(Val{W64}(), N & (W64-1))
     if n < N - 1W64
         state, (z₁,z₂) = f(state, mult, incr, Val{2}(), Float64)
-        vstore!(ptrx + 8n, z₁); n += W64
-        vstore!(ptrx + 8n, z₂, mask);
+        store!(ptrx, z₁, n); n += W64
+        store!(ptrx, z₂, n, mask);
     elseif n < N
         state, (z₁,) = f(state, mult, incr, Val{1}(), Float64)
-        vstore!(ptrx + 8n, z₁, mask);
+        store!(ptrx, z₁, n, mask);
     end        
     store_state!(rng, state)
     end # GC preserve
@@ -498,30 +498,30 @@ function random_sample!(f, rng::AbstractPCG{4}, x::AbstractArray{Float64})
     n = 0
     while n < N + 1 - 4W64
         state, (z₁,z₂,z₃,z₄) = f(state, mult, incr, Val{4}(), Float64)
-        vstore!(ptrx + 8n, z₁); n += W64
-        vstore!(ptrx + 8n, z₂); n += W64
-        vstore!(ptrx + 8n, z₃); n += W64
-        vstore!(ptrx + 8n, z₄); n += W64
+        store!(ptrx, z₁, n); n += W64
+        store!(ptrx, z₂, n); n += W64
+        store!(ptrx, z₃, n); n += W64
+        store!(ptrx, z₄, n); n += W64
     end
     mask = VectorizationBase.masktable(Val{W64}(), N & (W64-1))
     if n < N - 3W64
         state, (z₁,z₂,z₃,z₄) = f(state, mult, incr, Val{4}(), Float64)
-        vstore!(ptrx + 8n, z₁); n += W64
-        vstore!(ptrx + 8n, z₂); n += W64
-        vstore!(ptrx + 8n, z₃); n += W64
-        vstore!(ptrx + 8n, z₄, mask);
+        store!(ptrx, z₁, n); n += W64
+        store!(ptrx, z₂, n); n += W64
+        store!(ptrx, z₃, n); n += W64
+        store!(ptrx, z₄, n, mask);
     elseif n < N - 2W64
         state, (z₁,z₂,z₃) = f(state, mult, incr, Val{3}(), Float64)
-        vstore!(ptrx + 8n, z₁); n += W64
-        vstore!(ptrx + 8n, z₂); n += W64
-        vstore!(ptrx + 8n, z₃, mask);
+        store!(ptrx, z₁, n); n += W64
+        store!(ptrx, z₂, n); n += W64
+        store!(ptrx, z₃, n, mask);
     elseif n < N - W64
         state, (z₁,z₂) = f(state, mult, incr, Val{2}(), Float64)
-        vstore!(ptrx + 8n, z₁); n += W64
-        vstore!(ptrx + 8n, z₂, mask);
+        store!(ptrx, z₁, n); n += W64
+        store!(ptrx, z₂, n, mask);
     elseif n < N
         state, (z₁,) = f(state, mult, incr, Val{1}(), Float64)
-        vstore!(ptrx + 8n, z₁, mask);
+        store!(ptrx, z₁, n, mask);
     end        
     store_state!(rng, state)
     end # GC preserve

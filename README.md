@@ -76,8 +76,6 @@ This library shines on a system with AVX512:
 ```julia
 julia> using VectorizedRNG
 
-julia> using LoopVectorization
-
 julia> using BenchmarkTools, Random, VectorizedRNG
 
 julia> x = Vector{Float64}(undef, 1024);
@@ -133,7 +131,7 @@ BenchmarkTools.Trial:
   --------------
   samples:          10000
   evals/sample:     303
-  ```
+```
 
 ## BigCrush
 

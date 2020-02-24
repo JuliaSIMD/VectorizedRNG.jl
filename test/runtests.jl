@@ -26,15 +26,15 @@ function normalcdf!(x::AbstractVector{T}) where {T}
     i = 0
     for _ ∈ 1:(N >>> Wshift)
         ptrxᵢ = VectorizedRNG.VectorizationBase.gep(ptrx, i)
-        v = VectorizedRNG.SIMDPirates.vload(W, ptrxᵢ)
-        VectorizedRNG.SIMDPirates.vstore!(ptrxᵢ, normalcdf(v))
+        v = VectorizedRNG.SIMDPirates.load(W, ptrxᵢ)
+        VectorizedRNG.SIMDPirates.store!(ptrxᵢ, normalcdf(v))
         i += _W
     end
     if i < N
         ptrxᵢ = VectorizedRNG.VectorizationBase.gep(ptrx, i)
         mask = VectorizedRNG.VectorizationBase.mask(T, N & (_W - 1))
-        v = VectorizedRNG.SIMDPirates.vload(W, ptrxᵢ, mask)
-        VectorizedRNG.SIMDPirates.vstore!(ptrxᵢ, normalcdf(v), mask)
+        v = VectorizedRNG.SIMDPirates.load(W, ptrxᵢ, mask)
+        VectorizedRNG.SIMDPirates.store!(ptrxᵢ, normalcdf(v), mask)
     end
     x
 end
