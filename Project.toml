@@ -1,7 +1,7 @@
 name = "VectorizedRNG"
 uuid = "33b4df10-0173-11e9-2a0c-851a7edac40e"
 authors = ["Chris Elrod <elrodc@gmail.com>"]
-version = "0.1.1"
+version = "0.1.2"
 
 [deps]
 Distributed = "8ba89e20-285c-5b6f-9357-94700520ee1b"
@@ -10,8 +10,8 @@ SIMDPirates = "21efa798-c60a-11e8-04d3-e1a92915a26a"
 VectorizationBase = "3d5dd08c-fd9d-11e8-17fa-ed2836048c2f"
 
 [compat]
-SIMDPirates = "0.4"
-VectorizationBase = "0.4.2"
+SIMDPirates = "~0.5"
+VectorizationBase = "~0.5"
 julia = "1"
 
 [extras]

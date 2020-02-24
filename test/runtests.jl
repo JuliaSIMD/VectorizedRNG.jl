@@ -3,14 +3,18 @@ using Test
 
 using RNGTest, Distributions, Random
 
-function smallcrushminp(res)
+function smallcrushextrema(res)
     r1 = Base.Cartesian.@ntuple 5 i -> (res[i])::Float64
     r2 = res[6]::Tuple{Float64,Float64}
     r3 = Base.Cartesian.@ntuple 3 i -> (res[i+6])::Float64
     r4 = res[10]::NTuple{5,Float64}
-    min(
+    mi = min(
         minimum(r1), minimum(r2), minimum(r3), minimum(r4)
     )
+    ma = max(
+        maximum(r1), maximum(r2), maximum(r3), maximum(r4)
+    )
+    mi, ma
 end
 
 const INVSQRT2 = 1/sqrt(2)
@@ -26,15 +30,15 @@ function normalcdf!(x::AbstractVector{T}) where {T}
     i = 0
     for _ ∈ 1:(N >>> Wshift)
         ptrxᵢ = VectorizedRNG.VectorizationBase.gep(ptrx, i)
-        v = VectorizedRNG.SIMDPirates.load(W, ptrxᵢ)
-        VectorizedRNG.SIMDPirates.store!(ptrxᵢ, normalcdf(v))
+        v = VectorizedRNG.SIMDPirates.vload(W, ptrxᵢ)
+        VectorizedRNG.SIMDPirates.vstore!(ptrxᵢ, normalcdf(v))
         i += _W
     end
     if i < N
         ptrxᵢ = VectorizedRNG.VectorizationBase.gep(ptrx, i)
         mask = VectorizedRNG.VectorizationBase.mask(T, N & (_W - 1))
-        v = VectorizedRNG.SIMDPirates.load(W, ptrxᵢ, mask)
-        VectorizedRNG.SIMDPirates.store!(ptrxᵢ, normalcdf(v), mask)
+        v = VectorizedRNG.SIMDPirates.vload(W, ptrxᵢ, mask)
+        VectorizedRNG.SIMDPirates.vstore!(ptrxᵢ, normalcdf(v), mask)
     end
     x
 end
@@ -51,15 +55,19 @@ end
 
 @testset "VectorizedRNG.jl" begin
     # Write your own tests here.
-
+    α = 1e-4
     
     rngunif = RNGTest.wrap(local_pcg(), Float64);
     res = RNGTest.smallcrushJulia(rngunif)
-    @test smallcrushminp(res) > eps()
+    mi, ma = smallcrushextrema(res)
+    @test mi > α
+    @test ma < 1 - α
 
     rngnorm = RNGTest.wrap(RandNormal01(local_pcg()), Float64);
     res = RNGTest.smallcrushJulia(rngnorm)
-    @test smallcrushminp(res) > eps()
+    mi, ma = smallcrushextrema(res)
+    @test mi > α
+    @test ma < 1 - α
     
 end
 
