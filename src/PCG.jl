@@ -198,59 +198,76 @@ end
     nothing
 end
 
-@noinline function rand_pcgPCG_RXS_M_XS_int64_quote(N, WV, Nreps)
-    q = quote end
+
+function append_n_rxs!(q, N, i = 0)
+    for n ∈ 1:N
+        state = Symbol(:state_, n)
+        count = Symbol(:count_, n)
+        push!(q.args, :($count = vuright_bitshift($state, Val{59}())))
+    end
+    for n ∈ 1:N
+        it = i + n
+        state = Symbol(:state_, n)
+        statenew = Symbol(:state_new_, n)
+        push!(q.args, :($statenew = vmul($(Symbol(:multiplier_, n)), $state)))
+    end
+    for n ∈ 1:N
+        count = Symbol(:count_, n)
+        push!(q.args, :($count = vadd(five, $count)))
+    end
+    for n ∈ 1:N
+        state = Symbol(:state_, n)
+        count = Symbol(:count_, n)
+        push!(q.args, :($count = vuright_bitshift($state, $count)))
+    end
+    for n ∈ 1:N
+        state = Symbol(:state_, n)
+        count = Symbol(:count_, n)
+        push!(q.args, :($count = vxor($count, $state)))
+    end
+    for n ∈ 1:N
+        it = i + n
+        state = Symbol(:state_, n)
+        statenew = Symbol(:state_new_, n)
+        push!(q.args, :($state = vadd($statenew, increment)))
+    end
+    for n ∈ 1:N
+        it = i + n
+        xorshifted = Symbol(:xorshifted_, n)
+        count = Symbol(:count_, n)
+        push!(q.args, :($xorshifted = vmul($count, constmul)))
+    end
+    for n ∈ 1:N
+        it = i + n
+        xorshifted = Symbol(:xorshifted_, n)
+        xorshifted43 = Symbol(:xorshifted43_, n)
+        push!(q.args, :($xorshifted43 = vuright_bitshift($xorshifted, Val{43}())))
+    end
+    for n ∈ 1:N
+        xorshifted = Symbol(:xorshifted_, n)
+        xorshifted43 = Symbol(:xorshifted43_, n)
+        out = Symbol(:out_, i + n)
+        push!(q.args, :($out = vxor($xorshifted, $xorshifted43)))
+    end
+end
+function rand_pcgPCG_RXS_M_XS_int64_quote(N, WV, Nreps)
+    q = Expr(
+        :block,
+        Expr(:(=), :five, :(vbroadcast(Vec{$WV,UInt64}, 0x0000000000000005))),
+        Expr(:(=), :constmul, :(vbroadcast(Vec{$WV,UInt64}, 0xaef17502108ef2d9)))
+    )
     if Nreps > N
         NNrep, rr = divrem(Nreps, N)
         i = 0
         for nr ∈ 1:NNrep
-            for n ∈ 1:N
-                i += 1
-                state = Symbol(:state_, n)
-                xorshifted = Symbol(:xorshifted_, i)
-                count = Symbol(:count_, i)
-                out = Symbol(:out_, i)
-                push!(q.args, quote
-                    $count = vadd(vbroadcast(Vec{$WV,UInt64}, UInt64(5)), vuright_bitshift($state, Val{59}()))
-                    $xorshifted = vmul(vxor(
-                            vuright_bitshift($state, $count), $state
-                        ), 0xaef17502108ef2d9)
-                    $state = vmuladd($(Symbol(:multiplier_, n)), $state, increment)
-                    $out = vxor($xorshifted, vuright_bitshift($xorshifted, Val{43}()))
-                end)
-            end
+            append_n_rxs!(q, N, i)
+            i += N
         end
         for n ∈ 1:rr
-            i += 1
-            state = Symbol(:state_, n)
-            xorshifted = Symbol(:xorshifted_, i)
-            count = Symbol(:count_, i)
-            out = Symbol(:out_, i)
-            push!(q.args, quote
-                $count = vadd(vbroadcast(Vec{$WV,UInt64}, UInt64(5)), vuright_bitshift($state, Val{59}()))
-                $xorshifted = vmul(vxor(
-                        vuright_bitshift($state, $count), $state
-                    ), 0xaef17502108ef2d9)
-                $state = vmuladd($(Symbol(:multiplier_, n)), $state, increment)
-                $out = vxor($xorshifted, vuright_bitshift($xorshifted, Val{43}()))
-            end)
+            append_n_rxs!(q, rr, i)
         end
     else # Nreps <= N
-        for n ∈ 1:Nreps
-            state = Symbol(:state_, n)
-            xorshifted = Symbol(:xorshifted_, n)
-            count = Symbol(:count_, n)
-            out = Symbol(:out_, n)
-            mult = Symbol(:multiplier_, n)
-            push!(q.args, quote
-                $count = vadd(vbroadcast(Vec{$WV,UInt64}, UInt64(5)), vuright_bitshift($state, Val{59}()))
-                $xorshifted = vmul(vxor(
-                        vuright_bitshift($state, $count), $state
-                    ), 0xaef17502108ef2d9)
-                $state = vmuladd($mult, $state, increment)
-                $out = vxor($xorshifted, vuright_bitshift($xorshifted, Val{43}()))
-                  end)
-        end
+        append_n_rxs!(q, Nreps, 0)
     end
     push!(q.args, nothing)
     q
