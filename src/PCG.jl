@@ -232,13 +232,11 @@ function append_n_rxs!(q, N, i = 0)
         push!(q.args, :($state = vadd($statenew, increment)))
     end
     for n ∈ 1:N
-        it = i + n
         xorshifted = Symbol(:xorshifted_, n)
         count = Symbol(:count_, n)
         push!(q.args, :($xorshifted = vmul($count, constmul)))
     end
     for n ∈ 1:N
-        it = i + n
         xorshifted = Symbol(:xorshifted_, n)
         xorshifted43 = Symbol(:xorshifted43_, n)
         push!(q.args, :($xorshifted43 = vuright_bitshift($xorshifted, Val{43}())))
