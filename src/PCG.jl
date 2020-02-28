@@ -499,9 +499,9 @@ end
 
 @inline function randnormal(u1::Vec{W,UInt64}, u2::Vec{W,UInt64}, ::Type{T}) where {W,T<:Union{Float32,Float64}}
     s, c = randsincos(u1, T)
-    l = log01(u2,T)
+    l = nlog01(u2,T)
     # @show s, c, l
-    r = vsqrt(vmul(-2.0,l))
+    r = vsqrt(vadd(l, l))
     vmul(s,r), vmul(c,r)
 end
 
