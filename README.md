@@ -74,8 +74,6 @@ BenchmarkTools.Trial:
 ```
 This library shines on a system with AVX512:
 ```julia
-julia> using VectorizedRNG
-
 julia> using BenchmarkTools, Random, VectorizedRNG
 
 julia> x = Vector{Float64}(undef, 1024);
@@ -85,10 +83,10 @@ BenchmarkTools.Trial:
   memory estimate:  0 bytes
   allocs estimate:  0
   --------------
-  minimum time:     4.037 μs (0.00% GC)
-  median time:      4.235 μs (0.00% GC)
-  mean time:        4.256 μs (0.00% GC)
-  maximum time:     6.901 μs (0.00% GC)
+  minimum time:     4.010 μs (0.00% GC)
+  median time:      4.218 μs (0.00% GC)
+  mean time:        4.230 μs (0.00% GC)
+  maximum time:     6.842 μs (0.00% GC)
   --------------
   samples:          10000
   evals/sample:     7
@@ -98,10 +96,10 @@ BenchmarkTools.Trial:
   memory estimate:  0 bytes
   allocs estimate:  0
   --------------
-  minimum time:     1.183 μs (0.00% GC)
-  median time:      1.189 μs (0.00% GC)
-  mean time:        1.191 μs (0.00% GC)
-  maximum time:     2.288 μs (0.00% GC)
+  minimum time:     1.173 μs (0.00% GC)
+  median time:      1.177 μs (0.00% GC)
+  mean time:        1.178 μs (0.00% GC)
+  maximum time:     2.352 μs (0.00% GC)
   --------------
   samples:          10000
   evals/sample:     10
@@ -111,26 +109,26 @@ BenchmarkTools.Trial:
   memory estimate:  0 bytes
   allocs estimate:  0
   --------------
-  minimum time:     563.362 ns (0.00% GC)
-  median time:      568.292 ns (0.00% GC)
-  mean time:        568.997 ns (0.00% GC)
-  maximum time:     668.551 ns (0.00% GC)
+  minimum time:     560.140 ns (0.00% GC)
+  median time:      563.360 ns (0.00% GC)
+  mean time:        564.315 ns (0.00% GC)
+  maximum time:     916.763 ns (0.00% GC)
   --------------
   samples:          10000
-  evals/sample:     185
+  evals/sample:     186
 
 julia> @benchmark rand!(local_pcg(), $x)
 BenchmarkTools.Trial:
   memory estimate:  0 bytes
   allocs estimate:  0
   --------------
-  minimum time:     273.132 ns (0.00% GC)
-  median time:      274.693 ns (0.00% GC)
-  mean time:        275.009 ns (0.00% GC)
-  maximum time:     354.924 ns (0.00% GC)
+  minimum time:     266.276 ns (0.00% GC)
+  median time:      266.994 ns (0.00% GC)
+  mean time:        267.331 ns (0.00% GC)
+  maximum time:     325.957 ns (0.00% GC)
   --------------
   samples:          10000
-  evals/sample:     303
+  evals/sample:     323
 ```
 
 ## BigCrush

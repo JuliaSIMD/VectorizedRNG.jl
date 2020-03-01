@@ -42,11 +42,11 @@ function normalcdf!(x::AbstractVector{T}) where {T}
     end
     x
 end
-    struct RandNormal01{T<:VectorizedRNG.AbstractPCG} <: Random.AbstractRNG
-        pcg::T
+    struct RandNormal01{T<:VectorizedRNG.AbstractVRNG} <: Random.AbstractRNG
+        rng::T
     end
     function Random.rand!(r::RandNormal01, x::AbstractArray)
-        randn!(r.pcg, x)
+        randn!(r.rng, x)
         normalcdf!(x)
         # x .= cdf.(Normal(0,1), x)
     end
@@ -56,9 +56,21 @@ end
 @testset "VectorizedRNG.jl" begin
     # Write your own tests here.
     α = 1e-4
-    
+
+    rngunif = RNGTest.wrap(local_rng(), Float64);
+    res = RNGTest.smallcrushJulia(rngunif)
+    mi, ma = smallcrushextrema(res)
+    @test mi > α
+    @test ma < 1 - α
+
     rngunif = RNGTest.wrap(local_pcg(), Float64);
     res = RNGTest.smallcrushJulia(rngunif)
+    mi, ma = smallcrushextrema(res)
+    @test mi > α
+    @test ma < 1 - α
+
+    rngnorm = RNGTest.wrap(RandNormal01(local_rng()), Float64);
+    res = RNGTest.smallcrushJulia(rngnorm)
     mi, ma = smallcrushextrema(res)
     @test mi > α
     @test ma < 1 - α
@@ -68,7 +80,7 @@ end
     mi, ma = smallcrushextrema(res)
     @test mi > α
     @test ma < 1 - α
-    
+
 end
 
 
