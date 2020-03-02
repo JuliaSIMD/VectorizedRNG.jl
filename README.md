@@ -7,10 +7,11 @@
 [![Codecov](https://codecov.io/gh/chriselrod/VectorizedRNG.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/chriselrod/VectorizedRNG.jl)
 
 
-This library provides vectorized PCG random number generators. The larger the host computers SIMD vector width, the better they will perform. On a machine with AVX-512, they are faster than [SIMD-oriented Fast Mersenne Twister (SFMT) ](http://www.math.sci.hiroshima-u.ac.jp/~m-mat/MT/SFMT/). Base Julia uses dSFMT,  which in a few tests appears to outperform this library on avx2 systems in generating uniformly distributed random numbers.
+This library provides vectorized Xoshiro++ and PCG random number generators. The larger the host computers SIMD vector width, the better they will perform. On a machine with AVX-512, they are faster than [SIMD-oriented Fast Mersenne Twister (SFMT) ](http://www.math.sci.hiroshima-u.ac.jp/~m-mat/MT/SFMT/). Base Julia uses dSFMT,  which in a few tests appears to outperform this library on avx2 systems in generating uniformly distributed random numbers.
+
+You can get an instance of the `Xoshiro` generator with `local_rng()`, and the `PCG` with `local_pcg()`. These return thread local instances. The `Xoshiro` generated is treated as the default, because it gets better performance with AVX2 (while both are similar with AVX512), and because it has `2^256` bits of state. Each parallel stream jumps ahead `2^128` samples, which should be more than enough samples per stream for any real calculation. Each thread gets 8 parallel streams with AVX, or 16 with AVX512, allowing there to be up to `2^125` or `2^124` threads with AVX512. These numbers are all much larger than what the PCG offers, which is a state of `2^64` and only as many unique streams as there are multipliers in the `src/multipliers.jl` file.
 
 Testing on an old haswell machine (AVX2-only):
-
 ```julia
 julia> using BenchmarkTools, Random, VectorizedRNG
 
@@ -83,10 +84,10 @@ BenchmarkTools.Trial:
   memory estimate:  0 bytes
   allocs estimate:  0
   --------------
-  minimum time:     4.010 μs (0.00% GC)
-  median time:      4.218 μs (0.00% GC)
-  mean time:        4.230 μs (0.00% GC)
-  maximum time:     6.842 μs (0.00% GC)
+  minimum time:     4.036 μs (0.00% GC)
+  median time:      4.238 μs (0.00% GC)
+  mean time:        4.263 μs (0.00% GC)
+  maximum time:     7.228 μs (0.00% GC)
   --------------
   samples:          10000
   evals/sample:     7
@@ -96,10 +97,23 @@ BenchmarkTools.Trial:
   memory estimate:  0 bytes
   allocs estimate:  0
   --------------
-  minimum time:     1.173 μs (0.00% GC)
-  median time:      1.177 μs (0.00% GC)
-  mean time:        1.178 μs (0.00% GC)
-  maximum time:     2.352 μs (0.00% GC)
+  minimum time:     1.191 μs (0.00% GC)
+  median time:      1.195 μs (0.00% GC)
+  mean time:        1.197 μs (0.00% GC)
+  maximum time:     3.436 μs (0.00% GC)
+  --------------
+  samples:          10000
+  evals/sample:     10
+
+julia> @benchmark randn!(local_rng(), $x)
+BenchmarkTools.Trial:
+  memory estimate:  0 bytes
+  allocs estimate:  0
+  --------------
+  minimum time:     1.218 μs (0.00% GC)
+  median time:      1.251 μs (0.00% GC)
+  mean time:        1.253 μs (0.00% GC)
+  maximum time:     3.166 μs (0.00% GC)
   --------------
   samples:          10000
   evals/sample:     10
@@ -109,10 +123,10 @@ BenchmarkTools.Trial:
   memory estimate:  0 bytes
   allocs estimate:  0
   --------------
-  minimum time:     560.140 ns (0.00% GC)
-  median time:      563.360 ns (0.00% GC)
-  mean time:        564.315 ns (0.00% GC)
-  maximum time:     916.763 ns (0.00% GC)
+  minimum time:     561.022 ns (0.00% GC)
+  median time:      563.452 ns (0.00% GC)
+  mean time:        564.475 ns (0.00% GC)
+  maximum time:     751.543 ns (0.00% GC)
   --------------
   samples:          10000
   evals/sample:     186
@@ -122,13 +136,26 @@ BenchmarkTools.Trial:
   memory estimate:  0 bytes
   allocs estimate:  0
   --------------
-  minimum time:     266.276 ns (0.00% GC)
-  median time:      266.994 ns (0.00% GC)
-  mean time:        267.331 ns (0.00% GC)
-  maximum time:     325.957 ns (0.00% GC)
+  minimum time:     264.393 ns (0.00% GC)
+  median time:      265.479 ns (0.00% GC)
+  mean time:        266.028 ns (0.00% GC)
+  maximum time:     391.811 ns (0.00% GC)
   --------------
   samples:          10000
-  evals/sample:     323
+  evals/sample:     328
+
+julia> @benchmark rand!(local_rng(), $x)
+BenchmarkTools.Trial:
+  memory estimate:  0 bytes
+  allocs estimate:  0
+  --------------
+  minimum time:     198.492 ns (0.00% GC)
+  median time:      198.684 ns (0.00% GC)
+  mean time:        200.397 ns (0.00% GC)
+  maximum time:     239.297 ns (0.00% GC)
+  --------------
+  samples:          10000
+  evals/sample:     585
 ```
 
 ## BigCrush
