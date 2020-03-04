@@ -1,7 +1,9 @@
 using VectorizedRNG
 using Test
 
-using RNGTest, Distributions, Random
+using RNGTest, Random#, Distributions
+
+const α = 1e-4
 
 function smallcrushextrema(res)
     r1 = Base.Cartesian.@ntuple 5 i -> (res[i])::Float64
@@ -17,7 +19,7 @@ function smallcrushextrema(res)
     mi, ma
 end
 
-const INVSQRT2 = 1/sqrt(2)
+const INVSQRT2 = Float64(1/sqrt(big(2)))
 @inline function normalcdf(v)
     T = eltype(v)
     T(0.5) * ( one(T) + VectorizedRNG.SIMDPirates.verf( v * INVSQRT2 ) )
@@ -53,9 +55,9 @@ end
     rngnorm = RNGTest.wrap(RandNormal01(local_pcg()), Float64);
 
 
+
 @testset "VectorizedRNG.jl" begin
     # Write your own tests here.
-    α = 1e-4
 
     rngunif = RNGTest.wrap(local_rng(), Float64);
     res = RNGTest.smallcrushJulia(rngunif)

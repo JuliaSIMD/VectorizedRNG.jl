@@ -17,28 +17,28 @@ julia> using BenchmarkTools, Random, VectorizedRNG
 
 julia> x = Vector{Float64}(undef, 1024);
 
-julia> @benchmark randn!($x)
-BenchmarkTools.Trial: 
+julia> @benchmark randn!(local_pcg(), $x)
+BenchmarkTools.Trial:
   memory estimate:  0 bytes
   allocs estimate:  0
   --------------
-  minimum time:     6.320 μs (0.00% GC)
-  median time:      6.740 μs (0.00% GC)
-  mean time:        7.109 μs (0.00% GC)
-  maximum time:     51.131 μs (0.00% GC)
+  minimum time:     4.266 μs (0.00% GC)
+  median time:      4.285 μs (0.00% GC)
+  mean time:        4.303 μs (0.00% GC)
+  maximum time:     50.301 μs (0.00% GC)
   --------------
   samples:          10000
-  evals/sample:     5
-
-julia> @benchmark randn!(local_pcg(), $x)
-BenchmarkTools.Trial: 
+  evals/sample:     7
+  
+julia> @benchmark randn!(local_rng(), $x)
+BenchmarkTools.Trial:
   memory estimate:  0 bytes
   allocs estimate:  0
   --------------
-  minimum time:     4.334 μs (0.00% GC)
-  median time:      4.363 μs (0.00% GC)
-  mean time:        4.708 μs (0.00% GC)
-  maximum time:     35.323 μs (0.00% GC)
+  minimum time:     4.675 μs (0.00% GC)
+  median time:      4.684 μs (0.00% GC)
+  mean time:        4.726 μs (0.00% GC)
+  maximum time:     149.727 μs (0.00% GC)
   --------------
   samples:          10000
   evals/sample:     7

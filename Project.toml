@@ -15,9 +15,8 @@ VectorizationBase = "~0.5,0.6,0.7"
 julia = "1"
 
 [extras]
-Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 RNGTest = "97cc5700-e6cb-5ca1-8fb2-7f6b45264ecd"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Test", "RNGTest", "Distributions"]
+test = ["Test", "RNGTest"]

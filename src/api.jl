@@ -112,7 +112,7 @@ end
     state, random_normal(u, T)
 end
 
-function random_sample!(f::F, rng::AbstractVRNG{2}, x::AbstractArray{Float64}) where {F}
+function random_sample!(f::typeof(random_uniform), rng::AbstractVRNG{P}, x::AbstractArray{Float64}) where {P}
     state = getstate(rng, Val{2}(), Val{W64}())
     GC.@preserve x begin
         ptrx = pointer(x)
@@ -136,40 +136,40 @@ function random_sample!(f::F, rng::AbstractVRNG{2}, x::AbstractArray{Float64}) w
     end # GC preserve
     x
 end
-function random_sample!(f::F, rng::AbstractVRNG{4}, x::AbstractArray{Float64}) where {F}
-    state = getstate(rng, Val{4}(), Val{W64}())
+function random_sample!(f::F, rng::AbstractVRNG{P}, x::AbstractArray{Float64}) where {F,P}
+    state = getstate(rng, Val{P}(), Val{W64}())
     GC.@preserve x begin
-    ptrx = pointer(x)
-    N = length(x)
-    n = 0
-    while n < N + 1 - 4W64
-        state, (z₁,z₂,z₃,z₄) = f(state, Val{4}(), Float64)
-        vstore!(ptrx, z₁, n); n += W64
-        vstore!(ptrx, z₂, n); n += W64
-        vstore!(ptrx, z₃, n); n += W64
-        vstore!(ptrx, z₄, n); n += W64
-    end
-    mask = VectorizationBase.masktable(Val{W64}(), N & (W64-1))
-    if n < N - 3W64
-        state, (z₁,z₂,z₃,z₄) = f(state, Val{4}(), Float64)
-        vstore!(ptrx, z₁, n); n += W64
-        vstore!(ptrx, z₂, n); n += W64
-        vstore!(ptrx, z₃, n); n += W64
-        vstore!(ptrx, z₄, n, mask);
-    elseif n < N - 2W64
-        state, (z₁,z₂,z₃) = f(state, Val{3}(), Float64)
-        vstore!(ptrx, z₁, n); n += W64
-        vstore!(ptrx, z₂, n); n += W64
-        vstore!(ptrx, z₃, n, mask);
-    elseif n < N - W64
-        state, (z₁,z₂) = f(state, Val{2}(), Float64)
-        vstore!(ptrx, z₁, n); n += W64
-        vstore!(ptrx, z₂, n, mask);
-    elseif n < N
-        vstate, (z₁,) = f(state, Val{1}(), Float64)
-        vstore!(ptrx, z₁, n, mask);
-    end        
-    storestate!(rng, state)
+        ptrx = pointer(x)
+        N = length(x)
+        n = 0
+        while n < N + 1 - 4W64
+            state, (z₁,z₂,z₃,z₄) = f(state, Val{4}(), Float64)
+            vstore!(ptrx, z₁, n); n += W64
+            vstore!(ptrx, z₂, n); n += W64
+            vstore!(ptrx, z₃, n); n += W64
+            vstore!(ptrx, z₄, n); n += W64
+        end
+        mask = VectorizationBase.masktable(Val{W64}(), N & (W64-1))
+        if n < N - 3W64
+            state, (z₁,z₂,z₃,z₄) = f(state, Val{4}(), Float64)
+            vstore!(ptrx, z₁, n); n += W64
+            vstore!(ptrx, z₂, n); n += W64
+            vstore!(ptrx, z₃, n); n += W64
+            vstore!(ptrx, z₄, n, mask);
+        elseif n < N - 2W64
+            state, (z₁,z₂,z₃) = f(state, Val{3}(), Float64)
+            vstore!(ptrx, z₁, n); n += W64
+            vstore!(ptrx, z₂, n); n += W64
+            vstore!(ptrx, z₃, n, mask);
+        elseif n < N - W64
+            state, (z₁,z₂) = f(state, Val{2}(), Float64)
+            vstore!(ptrx, z₁, n); n += W64
+            vstore!(ptrx, z₂, n, mask);
+        elseif n < N
+            vstate, (z₁,) = f(state, Val{1}(), Float64)
+            vstore!(ptrx, z₁, n, mask);
+        end        
+        storestate!(rng, state)
     end # GC preserve
     x
 end

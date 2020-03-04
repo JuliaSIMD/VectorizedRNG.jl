@@ -1,5 +1,5 @@
 
-const XREGISTERS = 2#VectorizationBase.REGISTER_COUNT >>> 3
+const XREGISTERS = 4
 const XSTREAMS = W64 * XREGISTERS
 
 struct Xoshift{P} <: AbstractVRNG{P}
@@ -17,11 +17,12 @@ end
 Xoshift(ptr) = Xoshift{XSTREAMS}(ptr)
 function initXoshift!(ptr::Ptr{UInt64}, P) # P here means number of streams
     e = rand(UInt64); z = rand(UInt64); d = rand(UInt64); v = rand(UInt64) 
-    vstore!(ptr, e); vstore!(ptr, z, P); vstore!(ptr, d, 2P); vstore!(ptr, v, 3P);
-    for i ∈ 1:P-1
-        e, z, d, v = jump(e, z, d, v)
+    for j ∈ 1:P-1
+        i = P - j
         vstore!(ptr, e, i); vstore!(ptr, z, i + P); vstore!(ptr, d, i + 2P); vstore!(ptr, v, i + 3P);
+        e, z, d, v = jump(e, z, d, v)
     end
+    vstore!(ptr, e); vstore!(ptr, z, P); vstore!(ptr, d, 2P); vstore!(ptr, v, 3P);
 end
 function jump(eins, zwei, drei, vier)
     e = zero(UInt64); z = zero(UInt64); d = zero(UInt64); v = zero(UInt64)
@@ -265,5 +266,15 @@ end
         (Base.Cartesian.@ntuple 4 drei),
         (Base.Cartesian.@ntuple 4 vier)
     ), Base.Cartesian.@ntuple 4 out
+end
+@inline function nextstate(s::XoshiftState{2}, ::Val{3})
+    s, (out_1,out_2) = nextstate(s, Val(2))
+    s, (out_3,) = nextstate(s, Val(1))
+    s, Base.Cartesian.@ntuple 3 out
+end
+@inline function nextstate(s::XoshiftState{2}, ::Val{4})
+    s, (out_1,out_2) = nextstate(s, Val(2))
+    s, (out_3,out_4) = nextstate(s, Val(2))
+    s, Base.Cartesian.@ntuple 4 out
 end
 
