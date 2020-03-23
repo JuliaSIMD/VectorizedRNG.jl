@@ -123,7 +123,7 @@ function random_sample!(f::typeof(random_uniform), rng::AbstractVRNG{P}, x::Abst
             vstore!(ptrx, z₁, n); n += W64
             vstore!(ptrx, z₂, n); n += W64
         end
-        mask = VectorizationBase.masktable(Val{W64}(), N & (W64-1))
+        mask = VectorizationBase.mask(Val{W64}(), N)
         if n < N - 1W64
             state, (z₁,z₂) = f(state, Val{2}(), Float64)
             vstore!(ptrx, z₁, n); n += W64
@@ -149,7 +149,7 @@ function random_sample!(f::F, rng::AbstractVRNG{P}, x::AbstractArray{Float64}) w
             vstore!(ptrx, z₃, n); n += W64
             vstore!(ptrx, z₄, n); n += W64
         end
-        mask = VectorizationBase.masktable(Val{W64}(), N & (W64-1))
+        mask = VectorizationBase.mask(Val{W64}(), N)
         if n < N - 3W64
             state, (z₁,z₂,z₃,z₄) = f(state, Val{4}(), Float64)
             vstore!(ptrx, z₁, n); n += W64
