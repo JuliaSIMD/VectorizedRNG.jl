@@ -15,8 +15,18 @@ struct XoshiftState{P,W} <: AbstractState{P,W}
 end
 
 Xoshift(ptr) = Xoshift{XSTREAMS}(ptr)
-function initXoshift!(ptr::Ptr{UInt64}, P) # P here means number of streams
-    e = rand(UInt64); z = rand(UInt64); d = rand(UInt64); v = rand(UInt64) 
+function randnonzero()
+    while true
+        r = rand(UInt64)
+        iszero(r) || return r
+    end
+end
+function initXoshift!(ptr::Ptr{UInt64}, P)
+    e = randnonzero(); z = randnonzero();
+    d = randnonzero(); v = randnonzero();
+    initXoshift!(ptr, P, e, z, d, v)
+end
+function initXoshift!(ptr::Ptr{UInt64}, P, e::UInt64, z::UInt64, d::UInt64, v::UInt64) # P here means number of streams
     for j ∈ 1:P-1
         i = P - j
         vstore!(ptr, e, i); vstore!(ptr, z, i + P); vstore!(ptr, d, i + 2P); vstore!(ptr, v, i + 3P);
@@ -39,6 +49,20 @@ function jump(eins, zwei, drei, vier)
         end
     end
     e, z, d, v
+end
+function seed!(seed::Integer) 
+    i = seed % UInt64
+    e = z = d = v = zero(UInt64)
+    increment = 0xa04de531e612e1b9
+    while any(iszero, (e, z, d, v))
+        e = ((i * 0x90ce6ecbad5e33b5) + increment)
+        z = ((e * 0x90ce6ecbad5e33b5) + increment)
+        d = ((z * 0x90ce6ecbad5e33b5) + increment)
+        v = ((d * 0x90ce6ecbad5e33b5) + increment)
+        increment += 0x0000000000000002
+    end
+    nstreams = XREGISTERS * Base.Threads.nthreads() * W64
+    initXoshift!(GLOBAL_vRNGs[], nstreams, e, z, d, v)
 end
 
 

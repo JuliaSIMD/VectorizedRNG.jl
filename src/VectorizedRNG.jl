@@ -31,17 +31,18 @@ end
 end
 @inline rotate(x::Vec{W,U}, r::U) where {W,U} = rotate(x, vbroadcast(Vec{W,U}, r))
 
+include("masks.jl")
 include("api.jl")
 include("special_approximations.jl")
 include("xoshiro.jl")
-include("multipliers.jl")
-include("PCG.jl")
+# include("multipliers.jl")
+# include("PCG.jl")
 # include("random_distributions.jl")
 
-const GLOBAL_vPCGs = Ref{Ptr{UInt64}}()
+# const GLOBAL_vPCGs = Ref{Ptr{UInt64}}()
 
-local_pcg(i) = PtrPCG{4}(i*8REGISTER_SIZE + GLOBAL_vPCGs[])
-local_pcg() = local_pcg(Base.Threads.threadid() - 1)
+# local_pcg(i) = PtrPCG{4}(i*8REGISTER_SIZE + GLOBAL_vPCGs[])
+# local_pcg() = local_pcg(Base.Threads.threadid() - 1)
 
 const GLOBAL_vRNGs = Ref{Ptr{UInt64}}()
 
@@ -57,11 +58,11 @@ function __init__()
     GLOBAL_vRNGs[] = ptr = VectorizationBase.valloc(4nstreams, UInt64)
     initXoshift!(ptr, nstreams)
     
-    GLOBAL_vPCGs[] = VectorizationBase.valloc(8W64*nthreads, UInt64)
-    id = myid() - 1
-    for t ∈ 0:nthreads-1
-        random_init_pcg!(local_pcg(t), myid() - 1)
-    end
+    # GLOBAL_vPCGs[] = VectorizationBase.valloc(8W64*nthreads, UInt64)
+    # id = myid() - 1
+    # for t ∈ 0:nthreads-1
+    #     random_init_pcg!(local_pcg(t), myid() - 1)
+    # end
 end
 
     
