@@ -170,11 +170,10 @@ julia> using Distributed; addprocs(); nprocs()
 37
 
 julia> @everywhere using RNGTest, VectorizedRNG, Random
-[ Info: Precompiling RNGTest [97cc5700-e6cb-5ca1-8fb2-7f6b45264ecd]
 
 julia> @everywhere struct U01 <: Random.AbstractRNG end
 
-julia> @everywhere Random.rand!(r::U01, x::AbstractArray) = rand!(local_pcg(), x)
+julia> @everywhere Random.rand!(r::U01, x::AbstractArray) = rand!(local_rng(), x)
 
 julia> u01 = U01()
 U01()
@@ -182,13 +181,13 @@ U01()
 julia> rngunif = RNGTest.wrap(U01(), Float64);
 
 julia> @time bcjunif = RNGTest.bigcrushJulia(rngunif);
-515.822511 seconds (31.86 M allocations: 1.633 GiB, 0.07% gc time)
+511.531281 seconds (31.91 M allocations: 1.619 GiB, 0.10% gc time)
 
 julia> minimum(minimum.(bcjunif))
-0.011956745927781287
+0.004345184234132201
 
 julia> maximum(maximum.(bcjunif))
-0.9789973072036692
+0.99900365621945
 ```
 and applying the cdf to the normal generator, it runs in under 10 minutes:
 ```julia
@@ -228,36 +227,39 @@ julia> @everywhere begin;
 
 julia> @everywhere struct RN01 <: Random.AbstractRNG end
 
-julia> @everywhere Random.rand!(r::RN01, x::AbstractArray) = normalcdf!(randn!(local_pcg(), x))
+julia> @everywhere Random.rand!(r::RN01, x::AbstractArray) = normalcdf!(randn!(local_rng(), x))
 
 julia> rngnorm = RNGTest.wrap(RN01(), Float64);
 
 julia> @time bcj = RNGTest.bigcrushJulia(rngnorm);
-599.973976 seconds (9.77 M allocations: 513.287 MiB, 0.02% gc time)
+592.920986 seconds (9.58 M allocations: 498.928 MiB, 0.03% gc time)
 
 julia> minimum(minimum.(bcj))
-0.0007634498380764132
+0.0007985263854837221
 
 julia> maximum(maximum.(bcj))
-0.9905810414645684
+0.9990856044252019
 ```
+Given the comparatively small diference in runtimes between the uniforn and normal -> normal quantile RNG Tests, most of the runtime is spent in RNGTest rather than evaluating the random numbers.
+
+I don't think these are great looking minimum or maximum p-values. For comparison, the default MersenneTwister:
+```julia
+julia> wrappedtwister = RNGTest.wrap(MersenneTwister(), Float64);
+
+julia> @time bcjmtwister = RNGTest.bigcrushJulia(wrappedtwister);
+481.782432 seconds (9.73 M allocations: 508.753 MiB, 0.04% gc time)
+
+julia> minimum(minimum.(bcjmtwister))
+0.0015850804769910467
+
+julia> maximum(maximum.(bcjmtwister))
+0.9912021397939957
+```
+Interestingly, this completed faster. I should've monitored clock speeds, but can say that (subjectively) the CPU fans were louder when running this benchmark, making me wonder if this is a case where downclocking of non-AVX code decreases performance.
+
+Watch out when mixing vectorized and non-vectorized code.
 
 ***
 
-On vectorization: the strategy is to simply have many distinct streams, and sample from them simultaneously via SIMD operations. The linear congrutional element of the PCG generators each use different multipliers, so that each sequences is unique.
-
-The `local_pcg()` returns the thread-local pcg object. Each thread, as well as each Julia process with a unique `Distributed.myid()` will use a unique multiplier, up to the currently supported limit of 1024 multipliers. After this, old multipliers will begin to be recycled.
-If you have an application needing more multipliers than 1024 multipliers, please file an issue or a PR (but [beware of the [multiplier's requirements](https://en.wikipedia.org/wiki/Linear_congruential_generator#c_%E2%89%A0_0)), and we can add more.
-Note that each multiplier is 64 bits, and each thread will use 4*vector width number of bits. That means an AVX2 system (with 256 bit vectors) will use 16 multipliers per thread, and an AVX512 system will use 32. Thus, 1024 multipliers is enough for up to 64 threads on an AVX2 system or 32 threads on an AVX512 system to have unique multipliers.
-
-In addition to more multipliers, projects running on distributed systems will probably also want a way of specifying which node they are running on (will `myid()` work appropriately?); it would be great if all streams are entirely unique, so a little infrastructure may be needed to manage this.
-
-***
-
-The implementations were inspired by:
-https://github.com/lemire/simdpcg
-For more on Permuted Congrutional Generators:
-http://www.pcg-random.org/
-http://www.pcg-random.org/blog/
-
+On vectorization: the strategy is to simply have many distinct streams, and sample from them simultaneously via SIMD operations.
 
