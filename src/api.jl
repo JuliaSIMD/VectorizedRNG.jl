@@ -136,7 +136,7 @@ function random_sample!(f::typeof(random_uniform), rng::AbstractVRNG{P}, x::Abst
     end # GC preserve
     x
 end
-function random_sample!(f::F, rng::AbstractVRNG{P}, x::AbstractArray{Float64}) where {F,P}
+function random_sample!(f::F, rng::AbstractVRNG{P}, x::AbstractArray) where {F,P}
     state = getstate(rng, Val{P}(), Val{W64}())
     GC.@preserve x begin
         ptrx = pointer(x)
@@ -178,6 +178,12 @@ function Random.rand!(rng::AbstractVRNG, x::AbstractArray{Float64})
 end
 function Random.randn!(rng::AbstractVRNG, x::AbstractArray{Float64})
     random_sample!(random_normal, rng, x)
+end
+@inline function random_unsigned(state::AbstractState, ::Val{N}, ::Type{T}) where {N,T}
+    nextstate(state, Val{N}())
+end
+function Random.rand!(rng::AbstractVRNG, x::AbstractArray{UInt64})
+    random_sample!(random_unsigned, rng, x)
 end
 
 Random.rand(rng::AbstractVRNG, d1::Integer, dims::Vararg{Integer,N} where N) = rand!(rng, Array{Float64}(undef, d1, dims...))
