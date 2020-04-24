@@ -16,12 +16,60 @@ Testing on an old haswell machine (AVX2-only):
 julia> using BenchmarkTools, Random, VectorizedRNG
 
 julia> x = Vector{Float64}(undef, 1024);
-  
-```
-The performance advantage is thanks primarily to a fast SIMD [Box-Muller](https://en.wikipedia.org/wiki/Box%E2%80%93Muller_transform) implementation; `randn(::MersenneTwister)` uses the ziggurat algorithm, which is more efficient for scalars.
-With only AVX2, the `Random` underlying uniform random number generator is faster than `VectorizedRNG`:
 
+julia> @benchmark randn!($x)
+BenchmarkTools.Trial:
+  memory estimate:  0 bytes
+  allocs estimate:  0
+  --------------
+  minimum time:     7.235 μs (0.00% GC)
+  median time:      7.900 μs (0.00% GC)
+  mean time:        8.034 μs (0.00% GC)
+  maximum time:     233.290 μs (0.00% GC)
+  --------------
+  samples:          10000
+  evals/sample:     5
+ 
+julia> @benchmark randn!(local_rng(), $x)
+BenchmarkTools.Trial:
+  memory estimate:  0 bytes
+  allocs estimate:  0
+  --------------
+  minimum time:     3.744 μs (0.00% GC)
+  median time:      4.156 μs (0.00% GC)
+  mean time:        4.137 μs (0.00% GC)
+  maximum time:     59.169 μs (0.00% GC)
+  --------------
+  samples:          10000
+  evals/sample:     8
+```
+The performance advantage is thanks primarily to a fast SIMD [Box-Muller](https://en.wikipedia.org/wiki/Box%E2%80%93Muller_transform) implementation; `randn(::MersenneTwister)` uses the ziggurat algorithm, which is more efficient for scalars. Performance is closer when only comparing random-uniform generation:
 ```julia
+julia> @benchmark rand!($x)
+BenchmarkTools.Trial:
+  memory estimate:  0 bytes
+  allocs estimate:  0
+  --------------
+  minimum time:     791.047 ns (0.00% GC)
+  median time:      904.541 ns (0.00% GC)
+  mean time:        915.753 ns (0.00% GC)
+  maximum time:     13.978 μs (0.00% GC)
+  --------------
+  samples:          10000
+  evals/sample:     85
+ 
+julia> @benchmark rand!(local_rng(), $x)
+BenchmarkTools.Trial:
+  memory estimate:  0 bytes
+  allocs estimate:  0
+  --------------
+  minimum time:     513.000 ns (0.00% GC)
+  median time:      568.578 ns (0.00% GC)
+  mean time:        571.597 ns (0.00% GC)
+  maximum time:     4.706 μs (0.00% GC)
+  --------------
+  samples:          10000
+  evals/sample:     192
 ```
 This library shines on a system with AVX512:
 ```julia
@@ -80,6 +128,38 @@ BenchmarkTools.Trial:
   --------------
   samples:          10000
   evals/sample:     590
+```
+
+## Setting the seed
+
+VectorizedRNG is initialized with a random seed (based on the default `Random.GLOBAL_RNG`) when loaded, but `Random.seed!` wont change the state of the VectorizedRNG. You can set the seed of the VectorizedRNG with `VectorizedRNG.seed!`.
+
+```julia
+julia> using VectorizedRNG
+
+julia> rand(local_rng(), 15)'
+1×15 LinearAlgebra.Adjoint{Float64,Array{Float64,1}}:
+ 0.580812  0.813531  0.359055  0.590277  0.551968  0.635421  0.160614  0.312387  0.00787783  0.554571  0.368705  0.0219756  0.804188  0.0740875  0.939065
+
+julia> VectorizedRNG.seed!(1)
+
+julia> rand(local_rng(), 15)'
+1×15 LinearAlgebra.Adjoint{Float64,Array{Float64,1}}:
+ 0.371016  0.804553  0.243923  0.261726  0.875966  0.942672  0.875786  0.0255004  0.236359  0.59697  0.480488  0.790366  0.0263995  0.715227  0.514725
+
+julia> rand(local_rng(), 15)'
+1×15 LinearAlgebra.Adjoint{Float64,Array{Float64,1}}:
+ 0.246595  0.326417  0.98997  0.335991  0.839723  0.628247  0.814513  0.924231  0.398405  0.604068  0.915064  0.984332  0.773448  0.325699  0.490881
+
+julia> VectorizedRNG.seed!(1)
+
+julia> rand(local_rng(), 15)'
+1×15 LinearAlgebra.Adjoint{Float64,Array{Float64,1}}:
+ 0.371016  0.804553  0.243923  0.261726  0.875966  0.942672  0.875786  0.0255004  0.236359  0.59697  0.480488  0.790366  0.0263995  0.715227  0.514725
+
+julia> rand(local_rng(), 15)'
+1×15 LinearAlgebra.Adjoint{Float64,Array{Float64,1}}:
+ 0.246595  0.326417  0.98997  0.335991  0.839723  0.628247  0.814513  0.924231  0.398405  0.604068  0.915064  0.984332  0.773448  0.325699  0.490881
 ```
 
 ## BigCrush
