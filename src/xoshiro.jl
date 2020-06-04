@@ -79,43 +79,43 @@ end
     ptr = pointer(rng)
     XoshiftState(
         (vloada(Vec{W,UInt64}, ptr),),
-        (vloada(Vec{W,UInt64}, ptr,  W64*P),),
-        (vloada(Vec{W,UInt64}, ptr, 2W64*P),),
-        (vloada(Vec{W,UInt64}, ptr, 3W64*P),)
+        (vloada(Vec{W,UInt64}, ptr,  REGISTER_SIZE*P),),
+        (vloada(Vec{W,UInt64}, ptr, 2REGISTER_SIZE*P),),
+        (vloada(Vec{W,UInt64}, ptr, 3REGISTER_SIZE*P),)
     )
 end
 @inline function getstate(rng::Xoshift{P}, ::Val{2}, ::Val{W}) where {P,W}
     ptr = pointer(rng)
     XoshiftState(
-        (vloada(Vec{W,UInt64}, ptr        ), vloada(Vec{W,UInt64}, ptr, W64         )),
-        (vloada(Vec{W,UInt64}, ptr,  P*W64), vloada(Vec{W,UInt64}, ptr, W64*(1 +  P))),
-        (vloada(Vec{W,UInt64}, ptr, 2P*W64), vloada(Vec{W,UInt64}, ptr, W64*(1 + 2P))),
-        (vloada(Vec{W,UInt64}, ptr, 3P*W64), vloada(Vec{W,UInt64}, ptr, W64*(1 + 3P)))
+        (vloada(Vec{W,UInt64}, ptr                  ), vloada(Vec{W,UInt64}, ptr, REGISTER_SIZE         )),
+        (vloada(Vec{W,UInt64}, ptr,  P*REGISTER_SIZE), vloada(Vec{W,UInt64}, ptr, REGISTER_SIZE*(1 +  P))),
+        (vloada(Vec{W,UInt64}, ptr, 2P*REGISTER_SIZE), vloada(Vec{W,UInt64}, ptr, REGISTER_SIZE*(1 + 2P))),
+        (vloada(Vec{W,UInt64}, ptr, 3P*REGISTER_SIZE), vloada(Vec{W,UInt64}, ptr, REGISTER_SIZE*(1 + 3P)))
     )
 end
 @inline function getstate(rng::Xoshift{P}, ::Val{4}, ::Val{W}) where {P,W}
     ptr = pointer(rng)
     XoshiftState(
-        (vloada(Vec{W,UInt64}, ptr        ), vloada(Vec{W,UInt64}, ptr, W64         ), vloada(Vec{W,UInt64}, ptr, W64* 2      ), vloada(Vec{W,UInt64}, ptr, 3W64        )),
-        (vloada(Vec{W,UInt64}, ptr,  P*W64), vloada(Vec{W,UInt64}, ptr, W64*(1 +  P)), vloada(Vec{W,UInt64}, ptr, W64*(2 +  P)), vloada(Vec{W,UInt64}, ptr, W64*(3 +  P))),
-        (vloada(Vec{W,UInt64}, ptr, 2P*W64), vloada(Vec{W,UInt64}, ptr, W64*(1 + 2P)), vloada(Vec{W,UInt64}, ptr, W64*(2 + 2P)), vloada(Vec{W,UInt64}, ptr, W64*(3 + 2P))),
-        (vloada(Vec{W,UInt64}, ptr, 3P*W64), vloada(Vec{W,UInt64}, ptr, W64*(1 + 3P)), vloada(Vec{W,UInt64}, ptr, W64*(2 + 3P)), vloada(Vec{W,UInt64}, ptr, W64*(3 + 3P)))
+        (vloada(Vec{W,UInt64}, ptr        ), vloada(Vec{W,UInt64}, ptr, REGISTER_SIZE         ), vloada(Vec{W,UInt64}, ptr, REGISTER_SIZE* 2      ), vloada(Vec{W,UInt64}, ptr, 3REGISTER_SIZE        )),
+        (vloada(Vec{W,UInt64}, ptr,  P*REGISTER_SIZE), vloada(Vec{W,UInt64}, ptr, REGISTER_SIZE*(1 +  P)), vloada(Vec{W,UInt64}, ptr, REGISTER_SIZE*(2 +  P)), vloada(Vec{W,UInt64}, ptr, REGISTER_SIZE*(3 +  P))),
+        (vloada(Vec{W,UInt64}, ptr, 2P*REGISTER_SIZE), vloada(Vec{W,UInt64}, ptr, REGISTER_SIZE*(1 + 2P)), vloada(Vec{W,UInt64}, ptr, REGISTER_SIZE*(2 + 2P)), vloada(Vec{W,UInt64}, ptr, REGISTER_SIZE*(3 + 2P))),
+        (vloada(Vec{W,UInt64}, ptr, 3P*REGISTER_SIZE), vloada(Vec{W,UInt64}, ptr, REGISTER_SIZE*(1 + 3P)), vloada(Vec{W,UInt64}, ptr, REGISTER_SIZE*(2 + 3P)), vloada(Vec{W,UInt64}, ptr, REGISTER_SIZE*(3 + 3P)))
     )
 end
 @inline function storestate!(rng::Xoshift{P}, s::XoshiftState{N,W}) where {P,N,W}
     ptr = pointer(rng)
     eins = s.eins; zwei = s.zwei; drei = s.drei; vier = s.vier;
     @inbounds for n ∈ 1:N
-        vstorea!(rng, eins[n], W64*(n-1))
+        vstorea!(rng, eins[n], REGISTER_SIZE*(n-1))
     end
     @inbounds for n ∈ 1:N
-        vstorea!(rng, zwei[n], W64*((n-1) +  P))
+        vstorea!(rng, zwei[n], REGISTER_SIZE*((n-1) +  P))
     end
     @inbounds for n ∈ 1:N
-        vstorea!(rng, drei[n], W64*((n-1) + 2P))
+        vstorea!(rng, drei[n], REGISTER_SIZE*((n-1) + 2P))
     end
     @inbounds for n ∈ 1:N
-        vstorea!(rng, vier[n], W64*((n-1) + 3P))
+        vstorea!(rng, vier[n], REGISTER_SIZE*((n-1) + 3P))
     end
 end
 @inline function storestate!(rng::Xoshift{P}, s::XoshiftState{1,W}) where {P,W}
@@ -123,9 +123,9 @@ end
     eins = s.eins; zwei = s.zwei; drei = s.drei; vier = s.vier;
     @inbounds begin
         vstorea!(ptr, eins[1],       )
-        vstorea!(ptr, zwei[1],  P*W64)
-        vstorea!(ptr, drei[1], 2P*W64)
-        vstorea!(ptr, vier[1], 3P*W64)
+        vstorea!(ptr, zwei[1],  P*REGISTER_SIZE)
+        vstorea!(ptr, drei[1], 2P*REGISTER_SIZE)
+        vstorea!(ptr, vier[1], 3P*REGISTER_SIZE)
     end
 end
 @inline function storestate!(rng::Xoshift{P}, s::XoshiftState{2,W}) where {P,W}
@@ -133,13 +133,13 @@ end
     eins = s.eins; zwei = s.zwei; drei = s.drei; vier = s.vier;
     @inbounds begin
         vstorea!(ptr, eins[1],      )
-        vstorea!(ptr, eins[2],   W64)
-        vstorea!(ptr, zwei[1],   W64*       P)
-        vstorea!(ptr, zwei[2],   W64*(1 +   P))
-        vstorea!(ptr, drei[1],   W64*      2P)
-        vstorea!(ptr, drei[2],   W64*(1 +  2P))
-        vstorea!(ptr, vier[1],   W64*      3P)
-        vstorea!(ptr, vier[2],   W64*(1 +  3P))
+        vstorea!(ptr, eins[2],   REGISTER_SIZE)
+        vstorea!(ptr, zwei[1],   REGISTER_SIZE*       P)
+        vstorea!(ptr, zwei[2],   REGISTER_SIZE*(1 +   P))
+        vstorea!(ptr, drei[1],   REGISTER_SIZE*      2P)
+        vstorea!(ptr, drei[2],   REGISTER_SIZE*(1 +  2P))
+        vstorea!(ptr, vier[1],   REGISTER_SIZE*      3P)
+        vstorea!(ptr, vier[2],   REGISTER_SIZE*(1 +  3P))
     end
 end
 @inline function storestate!(rng::Xoshift{P}, s::XoshiftState{4,W}) where {P,W}
@@ -147,21 +147,21 @@ end
     eins = s.eins; zwei = s.zwei; drei = s.drei; vier = s.vier;
     @inbounds begin
         vstorea!(ptr, eins[1],      )
-        vstorea!(ptr, eins[2],   W64)
-        vstorea!(ptr, eins[3],   W64*2)
-        vstorea!(ptr, eins[4],   W64*3)
-        vstorea!(ptr, zwei[1],   W64*       P)
-        vstorea!(ptr, zwei[2],   W64*(1 +   P))
-        vstorea!(ptr, zwei[3],   W64*(2 +   P))
-        vstorea!(ptr, zwei[4],   W64*(3 +   P))
-        vstorea!(ptr, drei[1],   W64*      2P)
-        vstorea!(ptr, drei[2],   W64*(1 +  2P))
-        vstorea!(ptr, drei[3],   W64*(2 +  2P))
-        vstorea!(ptr, drei[4],   W64*(3 +  2P))
-        vstorea!(ptr, vier[1],   W64*      3P)
-        vstorea!(ptr, vier[2],   W64*(1 +  3P))
-        vstorea!(ptr, vier[3],   W64*(2 +  3P))
-        vstorea!(ptr, vier[4],   W64*(3 +  3P))
+        vstorea!(ptr, eins[2],   REGISTER_SIZE)
+        vstorea!(ptr, eins[3],   REGISTER_SIZE*2)
+        vstorea!(ptr, eins[4],   REGISTER_SIZE*3)
+        vstorea!(ptr, zwei[1],   REGISTER_SIZE*       P)
+        vstorea!(ptr, zwei[2],   REGISTER_SIZE*(1 +   P))
+        vstorea!(ptr, zwei[3],   REGISTER_SIZE*(2 +   P))
+        vstorea!(ptr, zwei[4],   REGISTER_SIZE*(3 +   P))
+        vstorea!(ptr, drei[1],   REGISTER_SIZE*      2P)
+        vstorea!(ptr, drei[2],   REGISTER_SIZE*(1 +  2P))
+        vstorea!(ptr, drei[3],   REGISTER_SIZE*(2 +  2P))
+        vstorea!(ptr, drei[4],   REGISTER_SIZE*(3 +  2P))
+        vstorea!(ptr, vier[1],   REGISTER_SIZE*      3P)
+        vstorea!(ptr, vier[2],   REGISTER_SIZE*(1 +  3P))
+        vstorea!(ptr, vier[3],   REGISTER_SIZE*(2 +  3P))
+        vstorea!(ptr, vier[4],   REGISTER_SIZE*(3 +  3P))
     end
 end
 

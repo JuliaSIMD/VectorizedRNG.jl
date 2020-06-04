@@ -116,17 +116,17 @@ function random_sample!(f::typeof(random_uniform), rng::AbstractVRNG{P}, x::Abst
     state = getstate(rng, Val{2}(), Val{W64}())
     GC.@preserve x begin
         ptrx = pointer(x)
-        N = length(x)
+        N = length(x) * sizeof(eltype(x))
         n = 0
-        while n < N + 1 - 2W64
+        while n < N + 1 - 2REGISTER_SIZE
             state, (z₁,z₂) = f(state, Val{2}(), Float64)
-            vstore!(ptrx, z₁, n); n += W64
-            vstore!(ptrx, z₂, n); n += W64
+            vstore!(ptrx, z₁, n); n += REGISTER_SIZE
+            vstore!(ptrx, z₂, n); n += REGISTER_SIZE
         end
         mask = VectorizationBase.mask(Val{W64}(), N)
-        if n < N - 1W64
+        if n < N - 1REGISTER_SIZE
             state, (z₁,z₂) = f(state, Val{2}(), Float64)
-            vstore!(ptrx, z₁, n); n += W64
+            vstore!(ptrx, z₁, n); n += REGISTER_SIZE
             vstore!(ptrx, z₂, n, mask);
         elseif n < N
             vstate, (z₁,) = f(state, Val{1}(), Float64)
@@ -140,30 +140,30 @@ function random_sample!(f::F, rng::AbstractVRNG{P}, x::AbstractArray) where {F,P
     state = getstate(rng, Val{P}(), Val{W64}())
     GC.@preserve x begin
         ptrx = pointer(x)
-        N = length(x)
+        N = length(x) * sizeof(eltype(x))
         n = 0
-        while n < N + 1 - 4W64
+        while n < N + 1 - 4REGISTER_SIZE
             state, (z₁,z₂,z₃,z₄) = f(state, Val{4}(), Float64)
-            vstore!(ptrx, z₁, n); n += W64
-            vstore!(ptrx, z₂, n); n += W64
-            vstore!(ptrx, z₃, n); n += W64
-            vstore!(ptrx, z₄, n); n += W64
+            vstore!(ptrx, z₁, n); n += REGISTER_SIZE
+            vstore!(ptrx, z₂, n); n += REGISTER_SIZE
+            vstore!(ptrx, z₃, n); n += REGISTER_SIZE
+            vstore!(ptrx, z₄, n); n += REGISTER_SIZE
         end
         mask = VectorizationBase.mask(Val{W64}(), N)
-        if n < N - 3W64
+        if n < N - 3REGISTER_SIZE
             state, (z₁,z₂,z₃,z₄) = f(state, Val{4}(), Float64)
-            vstore!(ptrx, z₁, n); n += W64
-            vstore!(ptrx, z₂, n); n += W64
-            vstore!(ptrx, z₃, n); n += W64
+            vstore!(ptrx, z₁, n); n += REGISTER_SIZE
+            vstore!(ptrx, z₂, n); n += REGISTER_SIZE
+            vstore!(ptrx, z₃, n); n += REGISTER_SIZE
             vstore!(ptrx, z₄, n, mask);
-        elseif n < N - 2W64
+        elseif n < N - 2REGISTER_SIZE
             state, (z₁,z₂,z₃) = f(state, Val{3}(), Float64)
-            vstore!(ptrx, z₁, n); n += W64
-            vstore!(ptrx, z₂, n); n += W64
+            vstore!(ptrx, z₁, n); n += REGISTER_SIZE
+            vstore!(ptrx, z₂, n); n += REGISTER_SIZE
             vstore!(ptrx, z₃, n, mask);
-        elseif n < N - W64
+        elseif n < N - REGISTER_SIZE
             state, (z₁,z₂) = f(state, Val{2}(), Float64)
-            vstore!(ptrx, z₁, n); n += W64
+            vstore!(ptrx, z₁, n); n += REGISTER_SIZE
             vstore!(ptrx, z₂, n, mask);
         elseif n < N
             vstate, (z₁,) = f(state, Val{1}(), Float64)
