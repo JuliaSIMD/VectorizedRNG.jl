@@ -29,10 +29,10 @@ end
 function initXoshift!(ptr::Ptr{UInt64}, P, e::UInt64, z::UInt64, d::UInt64, v::UInt64) # P here means number of streams
     for j ∈ 1:P-1
         i = P - j
-        vstore!(ptr, e, i); vstore!(ptr, z, i + P); vstore!(ptr, d, i + 2P); vstore!(ptr, v, i + 3P);
+        vstore!(ptr, e, 8i); vstore!(ptr, z, 8*(i + P)); vstore!(ptr, d, 8*(i + 2P)); vstore!(ptr, v, 8*(i + 3P));
         e, z, d, v = jump(e, z, d, v)
     end
-    vstore!(ptr, e); vstore!(ptr, z, P); vstore!(ptr, d, 2P); vstore!(ptr, v, 3P);
+    vstore!(ptr, e); vstore!(ptr, z, 8P); vstore!(ptr, d, 8*(2P)); vstore!(ptr, v, 8*(3P));
 end
 function jump(eins, zwei, drei, vier)
     e = zero(UInt64); z = zero(UInt64); d = zero(UInt64); v = zero(UInt64)
