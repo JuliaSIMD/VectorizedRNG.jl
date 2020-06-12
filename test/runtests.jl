@@ -83,7 +83,7 @@ end
         # @test mi > α
         # @test ma < 1 - α
     end
-    @teset "Discontiguous in place" begin
+    @testset "Discontiguous in place" begin
         x = zeros(5, 117); xv = view(x, 5, :)
         rand!(local_rng(), xv)
         @test !any(iszero, xv)
