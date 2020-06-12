@@ -115,59 +115,61 @@ end
 function random_sample!(f::typeof(random_uniform), rng::AbstractVRNG{P}, x::AbstractArray{Float64}) where {P}
     state = getstate(rng, Val{2}(), Val{W64}())
     GC.@preserve x begin
-        ptrx = pointer(x)
-        N = length(x) * sizeof(eltype(x))
-        n = 0
-        while n < N + 1 - 2REGISTER_SIZE
+        ptrx = stridedpointer(x)
+        W = VectorizationBase.pick_vector_width(Float64)
+        N = length(x)
+        n = _MM(VectorizationBase.pick_vector_width_val(Float64), 0)
+        while VectorizationBase.scalar_less(n, vadd(N, 1 - 2W))
             state, (z₁,z₂) = f(state, Val{2}(), Float64)
-            vstore!(ptrx, z₁, n); n += REGISTER_SIZE
-            vstore!(ptrx, z₂, n); n += REGISTER_SIZE
+            vstore!(ptrx, z₁, (n,)); n = vadd(W, n)
+            vstore!(ptrx, z₂, (n,)); n = vadd(W, n)
         end
         mask = VectorizationBase.mask(Val{W64}(), N)
-        if n < N - 1REGISTER_SIZE
+        if VectorizationBase.scalar_less(n, vsub(N, W))
             state, (z₁,z₂) = f(state, Val{2}(), Float64)
-            vstore!(ptrx, z₁, n); n += REGISTER_SIZE
-            vstore!(ptrx, z₂, n, mask);
-        elseif n < N
+            vstore!(ptrx, z₁, (n,)); n = vadd(W, n)
+            vstore!(ptrx, z₂, (n,), mask);
+        elseif VectorizationBase.scalar_less(n, N)
             vstate, (z₁,) = f(state, Val{1}(), Float64)
-            vstore!(ptrx, z₁, n, mask);
-        end        
+            vstore!(ptrx, z₁, (n,), mask);
+        end
         storestate!(rng, state)
     end # GC preserve
     x
 end
-function random_sample!(f::F, rng::AbstractVRNG{P}, x::AbstractArray) where {F,P}
+function random_sample!(f::F, rng::AbstractVRNG{P}, x::AbstractArray{Float64}) where {F,P}
     state = getstate(rng, Val{P}(), Val{W64}())
     GC.@preserve x begin
-        ptrx = pointer(x)
-        N = length(x) * sizeof(eltype(x))
-        n = 0
-        while n < N + 1 - 4REGISTER_SIZE
+        ptrx = stridedpointer(x)
+        W = VectorizationBase.pick_vector_width(Float64)
+        N = length(x)
+        n = _MM(VectorizationBase.pick_vector_width_val(Float64), 0)
+        while VectorizationBase.scalar_less(n, vadd(N, 1 - 4W))
             state, (z₁,z₂,z₃,z₄) = f(state, Val{4}(), Float64)
-            vstore!(ptrx, z₁, n); n += REGISTER_SIZE
-            vstore!(ptrx, z₂, n); n += REGISTER_SIZE
-            vstore!(ptrx, z₃, n); n += REGISTER_SIZE
-            vstore!(ptrx, z₄, n); n += REGISTER_SIZE
+            vstore!(ptrx, z₁, (n,)); n = vadd(W, n)
+            vstore!(ptrx, z₂, (n,)); n = vadd(W, n)
+            vstore!(ptrx, z₃, (n,)); n = vadd(W, n)
+            vstore!(ptrx, z₄, (n,)); n = vadd(W, n) 
         end
         mask = VectorizationBase.mask(Val{W64}(), N)
-        if n < N - 3REGISTER_SIZE
+        if VectorizationBase.scalar_less(n, vsub(N, 3W))
             state, (z₁,z₂,z₃,z₄) = f(state, Val{4}(), Float64)
-            vstore!(ptrx, z₁, n); n += REGISTER_SIZE
-            vstore!(ptrx, z₂, n); n += REGISTER_SIZE
-            vstore!(ptrx, z₃, n); n += REGISTER_SIZE
-            vstore!(ptrx, z₄, n, mask);
-        elseif n < N - 2REGISTER_SIZE
+            vstore!(ptrx, z₁, (n,)); n = vadd(W, n)
+            vstore!(ptrx, z₂, (n,)); n = vadd(W, n)
+            vstore!(ptrx, z₃, (n,)); n = vadd(W, n)
+            vstore!(ptrx, z₄, (n,), mask);
+        elseif VectorizationBase.scalar_less(n, vsub(N, 2W))
             state, (z₁,z₂,z₃) = f(state, Val{3}(), Float64)
-            vstore!(ptrx, z₁, n); n += REGISTER_SIZE
-            vstore!(ptrx, z₂, n); n += REGISTER_SIZE
-            vstore!(ptrx, z₃, n, mask);
-        elseif n < N - REGISTER_SIZE
+            vstore!(ptrx, z₁, (n,)); n = vadd(W, n)
+            vstore!(ptrx, z₂, (n,)); n = vadd(W, n)
+            vstore!(ptrx, z₃, (n,), mask);
+        elseif VectorizationBase.scalar_less(n, vsub(N, W))
             state, (z₁,z₂) = f(state, Val{2}(), Float64)
-            vstore!(ptrx, z₁, n); n += REGISTER_SIZE
-            vstore!(ptrx, z₂, n, mask);
-        elseif n < N
+            vstore!(ptrx, z₁, (n,)); n = vadd(W, n)
+            vstore!(ptrx, z₂, (n,), mask);
+        elseif VectorizationBase.scalar_less(n, N)
             vstate, (z₁,) = f(state, Val{1}(), Float64)
-            vstore!(ptrx, z₁, n, mask);
+            vstore!(ptrx, z₁, (n,), mask);
         end        
         storestate!(rng, state)
     end # GC preserve
@@ -186,8 +188,8 @@ function Random.rand!(rng::AbstractVRNG, x::AbstractArray{UInt64})
     random_sample!(random_unsigned, rng, x)
 end
 
-Random.rand(rng::AbstractVRNG, d1::Integer, dims::Vararg{Integer,N} where N) = rand!(rng, Array{Float64}(undef, d1, dims...))
-Random.randn(rng::AbstractVRNG, d1::Integer, dims::Vararg{Integer,N} where N) = randn!(rng, Array{Float64}(undef, d1, dims...))
-Random.randexp(rng::AbstractVRNG, d1::Integer, dims::Vararg{Integer,N} where N) = randexp!(rng, Array{Float64}(undef, d1, dyims...))
+Random.rand(rng::AbstractVRNG, d1::Integer, dims::Vararg{Integer,N}) where {N} = rand!(rng, Array{Float64}(undef, d1, dims...))
+Random.randn(rng::AbstractVRNG, d1::Integer, dims::Vararg{Integer,N}) where {N} = randn!(rng, Array{Float64}(undef, d1, dims...))
+# Random.randexp(rng::AbstractVRNG, d1::Integer, dims::Vararg{Integer,N}) where {N} = randexp!(rng, Array{Float64}(undef, d1, dims...))
 
 
