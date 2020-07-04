@@ -30,5 +30,5 @@ uniform distribution would get complicated.
 @inline mask(x, ::Type{Float64}) = reinterpret(Float64,(x & 0x000fffffffffffff) | 0x3ff0000000000000)
 @inline mask(x, ::Type{Float32}) = reinterpret(Float32,(x & 0x007fffff) | 0x3f800000)
 @inline mask(v::Vec{W,UInt64}, ::Type{Float64}) where {W} = vreinterpret(Vec{W,Float64}, vor(vand(v, 0x000fffffffffffff), 0x3ff0000000000000))
-@inline mask(v::Vec{W,UInt64}, ::Type{Float32}) where {W} = vreinterpret(MatchingFloat32(Vec{W,UInt64}), vor(vand(v, 0x007fffff), 0x3f800000))
+@inline mask(v::Vec{W,UInt64}, ::Type{Float32}) where {W} = vreinterpret(MatchingFloat32(Vec{W,UInt64}), vor(vand(vreinterpret(MatchingUInt32(Vec{W,UInt64}), v), 0x007fffff), 0x3f800000))
 

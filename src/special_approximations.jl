@@ -1,26 +1,17 @@
 # Coefficients calculated with https://github.com/simonbyrne/Remez.jl
 
-@inline function approx_sin8(x)
+@inline function approx_sin8(x::Union{T,Vec{<:Any,T}}) where {T <: Real}
     # poly(x) ≈ (xʳ = sqrt(x); sin((xʳ*π)/2)/xʳ)
     x² = vmul(x, x)
-    c0 = 2.22144146907918312350794048535203995923494010677251491220479906920966593121882
-    c1 = -0.9135311874994298224944388934705417261765270518848695099428083902179199377101094
-    c2 = 0.1127023928584587596980569269678174942915399051122642981118394498722218063783927
-    c3 = -0.006621000193853498898990183110992108352486751535892362800909323879419896057043918
-    c4 = 0.0002268980994233557245363541171760472387529757765245978583128895641498725296271051
-    c5 = -5.089532691384021959110856232473979525292167742059549332987900223626864039349914e-06
-    c6 = 8.049906344315649609313027324977744156866597923196983008950128144505665619892402e-08
-    c7 = -9.453796623737636858301034347145347814693537235132105505794304057287442064404052e-10
-    c8 = 8.320735422342537824261297491878000532726851750329165722059039816086266315937799e-12
-    # c0 = 1.570796326794896619231321684796155009723925579427013429107379858937350864353935
-    # c1 = -0.6459640975062462426104262872773479475967039565113802197400862316162817257647614
-    # c2 = 0.07969262624616651457314244843378802177166233633609203243545669365134539811348296
-    # c3 = -0.004681754135311254787272873367758827810255989478775092723004865549082179482307841
-    # c4 = 0.0001604411847405943013335077393820921228858692866929637223900091855777216538297656
-    # c5 = -3.598843079148261926275047087421826592371403444163652920829901458445320064228134e-06
-    # c6 = 5.692143363982206743355977855789949996617471923916046406470877034200207212033056e-08
-    # c7 = -6.684843700603370943767514384818668831918732074371639273353175621721436668488705e-10
-    # c8 = 5.883648441597519994516564365969635012352827013289970258507914040579320485388581e-12
+    c0 = T(2.22144146907918312350794048535203995923494010677251491220479906920966593121882)
+    c1 = T(-0.9135311874994298224944388934705417261765270518848695099428083902179199377101094)
+    c2 = T(0.1127023928584587596980569269678174942915399051122642981118394498722218063783927)
+    c3 = T(-0.006621000193853498898990183110992108352486751535892362800909323879419896057043918)
+    c4 = T(0.0002268980994233557245363541171760472387529757765245978583128895641498725296271051)
+    c5 = T(-5.089532691384021959110856232473979525292167742059549332987900223626864039349914e-06)
+    c6 = T(8.049906344315649609313027324977744156866597923196983008950128144505665619892402e-08)
+    c7 = T(-9.453796623737636858301034347145347814693537235132105505794304057287442064404052e-10)
+    c8 = T(8.320735422342537824261297491878000532726851750329165722059039816086266315937799e-12)
     p = vfmadd(vfmadd(vfmadd(
         vfmadd(vfmadd(vfmadd(
             vfmadd(vfmadd(
@@ -29,22 +20,22 @@
         x², c3), x², c2), x², c1), x², c0)
     vmul(p, x)
 end
-@inline function approx_sin12(x)
+@inline function approx_sin12(x::Union{T,Vec{<:Any,T}}) where {T <: Real}
     # poly(x) ≈ (xʳ = sqrt(x); sin((xʳ*π)/2)/xʳ)
     x² = vmul(x, x)
-    c0 = 1.570796326794896619231321691639751442087433306473273974291471596002143089408967
-    c1 = -0.6459640975062462536557565638714840878228221616991079162636960728776200926827234
-    c2 = 0.07969262624616704512050554673779356754386556916433562280307069303594093234088455
-    c3 = -0.004681754135318688100685379129717344612020387136900677528796079362820120586116841
-    c4 = 0.0001604411847873598218714490487175497697128038098258443135990371062725913378293313
-    c5 = -3.598843235212085330760986854968071769532101571696000087022804157171548649851493e-06
-    c6 = 5.692172921967922014173914534767998233640265149949183614622512228877789263783426e-08
-    c7 = -6.688035109809916561166255796732305220204238240380007953680372148880958984800929e-10
-    c8 = 6.066935730769290440108765932783579488881358689623800108082605751157383050893581e-12
-    c9 = -4.377065417731331420103035981625834800685920271728367262547966148291799276629881e-14
-    c10 = 2.571418016198708615875917881136145309875324227233510421118020948686662677979356e-16
-    c11 = -1.253592449512705798908955136513569509617634496103293074276456663908804526347008e-18
-    c12 = 5.044383456268885650704416950405914330732446213362030631794638992715099861013542e-21
+    c0 = T(1.570796326794896619231321691639751442087433306473273974291471596002143089408967)
+    c1 = T(-0.6459640975062462536557565638714840878228221616991079162636960728776200926827234)
+    c2 = T(0.07969262624616704512050554673779356754386556916433562280307069303594093234088455)
+    c3 = T(-0.004681754135318688100685379129717344612020387136900677528796079362820120586116841)
+    c4 = T(0.0001604411847873598218714490487175497697128038098258443135990371062725913378293313)
+    c5 = T(-3.598843235212085330760986854968071769532101571696000087022804157171548649851493e-06)
+    c6 = T(5.692172921967922014173914534767998233640265149949183614622512228877789263783426e-08)
+    c7 = T(-6.688035109809916561166255796732305220204238240380007953680372148880958984800929e-10)
+    c8 = T(6.066935730769290440108765932783579488881358689623800108082605751157383050893581e-12)
+    c9 = T(-4.377065417731331420103035981625834800685920271728367262547966148291799276629881e-14)
+    c10 = T(2.571418016198708615875917881136145309875324227233510421118020948686662677979356e-16)
+    c11 = T(-1.253592449512705798908955136513569509617634496103293074276456663908804526347008e-18)
+    c12 = T(5.044383456268885650704416950405914330732446213362030631794638992715099861013542e-21)
     p = vfmadd(vfmadd(vfmadd(
         vfmadd(vfmadd(vfmadd(
             vfmadd(vfmadd(vfmadd(
@@ -186,93 +177,93 @@ end
 end
 
 @static if Base.libllvm_version < v"8"
-@generated function log2_3q(v::Vec{W,Float64}, e::Vec{W,Float64}) where {W}
-    onev = "<double " * join((1.0 for _ ∈ 1:W), ", double ") * ">"
-    constv = x -> "<$W x double> <double " * join((x for _ ∈ 1:W), ", double ") * ">"
-    constvnotyp = x -> "<double " * join((x for _ ∈ 1:W), ", double ") * ">"
-    const1 = constv(reinterpret(Float64,0x3FCC501739F17BA9))
-    const2 = constv(reinterpret(Float64,0x3FCC2B7A962850E9))
-    const3 = constv(reinterpret(Float64,0x3FD0CAAEEB877481))
-    const4 = constv(reinterpret(Float64,0x3FD484AC6A7CB2DD))
-    const5 = constv(reinterpret(Float64,0x3FDA617636C2C254))
-    const6 = constv(reinterpret(Float64,0x3FE2776C50E7EDE9))
-    const7 = constv(reinterpret(Float64,0x3FEEC709DC3A07B2))
-    const8 = constvnotyp(reinterpret(Float64,0x40071547652B82FE))
-    decl = "declare <$W x double> @llvm.fma.v$(W)f64(<$W x double>, <$W x double>, <$W x double>)"
-    instr = """
-      %m1 = fmul <$W x double> %0, %0
-      %fma1 = tail call <$W x double> @llvm.fma.v$(W)f64(<$W x double> %m1, $const1, $const2)
-      %fma2 = tail call <$W x double> @llvm.fma.v$(W)f64(<$W x double> %fma1, <$W x double> %m1, $const3)
-      %fma3 = tail call <$W x double> @llvm.fma.v$(W)f64(<$W x double> %fma2, <$W x double> %m1, $const4)
-      %fma4 = tail call <$W x double> @llvm.fma.v$(W)f64(<$W x double> %fma3, <$W x double> %m1, $const5)
-      %fma5 = tail call <$W x double> @llvm.fma.v$(W)f64(<$W x double> %fma4, <$W x double> %m1, $const6)
-      %fma6 = tail call <$W x double> @llvm.fma.v$(W)f64(<$W x double> %fma5, <$W x double> %m1, $const7)
-      %m2 = fmul <$W x double> %0, $const8
-      %s1 = fsub fast <$W x double> zeroinitializer, %m2
-      %fma7 = tail call <$W x double> @llvm.fma.v$(W)f64(<$W x double> %0, <$W x double> $const8, <$W x double> %s1)
-      %a1 = fadd <$W x double> %1, %m2
-      %s2 = fsub <$W x double> %1, %a1
-      %a2 = fadd <$W x double> %m2, %s2
-      %a3 = fadd <$W x double> %fma7, %a2
-      %m3 = fmul <$W x double> %0, %m1
-      %a4 = fadd <$W x double> %a1, %a3
-      %retv = tail call <$W x double> @llvm.fma.v$(W)f64(<$W x double> %fma6, <$W x double> %m3, <$W x double> %a4)
-      ret <$W x double> %retv
-    """
-    quote
-        $(Expr(:meta,:inline))
-        Base.llvmcall(($decl, $instr), Vec{$W,Float64}, Tuple{Vec{$W,Float64},Vec{$W,Float64}}, v, e)
+    @generated function log2_3q(v::Vec{W,Float64}, e::Vec{W,Float64}) where {W}
+        onev = "<double " * join((1.0 for _ ∈ 1:W), ", double ") * ">"
+        constv = x -> "<$W x double> <double " * join((x for _ ∈ 1:W), ", double ") * ">"
+        constvnotyp = x -> "<double " * join((x for _ ∈ 1:W), ", double ") * ">"
+        const1 = constv(reinterpret(Float64,0x3FCC501739F17BA9))
+        const2 = constv(reinterpret(Float64,0x3FCC2B7A962850E9))
+        const3 = constv(reinterpret(Float64,0x3FD0CAAEEB877481))
+        const4 = constv(reinterpret(Float64,0x3FD484AC6A7CB2DD))
+        const5 = constv(reinterpret(Float64,0x3FDA617636C2C254))
+        const6 = constv(reinterpret(Float64,0x3FE2776C50E7EDE9))
+        const7 = constv(reinterpret(Float64,0x3FEEC709DC3A07B2))
+        const8 = constvnotyp(reinterpret(Float64,0x40071547652B82FE))
+        decl = "declare <$W x double> @llvm.fma.v$(W)f64(<$W x double>, <$W x double>, <$W x double>)"
+        instr = """
+          %m1 = fmul <$W x double> %0, %0
+          %fma1 = tail call <$W x double> @llvm.fma.v$(W)f64(<$W x double> %m1, $const1, $const2)
+          %fma2 = tail call <$W x double> @llvm.fma.v$(W)f64(<$W x double> %fma1, <$W x double> %m1, $const3)
+          %fma3 = tail call <$W x double> @llvm.fma.v$(W)f64(<$W x double> %fma2, <$W x double> %m1, $const4)
+          %fma4 = tail call <$W x double> @llvm.fma.v$(W)f64(<$W x double> %fma3, <$W x double> %m1, $const5)
+          %fma5 = tail call <$W x double> @llvm.fma.v$(W)f64(<$W x double> %fma4, <$W x double> %m1, $const6)
+          %fma6 = tail call <$W x double> @llvm.fma.v$(W)f64(<$W x double> %fma5, <$W x double> %m1, $const7)
+          %m2 = fmul <$W x double> %0, $const8
+          %s1 = fsub fast <$W x double> zeroinitializer, %m2
+          %fma7 = tail call <$W x double> @llvm.fma.v$(W)f64(<$W x double> %0, <$W x double> $const8, <$W x double> %s1)
+          %a1 = fadd <$W x double> %1, %m2
+          %s2 = fsub <$W x double> %1, %a1
+          %a2 = fadd <$W x double> %m2, %s2
+          %a3 = fadd <$W x double> %fma7, %a2
+          %m3 = fmul <$W x double> %0, %m1
+          %a4 = fadd <$W x double> %a1, %a3
+          %retv = tail call <$W x double> @llvm.fma.v$(W)f64(<$W x double> %fma6, <$W x double> %m3, <$W x double> %a4)
+          ret <$W x double> %retv
+        """
+        quote
+            $(Expr(:meta,:inline))
+            Base.llvmcall(($decl, $instr), Vec{$W,Float64}, Tuple{Vec{$W,Float64},Vec{$W,Float64}}, v, e)
+        end
     end
-end
 else
-@generated function log2_3q(v::Vec{W,Float64}, e::Vec{W,Float64}) where {W}
-    onev = "<double " * join((1.0 for _ ∈ 1:W), ", double ") * ">"
-    constv = x -> "<$W x double> <double " * join((x for _ ∈ 1:W), ", double ") * ">"
-    constvnotyp = x -> "<double " * join((x for _ ∈ 1:W), ", double ") * ">"
-    const1 = constv(reinterpret(Float64,0x3FCC501739F17BA9))
-    const2 = constv(reinterpret(Float64,0x3FCC2B7A962850E9))
-    const3 = constv(reinterpret(Float64,0x3FD0CAAEEB877481))
-    const4 = constv(reinterpret(Float64,0x3FD484AC6A7CB2DD))
-    const5 = constv(reinterpret(Float64,0x3FDA617636C2C254))
-    const6 = constv(reinterpret(Float64,0x3FE2776C50E7EDE9))
-    const7 = constv(reinterpret(Float64,0x3FEEC709DC3A07B2))
-    const8 = constvnotyp(reinterpret(Float64,0x40071547652B82FE))
-    decl = "declare <$W x double> @llvm.fma.v$(W)f64(<$W x double>, <$W x double>, <$W x double>)"
-    instr = """
-      %m1 = fmul <$W x double> %0, %0
-      %fma1 = tail call <$W x double> @llvm.fma.v$(W)f64(<$W x double> %m1, $const1, $const2)
-      %fma2 = tail call <$W x double> @llvm.fma.v$(W)f64(<$W x double> %fma1, <$W x double> %m1, $const3)
-      %fma3 = tail call <$W x double> @llvm.fma.v$(W)f64(<$W x double> %fma2, <$W x double> %m1, $const4)
-      %fma4 = tail call <$W x double> @llvm.fma.v$(W)f64(<$W x double> %fma3, <$W x double> %m1, $const5)
-      %fma5 = tail call <$W x double> @llvm.fma.v$(W)f64(<$W x double> %fma4, <$W x double> %m1, $const6)
-      %fma6 = tail call <$W x double> @llvm.fma.v$(W)f64(<$W x double> %fma5, <$W x double> %m1, $const7)
-      %m2 = fmul <$W x double> %0, $const8
-      %s1 = fneg <$W x double> %m2
-      %fma7 = tail call <$W x double> @llvm.fma.v$(W)f64(<$W x double> %0, <$W x double> $const8, <$W x double> %s1)
-      %a1 = fadd <$W x double> %1, %m2
-      %s2 = fsub <$W x double> %1, %a1
-      %a2 = fadd <$W x double> %m2, %s2
-      %a3 = fadd <$W x double> %fma7, %a2
-      %m3 = fmul <$W x double> %0, %m1
-      %a4 = fadd <$W x double> %a1, %a3
-      %retv = tail call <$W x double> @llvm.fma.v$(W)f64(<$W x double> %fma6, <$W x double> %m3, <$W x double> %a4)
-      ret <$W x double> %retv
-    """
-    quote
-        $(Expr(:meta,:inline))
-        Base.llvmcall(($decl, $instr), Vec{$W,Float64}, Tuple{Vec{$W,Float64},Vec{$W,Float64}}, v, e)
+    @generated function log2_3q(v::Vec{W,Float64}, e::Vec{W,Float64}) where {W}
+        onev = "<double " * join((1.0 for _ ∈ 1:W), ", double ") * ">"
+        constv = x -> "<$W x double> <double " * join((x for _ ∈ 1:W), ", double ") * ">"
+        constvnotyp = x -> "<double " * join((x for _ ∈ 1:W), ", double ") * ">"
+        const1 = constv(reinterpret(Float64,0x3FCC501739F17BA9))
+        const2 = constv(reinterpret(Float64,0x3FCC2B7A962850E9))
+        const3 = constv(reinterpret(Float64,0x3FD0CAAEEB877481))
+        const4 = constv(reinterpret(Float64,0x3FD484AC6A7CB2DD))
+        const5 = constv(reinterpret(Float64,0x3FDA617636C2C254))
+        const6 = constv(reinterpret(Float64,0x3FE2776C50E7EDE9))
+        const7 = constv(reinterpret(Float64,0x3FEEC709DC3A07B2))
+        const8 = constvnotyp(reinterpret(Float64,0x40071547652B82FE))
+        decl = "declare <$W x double> @llvm.fma.v$(W)f64(<$W x double>, <$W x double>, <$W x double>)"
+        instr = """
+          %m1 = fmul <$W x double> %0, %0
+          %fma1 = tail call <$W x double> @llvm.fma.v$(W)f64(<$W x double> %m1, $const1, $const2)
+          %fma2 = tail call <$W x double> @llvm.fma.v$(W)f64(<$W x double> %fma1, <$W x double> %m1, $const3)
+          %fma3 = tail call <$W x double> @llvm.fma.v$(W)f64(<$W x double> %fma2, <$W x double> %m1, $const4)
+          %fma4 = tail call <$W x double> @llvm.fma.v$(W)f64(<$W x double> %fma3, <$W x double> %m1, $const5)
+          %fma5 = tail call <$W x double> @llvm.fma.v$(W)f64(<$W x double> %fma4, <$W x double> %m1, $const6)
+          %fma6 = tail call <$W x double> @llvm.fma.v$(W)f64(<$W x double> %fma5, <$W x double> %m1, $const7)
+          %m2 = fmul <$W x double> %0, $const8
+          %s1 = fneg <$W x double> %m2
+          %fma7 = tail call <$W x double> @llvm.fma.v$(W)f64(<$W x double> %0, <$W x double> $const8, <$W x double> %s1)
+          %a1 = fadd <$W x double> %1, %m2
+          %s2 = fsub <$W x double> %1, %a1
+          %a2 = fadd <$W x double> %m2, %s2
+          %a3 = fadd <$W x double> %fma7, %a2
+          %m3 = fmul <$W x double> %0, %m1
+          %a4 = fadd <$W x double> %a1, %a3
+          %retv = tail call <$W x double> @llvm.fma.v$(W)f64(<$W x double> %fma6, <$W x double> %m3, <$W x double> %a4)
+          ret <$W x double> %retv
+        """
+        quote
+            $(Expr(:meta,:inline))
+            Base.llvmcall(($decl, $instr), Vec{$W,Float64}, Tuple{Vec{$W,Float64},Vec{$W,Float64}}, v, e)
+        end
     end
 end
-end
-@inline function nlog01(u::Vec{W,UInt64}, ::Type{Float64}) where {W}
+@inline function nlog01(u::Vec{W,UInt64}, ::Type{T}) where {W,T}
     lz = SIMDPirates.vleading_zeros( u )
     # f = mask(u, Float64) # shift by lz
     # f = vmul(0.75, mask(shift_excess_zeros(u, lz), Float64)) # shift by lz
     # f = vfdiv(vsub(f, 1.0), vadd(f, 1.0))
-    f = mask(shift_excess_zeros(u, lz), Float64) # shift by lz
-    f = vfdiv(vsub(f, 1.3333333333333333), vadd(f, 1.3333333333333333))
+    f = mask(shift_excess_zeros(u, lz), T) # shift by lz
+    f = vfdiv(vsub(f, T(1.3333333333333333)), vadd(f, T(1.3333333333333333)))
     # l2h = log12_9(f)
-    l2 = log2_3q(f, vsub(-0.5849625007211561814537389439478165087598144076924810604557526545410982277943579, lz))
-    vmul(-0.6931471805599453, l2)
+    l2 = log2_3q(f, vsub(T(-0.5849625007211561814537389439478165087598144076924810604557526545410982277943579), lz))
+    vmul(T(-0.6931471805599453), l2)
 end
 

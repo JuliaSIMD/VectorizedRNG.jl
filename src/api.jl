@@ -5,6 +5,7 @@ MatchingUInt(::Type{NTuple{N,Vec{W,Float64}}}) where {N,W} = NTuple{N,Vec{W,UInt
 @generated MatchingUInt(::Type{NTuple{N,Vec{W,Float32}}}) where {N,W} = NTuple{N,Vec{cld(W,2),UInt64}}
 
 @generated MatchingFloat32(::Type{Vec{W,UInt64}}) where {W} = Vec{W<<1,Float32}
+@generated MatchingUInt32(::Type{Vec{W,UInt64}}) where {W} = Vec{W<<1,UInt32}
 
 
 @inline function Random.rand(rng::AbstractVRNG{P}, ::Type{Vec{W,UInt64}}) where {W,P}
@@ -20,7 +21,9 @@ end
     out
 end
 
-@inline random_uniform(u::Vec{W,UInt64}, ::Type{T}) where {W,T} = vsub(mask(u, T), oneopenconst(T))
+@inline random_uniform(u::Vec{W,UInt64}, ::Type{Float64}) where {W} = vsub(mask(u, Float64), oneopenconst(Float64))
+@inline random_uniform(u::Vec{W,UInt64}, ::Type{Float32}) where {W} = vsub(mask(u, Float32), oneopenconst(Float32))
+# @inline random_uniform(u::Vec{W,UInt64}, ::Type{Float32}) where {W} = vsub(mask(vreinterpret(Vec{W+W,UInt32}, u), Float32), oneopenconst(Float32))
 @generated function random_uniform(u::NTuple{N,Vec{W,UInt64}}, ::Type{T}) where {N,W,T}
     Expr(
         :block,
@@ -112,25 +115,26 @@ end
     state, random_normal(u, T)
 end
 
-function random_sample!(f::typeof(random_uniform), rng::AbstractVRNG{P}, x::AbstractArray{Float64}) where {P}
+function random_sample!(f::typeof(random_uniform), rng::AbstractVRNG{P}, x::AbstractArray{T}) where {P,T <: Union{Float32,Float64}}
     state = getstate(rng, Val{2}(), Val{W64}())
     GC.@preserve x begin
         ptrx = stridedpointer(x)
-        W = VectorizationBase.pick_vector_width(Float64)
+        W = VectorizationBase.pick_vector_width(T)
+        Wval = VectorizationBase.pick_vector_width_val(T)
         N = length(x)
-        n = _MM(VectorizationBase.pick_vector_width_val(Float64), 0)
+        n = _MM(Wval, 0)
         while VectorizationBase.scalar_less(n, vadd(N, 1 - 2W))
-            state, (z₁,z₂) = f(state, Val{2}(), Float64)
+            state, (z₁,z₂) = f(state, Val{2}(), T)
             vstore!(ptrx, z₁, (n,)); n = vadd(W, n)
             vstore!(ptrx, z₂, (n,)); n = vadd(W, n)
         end
-        mask = VectorizationBase.mask(Val{W64}(), N)
+        mask = VectorizationBase.mask(Wval, N)
         if VectorizationBase.scalar_less(n, vsub(N, W))
-            state, (z₁,z₂) = f(state, Val{2}(), Float64)
+            state, (z₁,z₂) = f(state, Val{2}(), T)
             vstore!(ptrx, z₁, (n,)); n = vadd(W, n)
             vstore!(ptrx, z₂, (n,), mask);
         elseif VectorizationBase.scalar_less(n, N)
-            vstate, (z₁,) = f(state, Val{1}(), Float64)
+            vstate, (z₁,) = f(state, Val{1}(), T)
             vstore!(ptrx, z₁, (n,), mask);
         end
         storestate!(rng, state)
@@ -176,6 +180,9 @@ function random_sample!(f::F, rng::AbstractVRNG{P}, x::AbstractArray{Float64}) w
     x
 end
 function Random.rand!(rng::AbstractVRNG, x::AbstractArray{Float64})
+    random_sample!(random_uniform, rng, x)
+end
+function Random.rand!(rng::AbstractVRNG, x::AbstractArray{Float32})
     random_sample!(random_uniform, rng, x)
 end
 function Random.randn!(rng::AbstractVRNG, x::AbstractArray{Float64})
