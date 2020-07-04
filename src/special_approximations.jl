@@ -1,6 +1,6 @@
 # Coefficients calculated with https://github.com/simonbyrne/Remez.jl
 
-@inline function approx_sin8(x::Union{T,Vec{<:Any,T}}) where {T <: Real}
+@inline function approx_sin8(x::Union{T,_Vec{<:Any,T}}) where {T <: Real}
     # poly(x) ≈ (xʳ = sqrt(x); sin((xʳ*π)/2)/xʳ)
     x² = vmul(x, x)
     c0 = T(2.22144146907918312350794048535203995923494010677251491220479906920966593121882)
@@ -20,7 +20,7 @@
         x², c3), x², c2), x², c1), x², c0)
     vmul(p, x)
 end
-@inline function approx_sin12(x::Union{T,Vec{<:Any,T}}) where {T <: Real}
+@inline function approx_sin12(x::Union{T,_Vec{<:Any,T}}) where {T <: Real}
     # poly(x) ≈ (xʳ = sqrt(x); sin((xʳ*π)/2)/xʳ)
     x² = vmul(x, x)
     c0 = T(1.570796326794896619231321691639751442087433306473273974291471596002143089408967)

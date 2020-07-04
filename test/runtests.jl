@@ -57,10 +57,18 @@ end
 
 
 @testset "VectorizedRNG.jl" begin
+    @test isempty(detect_unbound_args(VectorizedRNG))
     @testset "Small Crush" begin 
         # Write your own tests here.
-        rngunif = RNGTest.wrap(local_rng(), Float64);
-        res = RNGTest.smallcrushJulia(rngunif)
+        rngunif64 = RNGTest.wrap(local_rng(), Float64);
+        res = RNGTest.smallcrushJulia(rngunif64)
+        mi, ma = smallcrushextrema(res)
+        @show mi, ma
+        @test mi > α
+        @test ma < 1 - α
+
+        rngunif32 = RNGTest.wrap(local_rng(), Float32);
+        res = RNGTest.smallcrushJulia(rngunif32)
         mi, ma = smallcrushextrema(res)
         @show mi, ma
         @test mi > α
