@@ -189,25 +189,26 @@ end
         const6 = constv(reinterpret(Float64,0x3FE2776C50E7EDE9))
         const7 = constv(reinterpret(Float64,0x3FEEC709DC3A07B2))
         const8 = constvnotyp(reinterpret(Float64,0x40071547652B82FE))
-        decl = "declare <$W x double> @llvm.fma.v$(W)f64(<$W x double>, <$W x double>, <$W x double>)"
+        fma = "<$W x double> @llvm.fmuladd.v$(W)f64"
+        decl = "declare $fma(<$W x double>, <$W x double>, <$W x double>)"
         instr = """
           %m1 = fmul <$W x double> %0, %0
-          %fma1 = tail call <$W x double> @llvm.fma.v$(W)f64(<$W x double> %m1, $const1, $const2)
-          %fma2 = tail call <$W x double> @llvm.fma.v$(W)f64(<$W x double> %fma1, <$W x double> %m1, $const3)
-          %fma3 = tail call <$W x double> @llvm.fma.v$(W)f64(<$W x double> %fma2, <$W x double> %m1, $const4)
-          %fma4 = tail call <$W x double> @llvm.fma.v$(W)f64(<$W x double> %fma3, <$W x double> %m1, $const5)
-          %fma5 = tail call <$W x double> @llvm.fma.v$(W)f64(<$W x double> %fma4, <$W x double> %m1, $const6)
-          %fma6 = tail call <$W x double> @llvm.fma.v$(W)f64(<$W x double> %fma5, <$W x double> %m1, $const7)
+          %fma1 = tail call $fma(<$W x double> %m1, $const1, $const2)
+          %fma2 = tail call $fma(<$W x double> %fma1, <$W x double> %m1, $const3)
+          %fma3 = tail call $fma(<$W x double> %fma2, <$W x double> %m1, $const4)
+          %fma4 = tail call $fma(<$W x double> %fma3, <$W x double> %m1, $const5)
+          %fma5 = tail call $fma(<$W x double> %fma4, <$W x double> %m1, $const6)
+          %fma6 = tail call $fma(<$W x double> %fma5, <$W x double> %m1, $const7)
           %m2 = fmul <$W x double> %0, $const8
           %s1 = fsub fast <$W x double> zeroinitializer, %m2
-          %fma7 = tail call <$W x double> @llvm.fma.v$(W)f64(<$W x double> %0, <$W x double> $const8, <$W x double> %s1)
+          %fma7 = tail call $fma(<$W x double> %0, <$W x double> $const8, <$W x double> %s1)
           %a1 = fadd <$W x double> %1, %m2
           %s2 = fsub <$W x double> %1, %a1
           %a2 = fadd <$W x double> %m2, %s2
           %a3 = fadd <$W x double> %fma7, %a2
           %m3 = fmul <$W x double> %0, %m1
           %a4 = fadd <$W x double> %a1, %a3
-          %retv = tail call <$W x double> @llvm.fma.v$(W)f64(<$W x double> %fma6, <$W x double> %m3, <$W x double> %a4)
+          %retv = tail call $fma(<$W x double> %fma6, <$W x double> %m3, <$W x double> %a4)
           ret <$W x double> %retv
         """
         quote
@@ -228,25 +229,26 @@ else
         const6 = constv(reinterpret(Float64,0x3FE2776C50E7EDE9))
         const7 = constv(reinterpret(Float64,0x3FEEC709DC3A07B2))
         const8 = constvnotyp(reinterpret(Float64,0x40071547652B82FE))
-        decl = "declare <$W x double> @llvm.fma.v$(W)f64(<$W x double>, <$W x double>, <$W x double>)"
+        fma = "<$W x double> @llvm.fmuladd.v$(W)f64"
+        decl = "declare $fma(<$W x double>, <$W x double>, <$W x double>)"
         instr = """
           %m1 = fmul <$W x double> %0, %0
-          %fma1 = tail call <$W x double> @llvm.fma.v$(W)f64(<$W x double> %m1, $const1, $const2)
-          %fma2 = tail call <$W x double> @llvm.fma.v$(W)f64(<$W x double> %fma1, <$W x double> %m1, $const3)
-          %fma3 = tail call <$W x double> @llvm.fma.v$(W)f64(<$W x double> %fma2, <$W x double> %m1, $const4)
-          %fma4 = tail call <$W x double> @llvm.fma.v$(W)f64(<$W x double> %fma3, <$W x double> %m1, $const5)
-          %fma5 = tail call <$W x double> @llvm.fma.v$(W)f64(<$W x double> %fma4, <$W x double> %m1, $const6)
-          %fma6 = tail call <$W x double> @llvm.fma.v$(W)f64(<$W x double> %fma5, <$W x double> %m1, $const7)
+          %fma1 = tail call $fma(<$W x double> %m1, $const1, $const2)
+          %fma2 = tail call $fma(<$W x double> %fma1, <$W x double> %m1, $const3)
+          %fma3 = tail call $fma(<$W x double> %fma2, <$W x double> %m1, $const4)
+          %fma4 = tail call $fma(<$W x double> %fma3, <$W x double> %m1, $const5)
+          %fma5 = tail call $fma(<$W x double> %fma4, <$W x double> %m1, $const6)
+          %fma6 = tail call $fma(<$W x double> %fma5, <$W x double> %m1, $const7)
           %m2 = fmul <$W x double> %0, $const8
           %s1 = fneg <$W x double> %m2
-          %fma7 = tail call <$W x double> @llvm.fma.v$(W)f64(<$W x double> %0, <$W x double> $const8, <$W x double> %s1)
+          %fma7 = tail call $fma(<$W x double> %0, <$W x double> $const8, <$W x double> %s1)
           %a1 = fadd <$W x double> %1, %m2
           %s2 = fsub <$W x double> %1, %a1
           %a2 = fadd <$W x double> %m2, %s2
           %a3 = fadd <$W x double> %fma7, %a2
           %m3 = fmul <$W x double> %0, %m1
           %a4 = fadd <$W x double> %a1, %a3
-          %retv = tail call <$W x double> @llvm.fma.v$(W)f64(<$W x double> %fma6, <$W x double> %m3, <$W x double> %a4)
+          %retv = tail call $fma(<$W x double> %fma6, <$W x double> %m3, <$W x double> %a4)
           ret <$W x double> %retv
         """
         quote
