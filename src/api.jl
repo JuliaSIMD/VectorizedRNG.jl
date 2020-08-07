@@ -37,9 +37,18 @@ end
 """
 Samples uniformly from (0.0,1.0)
 """
-@inline function Random.rand(rng::AbstractVRNG, ::Type{Vec{W,T}}) where {W,T}
+@inline function Random.rand(rng::AbstractVRNG, ::Type{Vec{W,Float64}}) where {W}
     u = rand(rng, Vec{W,UInt64})
-    random_uniform(u, T)
+    random_uniform(u, Float64)
+end
+@generated function Random.rand(rng::AbstractVRNG, ::Type{Vec{W,T}}) where {W,T}
+    L = (W * sizeof(T)) >> 3
+    @assert L << 3 == W * sizeof(T)
+    quote
+        $(Expr(:meta,:inline))
+        u = rand(rng, Vec{$L,UInt64})
+        random_uniform(u, $T)
+    end
 end
 """
 if l < u,
