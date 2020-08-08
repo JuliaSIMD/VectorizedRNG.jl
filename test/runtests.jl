@@ -86,6 +86,13 @@ end
         @test mi > α
         @test ma < 1 - α
 
+        rngnorm = RNGTest.wrap(RandNormal01(local_rng()), Float32);
+        res = RNGTest.smallcrushJulia(rngnorm)
+        mi, ma = smallcrushextrema(res)
+        @show mi, ma
+        @test mi > α
+        @test ma < 1 - α
+
         # rngnorm = RNGTest.wrap(RandNormal01(local_pcg()), Float64);
         # res = RNGTest.smallcrushJulia(rngnorm)
         # mi, ma = smallcrushextrema(res)

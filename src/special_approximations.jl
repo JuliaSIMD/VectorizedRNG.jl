@@ -54,9 +54,10 @@ end
     r = mask(u, T)
     ooc = oneopenconst(T)
     sininput = vsub(r, ooc)
-    s = vcopysign(approx_sin8(sininput), u)
+    uu = extract_data(reinterpret(Base.uinttype(T), SVec(u)))
+    s = vcopysign(approx_sin8(sininput), uu)
     cosinput = vfnmadd(ooc, r, suboneopenconst(T))
-    c = vcopysign( approx_sin8(cosinput), SIMDPirates.vleft_bitshift( u, 1 ) )
+    c = vcopysign( approx_sin8(cosinput), SIMDPirates.vleft_bitshift( uu, 1 ) )
     s, c
 end
 
@@ -267,5 +268,8 @@ end
     # l2h = log12_9(f)
     l2 = log2_3q(f, vsub(T(-0.5849625007211561814537389439478165087598144076924810604557526545410982277943579), lz))
     vmul(T(-0.6931471805599453), l2)
+end
+@inline function nlog01(u::Vec{W,UInt64}, ::Type{Float32}) where {W}
+    extract_data(-log(SVec(mask(u, Float32)) - oneopenconst(Float32)))
 end
 

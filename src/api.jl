@@ -95,10 +95,11 @@ end
     end
     if n < N # then there is odd remainder
         # we split the vector in two, gen randnormal, and then recombine.
-        Wh = W >>> 1
+        Wl = (W << 3) ÷ sizeof(T) 
+        Wh = Wl >>> 1
         lm = Expr(:call, Expr(:curly, :Val, Expr(:tuple, collect(0:Wh-1)...)))
-        um = Expr(:call, Expr(:curly, :Val, Expr(:tuple, collect(Wh:W-1)...)))
-        cm = Expr(:call, Expr(:curly, :Val, Expr(:tuple, collect(0:W-1)...)))
+        um = Expr(:call, Expr(:curly, :Val, Expr(:tuple, collect(Wh:Wl-1)...)))
+        cm = Expr(:call, Expr(:curly, :Val, Expr(:tuple, collect(0:Wl-1)...)))
         remq = quote
             ulast = u[$N]
             (sₗ, cᵤ) = randnormal(shufflevector(ulast, $lm), shufflevector(ulast, $um), $T)
@@ -193,7 +194,7 @@ end
 function Random.rand!(rng::AbstractVRNG, x::AbstractArray{T}) where {T <: Union{Float32,Float64}}
     random_sample!(random_uniform, rng, x)
 end
-function Random.randn!(rng::AbstractVRNG, x::AbstractArray{Float64})
+function Random.randn!(rng::AbstractVRNG, x::AbstractArray{T}) where {T<:Union{Float32,Float64}}
     random_sample!(random_normal, rng, x)
 end
 @inline function random_unsigned(state::AbstractState, ::Val{N}, ::Type{T}) where {N,T}
