@@ -8,10 +8,10 @@ end
 @inline Base.pointer(rng::Xoshift) = rng.ptr
 
 struct XoshiftState{P,W} <: AbstractState{P,W}
-    eins::NTuple{P,Vec{W,UInt64}}
-    zwei::NTuple{P,Vec{W,UInt64}}
-    drei::NTuple{P,Vec{W,UInt64}}
-    vier::NTuple{P,Vec{W,UInt64}}
+    eins::NTuple{P,SVec{W,UInt64}}
+    zwei::NTuple{P,SVec{W,UInt64}}
+    drei::NTuple{P,SVec{W,UInt64}}
+    vier::NTuple{P,SVec{W,UInt64}}
 end
 
 Xoshift(ptr) = Xoshift{XSTREAMS}(ptr)
@@ -69,42 +69,43 @@ end
 # @inline function getstate(rng::Xoshift{P}, ::Val{N}, ::Val{W}) where {P,N,W}
 #     ptr = pointer(rng)
 #     XoshiftState(
-#         ntuple(n -> vloada(Vec{W,UInt64}, ptr, W64*(n - 1)), Val{N}()),
-#         ntuple(n -> vloada(Vec{W,UInt64}, ptr, W64*(n - 1) + W64*P), Val{N}()),
-#         ntuple(n -> vloada(Vec{W,UInt64}, ptr, W64*(n - 1) + 2W64*P), Val{N}()),
-#         ntuple(n -> vloada(Vec{W,UInt64}, ptr, W64*(n - 1) + 3W64*P), Val{N}())
+#         ntuple(n -> vloada(SVec{W,UInt64}, ptr, W64*(n - 1)), Val{N}()),
+#         ntuple(n -> vloada(SVec{W,UInt64}, ptr, W64*(n - 1) + W64*P), Val{N}()),
+#         ntuple(n -> vloada(SVec{W,UInt64}, ptr, W64*(n - 1) + 2W64*P), Val{N}()),
+#         ntuple(n -> vloada(SVec{W,UInt64}, ptr, W64*(n - 1) + 3W64*P), Val{N}())
 #     )
 # end
 @inline function getstate(rng::Xoshift{P}, ::Val{1}, ::Val{W}) where {P,W}
     ptr = pointer(rng)
     XoshiftState(
-        (vloada(Vec{W,UInt64}, ptr),),
-        (vloada(Vec{W,UInt64}, ptr,  REGISTER_SIZE*P),),
-        (vloada(Vec{W,UInt64}, ptr, 2REGISTER_SIZE*P),),
-        (vloada(Vec{W,UInt64}, ptr, 3REGISTER_SIZE*P),)
+        (vloada(SVec{W,UInt64}, ptr),),
+        (vloada(SVec{W,UInt64}, ptr,  REGISTER_SIZE*P),),
+        (vloada(SVec{W,UInt64}, ptr, 2REGISTER_SIZE*P),),
+        (vloada(SVec{W,UInt64}, ptr, 3REGISTER_SIZE*P),)
     )
 end
 @inline function getstate(rng::Xoshift{P}, ::Val{2}, ::Val{W}) where {P,W}
     ptr = pointer(rng)
     XoshiftState(
-        (vloada(Vec{W,UInt64}, ptr                  ), vloada(Vec{W,UInt64}, ptr, REGISTER_SIZE         )),
-        (vloada(Vec{W,UInt64}, ptr,  P*REGISTER_SIZE), vloada(Vec{W,UInt64}, ptr, REGISTER_SIZE*(1 +  P))),
-        (vloada(Vec{W,UInt64}, ptr, 2P*REGISTER_SIZE), vloada(Vec{W,UInt64}, ptr, REGISTER_SIZE*(1 + 2P))),
-        (vloada(Vec{W,UInt64}, ptr, 3P*REGISTER_SIZE), vloada(Vec{W,UInt64}, ptr, REGISTER_SIZE*(1 + 3P)))
+        (vloada(SVec{W,UInt64}, ptr                  ), vloada(SVec{W,UInt64}, ptr, REGISTER_SIZE         )),
+        (vloada(SVec{W,UInt64}, ptr,  P*REGISTER_SIZE), vloada(SVec{W,UInt64}, ptr, REGISTER_SIZE*(1 +  P))),
+        (vloada(SVec{W,UInt64}, ptr, 2P*REGISTER_SIZE), vloada(SVec{W,UInt64}, ptr, REGISTER_SIZE*(1 + 2P))),
+        (vloada(SVec{W,UInt64}, ptr, 3P*REGISTER_SIZE), vloada(SVec{W,UInt64}, ptr, REGISTER_SIZE*(1 + 3P)))
     )
 end
 @inline function getstate(rng::Xoshift{P}, ::Val{4}, ::Val{W}) where {P,W}
     ptr = pointer(rng)
+    RS = REGISTER_SIZE
     XoshiftState(
-        (vloada(Vec{W,UInt64}, ptr        ), vloada(Vec{W,UInt64}, ptr, REGISTER_SIZE         ), vloada(Vec{W,UInt64}, ptr, REGISTER_SIZE* 2      ), vloada(Vec{W,UInt64}, ptr, 3REGISTER_SIZE        )),
-        (vloada(Vec{W,UInt64}, ptr,  P*REGISTER_SIZE), vloada(Vec{W,UInt64}, ptr, REGISTER_SIZE*(1 +  P)), vloada(Vec{W,UInt64}, ptr, REGISTER_SIZE*(2 +  P)), vloada(Vec{W,UInt64}, ptr, REGISTER_SIZE*(3 +  P))),
-        (vloada(Vec{W,UInt64}, ptr, 2P*REGISTER_SIZE), vloada(Vec{W,UInt64}, ptr, REGISTER_SIZE*(1 + 2P)), vloada(Vec{W,UInt64}, ptr, REGISTER_SIZE*(2 + 2P)), vloada(Vec{W,UInt64}, ptr, REGISTER_SIZE*(3 + 2P))),
-        (vloada(Vec{W,UInt64}, ptr, 3P*REGISTER_SIZE), vloada(Vec{W,UInt64}, ptr, REGISTER_SIZE*(1 + 3P)), vloada(Vec{W,UInt64}, ptr, REGISTER_SIZE*(2 + 3P)), vloada(Vec{W,UInt64}, ptr, REGISTER_SIZE*(3 + 3P)))
+        (vloada(SVec{W,UInt64}, ptr        ), vloada(SVec{W,UInt64}, ptr, RS         ), vloada(SVec{W,UInt64}, ptr, RS* 2      ), vloada(SVec{W,UInt64}, ptr, 3RS        )),
+        (vloada(SVec{W,UInt64}, ptr,  P*RS), vloada(SVec{W,UInt64}, ptr, RS*(1 +  P)), vloada(SVec{W,UInt64}, ptr, RS*(2 +  P)), vloada(SVec{W,UInt64}, ptr, RS*(3 +  P))),
+        (vloada(SVec{W,UInt64}, ptr, 2P*RS), vloada(SVec{W,UInt64}, ptr, RS*(1 + 2P)), vloada(SVec{W,UInt64}, ptr, RS*(2 + 2P)), vloada(SVec{W,UInt64}, ptr, RS*(3 + 2P))),
+        (vloada(SVec{W,UInt64}, ptr, 3P*RS), vloada(SVec{W,UInt64}, ptr, RS*(1 + 3P)), vloada(SVec{W,UInt64}, ptr, RS*(2 + 3P)), vloada(SVec{W,UInt64}, ptr, RS*(3 + 3P)))
     )
 end
 @inline function storestate!(rng::Xoshift{P}, s::XoshiftState{N,W}) where {P,N,W}
     ptr = pointer(rng)
-    eins = s.eins; zwei = s.zwei; drei = s.drei; vier = s.vier;
+    @unpack eins, zwei, drei, vier = s
     @inbounds for n ∈ 1:N
         vstorea!(rng, eins[n], REGISTER_SIZE*(n-1))
     end
@@ -120,7 +121,7 @@ end
 end
 @inline function storestate!(rng::Xoshift{P}, s::XoshiftState{1,W}) where {P,W}
     ptr = pointer(rng)
-    eins = s.eins; zwei = s.zwei; drei = s.drei; vier = s.vier;
+    @unpack eins, zwei, drei, vier = s;
     @inbounds begin
         vstorea!(ptr, eins[1],       )
         vstorea!(ptr, zwei[1],  P*REGISTER_SIZE)
@@ -130,7 +131,7 @@ end
 end
 @inline function storestate!(rng::Xoshift{P}, s::XoshiftState{2,W}) where {P,W}
     ptr = pointer(rng)
-    eins = s.eins; zwei = s.zwei; drei = s.drei; vier = s.vier;
+    @unpack eins, zwei, drei, vier = s;
     @inbounds begin
         vstorea!(ptr, eins[1],      )
         vstorea!(ptr, eins[2],   REGISTER_SIZE)
@@ -144,7 +145,7 @@ end
 end
 @inline function storestate!(rng::Xoshift{P}, s::XoshiftState{4,W}) where {P,W}
     ptr = pointer(rng)
-    eins = s.eins; zwei = s.zwei; drei = s.drei; vier = s.vier;
+    @unpack eins, zwei, drei, vier = s;
     @inbounds begin
         vstorea!(ptr, eins[1],      )
         vstorea!(ptr, eins[2],   REGISTER_SIZE)
@@ -166,13 +167,13 @@ end
 end
 
 @inline function nextstate(eins, zwei, drei, vier)
-    t = vleft_bitshift(zwei, 0x0000000000000011)
-    drei = vxor(drei, eins)
-    vier = vxor(vier, zwei)
-    zwei = vxor(zwei, drei)
-    eins = vxor(eins, vier)
-    drei = vxor(drei, t)
-    vier = rotate(vier, 0x000000000000002d)
+    t = zwei << 0x0000000000000011
+    drei = drei ⊻ eins
+    vier = vier ⊻ zwei
+    zwei = zwei ⊻ drei
+    eins = eins ⊻ vier
+    drei = drei ⊻ t
+    vier = rotate_right(vier, 0x000000000000002d)
     eins, zwei, drei, vier
 end
 
@@ -182,10 +183,10 @@ end
     (drei,) = s.drei;
     (vier,) = s.vier;
     # out = vmul(zwei, 0x000000000000005)
-    # out = rotate(out, 0x0000000000000007)
+    # out = rotate_right(out, 0x0000000000000007)
     # out = vmul(out, 0x0000000000000009)
     out = vadd(eins, vier)
-    out = rotate(out, 0x0000000000000017)
+    out = rotate_right(out, 0x0000000000000017)
     eins, zwei, drei, vier = nextstate(eins, zwei, drei, vier)
     out = vadd(eins, out)
     XoshiftState( (eins,), (zwei,), (drei,), (vier,)), (out,)
@@ -197,18 +198,18 @@ end
     (Base.Cartesian.@ntuple 2 drei) = s.drei;
     (Base.Cartesian.@ntuple 2 vier) = s.vier;
     # Base.Cartesian.@nexprs 2 n -> out_n = vmul(zwei_n, 0x000000000000005)
-    # Base.Cartesian.@nexprs 2 n -> out_n = rotate(out_n, 0x0000000000000007)
+    # Base.Cartesian.@nexprs 2 n -> out_n = rotate_right(out_n, 0x0000000000000007)
     # Base.Cartesian.@nexprs 2 n -> out_n = vmul(out_n, 0x0000000000000009)
     Base.Cartesian.@nexprs 2 n -> out_n = vadd(eins_n, vier_n)
-    Base.Cartesian.@nexprs 2 n -> t_n = vleft_bitshift(zwei_n, 0x0000000000000011)
-    Base.Cartesian.@nexprs 2 n -> out_n = rotate(out_n, 0x0000000000000017)
-    Base.Cartesian.@nexprs 2 n -> drei_n = vxor(drei_n, eins_n)
-    Base.Cartesian.@nexprs 2 n -> vier_n = vxor(vier_n, zwei_n)
+    Base.Cartesian.@nexprs 2 n -> t_n = zwei_n << 0x0000000000000011
+    Base.Cartesian.@nexprs 2 n -> out_n = rotate_right(out_n, 0x0000000000000017)
+    Base.Cartesian.@nexprs 2 n -> drei_n = drei_n ⊻ eins_n
+    Base.Cartesian.@nexprs 2 n -> vier_n = vier_n ⊻ zwei_n
     Base.Cartesian.@nexprs 2 n -> out_n = vadd(eins_n, out_n)
-    Base.Cartesian.@nexprs 2 n -> zwei_n = vxor(zwei_n, drei_n)
-    Base.Cartesian.@nexprs 2 n -> eins_n = vxor(eins_n, vier_n)
-    Base.Cartesian.@nexprs 2 n -> drei_n = vxor(drei_n, t_n)
-    Base.Cartesian.@nexprs 2 n -> vier_n = rotate(vier_n, 0x000000000000002d)
+    Base.Cartesian.@nexprs 2 n -> zwei_n = zwei_n ⊻ drei_n
+    Base.Cartesian.@nexprs 2 n -> eins_n = eins_n ⊻ vier_n
+    Base.Cartesian.@nexprs 2 n -> drei_n = drei_n ⊻ t_n
+    Base.Cartesian.@nexprs 2 n -> vier_n = rotate_right(vier_n, 0x000000000000002d)
     XoshiftState(
         (Base.Cartesian.@ntuple 2 eins),
         (Base.Cartesian.@ntuple 2 zwei),
@@ -222,18 +223,18 @@ end
     (Base.Cartesian.@ntuple 4 drei) = s.drei;
     (Base.Cartesian.@ntuple 4 vier) = s.vier;
     # Base.Cartesian.@nexprs 2 n -> out_n = vmul(zwei_n, 0x000000000000005)
-    # Base.Cartesian.@nexprs 2 n -> out_n = rotate(out_n, 0x0000000000000007)
+    # Base.Cartesian.@nexprs 2 n -> out_n = rotate_right(out_n, 0x0000000000000007)
     # Base.Cartesian.@nexprs 2 n -> out_n = vmul(out_n, 0x0000000000000009)
     Base.Cartesian.@nexprs 2 n -> out_n = vadd(eins_n, vier_n)
-    Base.Cartesian.@nexprs 2 n -> out_n = rotate(out_n, 0x0000000000000017)
+    Base.Cartesian.@nexprs 2 n -> out_n = rotate_right(out_n, 0x0000000000000017)
     Base.Cartesian.@nexprs 2 n -> out_n = vadd(eins_n, out_n)
-    Base.Cartesian.@nexprs 2 n -> t_n = vleft_bitshift(zwei_n, 0x0000000000000011)
-    Base.Cartesian.@nexprs 2 n -> drei_n = vxor(drei_n, eins_n)
-    Base.Cartesian.@nexprs 2 n -> vier_n = vxor(vier_n, zwei_n)
-    Base.Cartesian.@nexprs 2 n -> zwei_n = vxor(zwei_n, drei_n)
-    Base.Cartesian.@nexprs 2 n -> eins_n = vxor(eins_n, vier_n)
-    Base.Cartesian.@nexprs 2 n -> drei_n = vxor(drei_n, t_n)
-    Base.Cartesian.@nexprs 2 n -> vier_n = rotate(vier_n, 0x000000000000002d)
+    Base.Cartesian.@nexprs 2 n -> t_n = zwei_n << 0x0000000000000011
+    Base.Cartesian.@nexprs 2 n -> drei_n = drei_n ⊻ eins_n
+    Base.Cartesian.@nexprs 2 n -> vier_n = vier_n ⊻ zwei_n
+    Base.Cartesian.@nexprs 2 n -> zwei_n = zwei_n ⊻ drei_n
+    Base.Cartesian.@nexprs 2 n -> eins_n = eins_n ⊻ vier_n
+    Base.Cartesian.@nexprs 2 n -> drei_n = drei_n ⊻ t_n
+    Base.Cartesian.@nexprs 2 n -> vier_n = rotate_right(vier_n, 0x000000000000002d)
     XoshiftState(
         (Base.Cartesian.@ntuple 4 eins),
         (Base.Cartesian.@ntuple 4 zwei),
@@ -247,18 +248,18 @@ end
     (Base.Cartesian.@ntuple 4 drei) = s.drei;
     (Base.Cartesian.@ntuple 4 vier) = s.vier;
     # Base.Cartesian.@nexprs 3 n -> out_n = vmul(zwei_n, 0x000000000000005)
-    # Base.Cartesian.@nexprs 3 n -> out_n = rotate(out_n, 0x0000000000000007)
+    # Base.Cartesian.@nexprs 3 n -> out_n = rotate_right(out_n, 0x0000000000000007)
     # Base.Cartesian.@nexprs 3 n -> out_n = vmul(out_n, 0x0000000000000009)
     Base.Cartesian.@nexprs 3 n -> out_n = vadd(eins_n, vier_n)
-    Base.Cartesian.@nexprs 3 n -> out_n = rotate(out_n, 0x0000000000000017)
+    Base.Cartesian.@nexprs 3 n -> out_n = rotate_right(out_n, 0x0000000000000017)
     Base.Cartesian.@nexprs 3 n -> out_n = vadd(eins_n, out_n)
-    Base.Cartesian.@nexprs 3 n -> t_n = vleft_bitshift(zwei_n, 0x0000000000000011)
-    Base.Cartesian.@nexprs 3 n -> drei_n = vxor(drei_n, eins_n)
-    Base.Cartesian.@nexprs 3 n -> vier_n = vxor(vier_n, zwei_n)
-    Base.Cartesian.@nexprs 3 n -> zwei_n = vxor(zwei_n, drei_n)
-    Base.Cartesian.@nexprs 3 n -> eins_n = vxor(eins_n, vier_n)
-    Base.Cartesian.@nexprs 3 n -> drei_n = vxor(drei_n, t_n)
-    Base.Cartesian.@nexprs 3 n -> vier_n = rotate(vier_n, 0x000000000000002d)
+    Base.Cartesian.@nexprs 3 n -> t_n = zwei_n << 0x0000000000000011
+    Base.Cartesian.@nexprs 3 n -> drei_n = drei_n ⊻ eins_n
+    Base.Cartesian.@nexprs 3 n -> vier_n = vier_n ⊻ zwei_n
+    Base.Cartesian.@nexprs 3 n -> zwei_n = zwei_n ⊻ drei_n
+    Base.Cartesian.@nexprs 3 n -> eins_n = eins_n ⊻ vier_n
+    Base.Cartesian.@nexprs 3 n -> drei_n = drei_n ⊻ t_n
+    Base.Cartesian.@nexprs 3 n -> vier_n = rotate_right(vier_n, 0x000000000000002d)
     XoshiftState(
         (Base.Cartesian.@ntuple 4 eins),
         (Base.Cartesian.@ntuple 4 zwei),
@@ -272,18 +273,18 @@ end
     (Base.Cartesian.@ntuple 4 drei) = s.drei;
     (Base.Cartesian.@ntuple 4 vier) = s.vier;
     # Base.Cartesian.@nexprs 4 n -> out_n = vmul(zwei_n, 0x000000000000005)
-    # Base.Cartesian.@nexprs 4 n -> out_n = rotate(out_n, 0x0000000000000007)
+    # Base.Cartesian.@nexprs 4 n -> out_n = rotate_right(out_n, 0x0000000000000007)
     # Base.Cartesian.@nexprs 4 n -> out_n = vmul(out_n, 0x0000000000000009)
     Base.Cartesian.@nexprs 4 n -> out_n = vadd(eins_n, vier_n)
-    Base.Cartesian.@nexprs 4 n -> out_n = rotate(out_n, 0x0000000000000017)
+    Base.Cartesian.@nexprs 4 n -> out_n = rotate_right(out_n, 0x0000000000000017)
     Base.Cartesian.@nexprs 4 n -> out_n = vadd(eins_n, out_n)
-    Base.Cartesian.@nexprs 4 n -> t_n = vleft_bitshift(zwei_n, 0x0000000000000011)
-    Base.Cartesian.@nexprs 4 n -> drei_n = vxor(drei_n, eins_n)
-    Base.Cartesian.@nexprs 4 n -> vier_n = vxor(vier_n, zwei_n)
-    Base.Cartesian.@nexprs 4 n -> zwei_n = vxor(zwei_n, drei_n)
-    Base.Cartesian.@nexprs 4 n -> eins_n = vxor(eins_n, vier_n)
-    Base.Cartesian.@nexprs 4 n -> drei_n = vxor(drei_n, t_n)
-    Base.Cartesian.@nexprs 4 n -> vier_n = rotate(vier_n, 0x000000000000002d)
+    Base.Cartesian.@nexprs 4 n -> t_n = zwei_n << 0x0000000000000011
+    Base.Cartesian.@nexprs 4 n -> drei_n = drei_n ⊻ eins_n
+    Base.Cartesian.@nexprs 4 n -> vier_n = vier_n ⊻ zwei_n
+    Base.Cartesian.@nexprs 4 n -> zwei_n = zwei_n ⊻ drei_n
+    Base.Cartesian.@nexprs 4 n -> eins_n = eins_n ⊻ vier_n
+    Base.Cartesian.@nexprs 4 n -> drei_n = drei_n ⊻ t_n
+    Base.Cartesian.@nexprs 4 n -> vier_n = rotate_right(vier_n, 0x000000000000002d)
     XoshiftState(
         (Base.Cartesian.@ntuple 4 eins),
         (Base.Cartesian.@ntuple 4 zwei),

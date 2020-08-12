@@ -1,6 +1,6 @@
 # Coefficients calculated with https://github.com/simonbyrne/Remez.jl
 
-@inline function approx_sin8(x::Union{T,_Vec{<:Any,T}}) where {T <: Real}
+@inline function approx_sin8(x::Union{T,SVec{<:Any,T}}) where {T <: Real}
     # poly(x) ≈ (xʳ = sqrt(x); sin((xʳ*π)/2)/xʳ)
     x² = vmul(x, x)
     c0 = T(2.22144146907918312350794048535203995923494010677251491220479906920966593121882)
@@ -20,7 +20,7 @@
         x², c3), x², c2), x², c1), x², c0)
     vmul(p, x)
 end
-@inline function approx_sin12(x::Union{T,_Vec{<:Any,T}}) where {T <: Real}
+@inline function approx_sin12(x::Union{T,SVec{<:Any,T}}) where {T <: Real}
     # poly(x) ≈ (xʳ = sqrt(x); sin((xʳ*π)/2)/xʳ)
     x² = vmul(x, x)
     c0 = T(1.570796326794896619231321691639751442087433306473273974291471596002143089408967)
@@ -54,10 +54,9 @@ end
     r = mask(u, T)
     ooc = oneopenconst(T)
     sininput = vsub(r, ooc)
-    uu = extract_data(reinterpret(Base.uinttype(T), SVec(u)))
-    s = vcopysign(approx_sin8(sininput), uu)
+    s = copysign( approx_sin8(sininput), reinterpret(T, u))
     cosinput = vfnmadd(ooc, r, suboneopenconst(T))
-    c = vcopysign( approx_sin8(cosinput), SIMDPirates.vleft_bitshift( uu, 1 ) )
+    c = copysign( approx_sin8(cosinput), reinterpret(T, u << 1))
     s, c
 end
 
@@ -152,19 +151,19 @@ end
 end
 
 # unlikely to do anything, but avoids bias when more than 12 of the leading bits are 0
-@inline function shift_excess_zeros(u::Vec{W,UInt64}, lz::Vec{W,UInt64}) where {W}
-    lzsub = vsub(vreinterpret(Vec{W,Int64}, lz), 11)
-    bitmask = SIMDPirates.vgreater(lzsub, 0)
-    lzshift = vreinterpret(Vec{W,UInt64}, lzsub)
-    vifelse(bitmask, SIMDPirates.vleft_bitshift( u, lzshift ), u)
+@inline function shift_excess_zeros(u::SVec{W,UInt64}, lz::SVec{W,UInt64}) where {W}
+    lzsub = reinterpret(SVec{W,Int64}, lz) - 11
+    bitmask = lzsub > 0
+    lzshift = reinterpret(SVec{W,UInt64}, lzsub)
+    vifelse(bitmask, ( u << lzshift ), u)
 
     # lzsub = vsub(vreinterpret(Vec{W,Int64}, lz), 11)
     # lzshift = vreinterpret(Vec{W,UInt64}, SIMDPirates.vmax(lzsub, SIMDPirates.vzero(Vec{W,Int64})))
     # SIMDPirates.vleft_bitshift( u, lzshift )
 end
-@inline function shift_excess_zerosv2(u::Vec{W,UInt64}, lz::Vec{W,UInt64}) where {W}
-    lzsub = vsub(vreinterpret(Vec{W,Int64}, lz), 11)
-    SIMDPirates.vleft_bitshift( u, vreinterpret(Vec{W,UInt64}, SIMDPirates.vmax( SIMDPirates.vzero(Vec{W,Int64}), lzsub ) ))
+@inline function shift_excess_zerosv2(u::SVec{W,UInt64}, lz::SVec{W,UInt64}) where {W}
+    lzsub = reinterpret(SVec{W,Int64}, lz) - 11
+    ( u << vreinterpret(Vec{W,UInt64}, SIMDPirates.vmax( SIMDPirates.vzero(SVec{W,Int64}), lzsub ) ))
 end
 
 @inline function nlog01v2(u::Vec{W,UInt64}, ::Type{Float64}) where {W}
@@ -178,7 +177,7 @@ end
 end
 
 @static if Base.libllvm_version < v"8"
-    @generated function log2_3q(v::Vec{W,Float64}, e::Vec{W,Float64}) where {W}
+    @generated function log2_3q(v::SVec{W,Float64}, e::SVec{W,Float64}) where {W}
         onev = "<double " * join((1.0 for _ ∈ 1:W), ", double ") * ">"
         constv = x -> "<$W x double> <double " * join((x for _ ∈ 1:W), ", double ") * ">"
         constvnotyp = x -> "<double " * join((x for _ ∈ 1:W), ", double ") * ">"
@@ -214,11 +213,11 @@ end
         """
         quote
             $(Expr(:meta,:inline))
-            Base.llvmcall(($decl, $instr), Vec{$W,Float64}, Tuple{Vec{$W,Float64},Vec{$W,Float64}}, v, e)
+            SVec(Base.llvmcall(($decl, $instr), Vec{$W,Float64}, Tuple{Vec{$W,Float64},Vec{$W,Float64}}, extract_data(v), extract_data(e)))
         end
     end
 else
-    @generated function log2_3q(v::Vec{W,Float64}, e::Vec{W,Float64}) where {W}
+    @generated function log2_3q(v::SVec{W,Float64}, e::SVec{W,Float64}) where {W}
         onev = "<double " * join((1.0 for _ ∈ 1:W), ", double ") * ">"
         constv = x -> "<$W x double> <double " * join((x for _ ∈ 1:W), ", double ") * ">"
         constvnotyp = x -> "<double " * join((x for _ ∈ 1:W), ", double ") * ">"
@@ -254,22 +253,22 @@ else
         """
         quote
             $(Expr(:meta,:inline))
-            Base.llvmcall(($decl, $instr), Vec{$W,Float64}, Tuple{Vec{$W,Float64},Vec{$W,Float64}}, v, e)
+            SVec(Base.llvmcall(($decl, $instr), Vec{$W,Float64}, Tuple{Vec{$W,Float64},Vec{$W,Float64}}, extract_data(v), extract_data(e)))
         end
     end
 end
-@inline function nlog01(u::Vec{W,UInt64}, ::Type{T}) where {W,T}
+@inline function nlog01(u::SVec{W,UInt64}, ::Type{T}) where {W,T}
     lz = SIMDPirates.vleading_zeros( u )
     # f = mask(u, Float64) # shift by lz
     # f = vmul(0.75, mask(shift_excess_zeros(u, lz), Float64)) # shift by lz
     # f = vfdiv(vsub(f, 1.0), vadd(f, 1.0))
     f = mask(shift_excess_zeros(u, lz), T) # shift by lz
-    f = vfdiv(vsub(f, T(1.3333333333333333)), vadd(f, T(1.3333333333333333)))
+    f = ( f - T(1.3333333333333333) ) / ( f + T(1.3333333333333333) )
     # l2h = log12_9(f)
     l2 = log2_3q(f, vsub(T(-0.5849625007211561814537389439478165087598144076924810604557526545410982277943579), lz))
-    vmul(T(-0.6931471805599453), l2)
+    T(-0.6931471805599453) * l2
 end
-@inline function nlog01(u::Vec{W,UInt64}, ::Type{Float32}) where {W}
-    extract_data(-log(SVec(mask(u, Float32)) - oneopenconst(Float32)))
+@inline function nlog01(u::SVec{W,UInt64}, ::Type{Float32}) where {W}
+    -log(mask(u, Float32) - oneopenconst(Float32))
 end
 

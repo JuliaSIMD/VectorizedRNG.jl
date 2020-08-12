@@ -78,56 +78,56 @@ julia> using BenchmarkTools, Random, VectorizedRNG
 julia> x = Vector{Float64}(undef, 1024);
 
 julia> @benchmark randn!($x)
-BenchmarkTools.Trial:
+ BenchmarkTools.Trial:
   memory estimate:  0 bytes
   allocs estimate:  0
   --------------
-  minimum time:     4.105 μs (0.00% GC)
-  median time:      4.318 μs (0.00% GC)
-  mean time:        4.345 μs (0.00% GC)
-  maximum time:     7.111 μs (0.00% GC)
+  minimum time:     2.135 μs (0.00% GC)
+  median time:      2.298 μs (0.00% GC)
+  mean time:        2.301 μs (0.00% GC)
+  maximum time:     5.676 μs (0.00% GC)
   --------------
   samples:          10000
-  evals/sample:     7
+  evals/sample:     9
 
 julia> @benchmark randn!(local_rng(), $x)
-BenchmarkTools.Trial:
+ BenchmarkTools.Trial:
   memory estimate:  0 bytes
   allocs estimate:  0
   --------------
-  minimum time:     1.270 μs (0.00% GC)
-  median time:      1.275 μs (0.00% GC)
-  mean time:        1.277 μs (0.00% GC)
-  maximum time:     2.297 μs (0.00% GC)
+  minimum time:     1.167 μs (0.00% GC)
+  median time:      1.171 μs (0.00% GC)
+  mean time:        1.180 μs (0.00% GC)
+  maximum time:     3.827 μs (0.00% GC)
   --------------
   samples:          10000
   evals/sample:     10
-
+  
 julia> @benchmark rand!($x)
-BenchmarkTools.Trial:
+ BenchmarkTools.Trial:
   memory estimate:  0 bytes
   allocs estimate:  0
   --------------
-  minimum time:     566.435 ns (0.00% GC)
-  median time:      568.386 ns (0.00% GC)
-  mean time:        569.601 ns (0.00% GC)
-  maximum time:     745.505 ns (0.00% GC)
+  minimum time:     593.229 ns (0.00% GC)
+  median time:      596.978 ns (0.00% GC)
+  mean time:        597.886 ns (0.00% GC)
+  maximum time:     767.034 ns (0.00% GC)
   --------------
   samples:          10000
-  evals/sample:     184
+  evals/sample:     179
 
 julia> @benchmark rand!(local_rng(), $x)
-BenchmarkTools.Trial:
+ BenchmarkTools.Trial:
   memory estimate:  0 bytes
   allocs estimate:  0
   --------------
-  minimum time:     201.215 ns (0.00% GC)
-  median time:      201.531 ns (0.00% GC)
-  mean time:        201.761 ns (0.00% GC)
-  maximum time:     269.386 ns (0.00% GC)
+  minimum time:     186.685 ns (0.00% GC)
+  median time:      187.384 ns (0.00% GC)
+  mean time:        187.516 ns (0.00% GC)
+  maximum time:     271.583 ns (0.00% GC)
   --------------
   samples:          10000
-  evals/sample:     590
+  evals/sample:     666
 ```
 
 ## Setting the seed

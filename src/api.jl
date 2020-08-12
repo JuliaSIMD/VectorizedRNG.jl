@@ -1,8 +1,8 @@
 MatchingUInt(::Type{_Vec{W,Float64}}) where {W} = _Vec{W,UInt64}
 MatchingUInt(::Type{Tuple{_Vec{W,Float64},Vararg{_Vec{W,Float64},N}}}) where {N,W} = Tuple{_Vec{W,Float64},Vararg{_Vec{W,UInt64},N}}
 
-@generated MatchingUInt(::Type{_Vec{W,Float32}}) where {W} = _Vec{W >>> 1,UInt64}
-@generated MatchingUInt(::Type{Tuple{_Vec{W,Float32},Vararg{_Vec{W,Float32},N}}}) where {N,W} = Tuple{_Vec{W>>>1,UInt64},Vararg{_Vec{W>>>1,UInt64},N}}
+@generated MatchingUInt(::Type{SVec{W,Float32}}) where {W} = SVec{W >>> 1,UInt64}
+@generated MatchingUInt(::Type{Tuple{SVec{W,Float32},Vararg{SVec{W,Float32},N}}}) where {N,W} = Tuple{SVec{W>>>1,UInt64},Vararg{SVec{W>>>1,UInt64},N}}
 
 @generated MatchingFloat32(::Type{Vec{W,UInt64}}) where {W} = Vec{W<<1,Float32}
 @generated MatchingUInt32(::Type{Vec{W,UInt64}}) where {W} = Vec{W<<1,UInt32}
@@ -21,18 +21,18 @@ end
     out
 end
 
-@inline random_uniform(u::Vec{W,UInt64}, ::Type{Float64}) where {W} = vsub(mask(u, Float64), oneopenconst(Float64))
-@inline random_uniform(u::Vec{W,UInt64}, ::Type{Float32}) where {W} = vsub(mask(u, Float32), oneopenconst(Float32))
+@inline random_uniform(u::SVec{W,UInt64}, ::Type{Float64}) where {W} = mask(u, Float64) - oneopenconst(Float64)
+@inline random_uniform(u::SVec{W,UInt64}, ::Type{Float32}) where {W} = mask(u, Float32) - oneopenconst(Float32)
 # @inline random_uniform(u::Vec{W,UInt64}, ::Type{Float32}) where {W} = vsub(mask(vreinterpret(Vec{W+W,UInt32}, u), Float32), oneopenconst(Float32))
-@generated function random_uniform(u::Tuple{_Vec{W,UInt64},Vararg{_Vec{W,UInt64},N}}, ::Type{T}) where {N,W,T}
+@generated function random_uniform(u::Tuple{SVec{W,UInt64},Vararg{SVec{W,UInt64},N}}, ::Type{T}) where {N,W,T}
     Expr(
         :block,
         Expr(:meta,:inline),
         Expr(:tuple, [Expr(:call, :random_uniform, Expr(:macrocall, Symbol("@inbounds"), LineNumberNode(@__LINE__,Symbol(@__FILE__)), Expr(:ref, :u, n)), T) for n ∈ 1:N+1]...)
     )
 end
-@inline function Random.rand(rng::AbstractVRNG, ::Type{NTuple{N,Vec{W,T}}}) where {N,W,T<:Union{Float32,Float64}}
-    random_uniform(rand(rng, MatchingUInt(NTuple{N,Vec{W,T}})), T)
+@inline function Random.rand(rng::AbstractVRNG, ::Type{NTuple{N,SVec{W,T}}}) where {N,W,T<:Union{Float32,Float64}}
+    random_uniform(rand(rng, MatchingUInt(NTuple{N,SVec{W,T}})), T)
 end
 """
 Samples uniformly from (0.0,1.0)
@@ -78,14 +78,14 @@ end
 end
 
 
-@inline function randnormal(u1::Vec{W,UInt64}, u2::Vec{W,UInt64}, ::Type{T}) where {W,T<:Union{Float32,Float64}}
+@inline function randnormal(u1::SVec{W,UInt64}, u2::SVec{W,UInt64}, ::Type{T}) where {W,T<:Union{Float32,Float64}}
     s, c = randsincos(u1, T)
-    r = vsqrt(nlog01(u2,T))
-    vmul(s,r), vmul(c,r)
+    r = sqrt(nlog01(u2,T))
+    s * r, c * r
 end
 
-@generated function random_normal(u::Tuple{_Vec{Wm1,UInt64},Vararg{_Vec{Wm1,UInt64},Nm1}}, ::Type{T}) where {Nm1,Wm1,T}
-    W = Wm1 + 1; N = Nm1 + 1
+@generated function random_normal(u::Tuple{SVec{W,UInt64},Vararg{SVec{W,UInt64},Nm1}}, ::Type{T}) where {Nm1,W,T}
+    N = Nm1 + 1
     q = Expr(:block, Expr(:meta, :inline))
     ib = Expr(:block)
     n = 0
@@ -126,76 +126,184 @@ end
     state, random_normal(u, T)
 end
 
-function random_sample!(f::typeof(random_uniform), rng::AbstractVRNG{P}, x::AbstractArray{T}) where {P,T <: Union{Float32,Float64}}
+function random_sample!(f::typeof(random_uniform), rng::AbstractVRNG{P}, x::AbstractArray{T}, α, β, γ) where {P,T <: Union{Float32,Float64}}
     state = getstate(rng, Val{2}(), Val{W64}())
     GC.@preserve x begin
-        ptrx = stridedpointer(x)
-        W = VectorizationBase.pick_vector_width(T)
+        ptrx = stridedpointer(x); ptrβ = stridedpointer(β); ptrγ = stridedpointer(γ);
+        W = VectorizationBase.pick_vector_width(T); W2 = W+W
         Wval = VectorizationBase.pick_vector_width_val(T)
         N = length(x)
         n = _MM(Wval, 0)
         while VectorizationBase.scalar_less(n, vadd(N, 1 - 2W))
             state, (z₁,z₂) = f(state, Val{2}(), T)
-            vstore!(ptrx, z₁, (n,)); n = vadd(W, n)
-            vstore!(ptrx, z₂, (n,)); n = vadd(W, n)
+            x₁ = vload(ptrx, (n,)); β₁ = vload(ptrβ, (n,)); γ₁ = vload(ptrγ, (n,));
+            x₂ = vload(ptrx, (vadd(W, n),)); β₂ = vload(ptrβ, (vadd(W, n),)); γ₂ = vload(ptrγ, (vadd(W, n),));
+            vstore!(ptrx, α * x₁ + z₁ * γ₁ + β₁, (n,));
+            vstore!(ptrx, α * x₂ + z₁ * γ₂ + β₂, (vadd(W, n),));
+            n = vadd(W2, n)
         end
         mask = VectorizationBase.mask(Wval, N)
         if VectorizationBase.scalar_less(n, vsub(N, W))
             state, (z₁,z₂) = f(state, Val{2}(), T)
-            vstore!(ptrx, z₁, (n,)); n = vadd(W, n)
-            vstore!(ptrx, z₂, (n,), mask);
+            x₁ = vload(ptrx, (n,)); β₁ = vload(ptrβ, (n,)); γ₁ = vload(ptrγ, (n,));
+            x₂ = vload(ptrx, (vadd(W, n),), mask); β₂ = vload(ptrβ, (vadd(W, n),), mask); γ₂ = vload(ptrγ, (vadd(W, n),), mask);
+            vstore!(ptrx, α * x₁ + z₁ * γ₁ + β₁, (n,));
+            vstore!(ptrx, α * x₂ + z₂ * γ₂ + β₂, (vadd(W, n),), mask);
         elseif VectorizationBase.scalar_less(n, N)
             vstate, (z₁,) = f(state, Val{1}(), T)
-            vstore!(ptrx, z₁, (n,), mask);
+            x₁ = vload(ptrx, (n,), mask); β₁ = vload(ptrβ, (n,), mask); γ₁ = vload(ptrγ, (n,), mask);
+            vstore!(ptrx, α * x₁ + z₁ * γ₁ + β₁, (n,), mask);
         end
         storestate!(rng, state)
     end # GC preserve
     x
 end
-function random_sample!(f::F, rng::AbstractVRNG{P}, x::AbstractArray{T}) where {F,P,T}
+function random_sample!(f::F, rng::AbstractVRNG{P}, x::AbstractArray{T}, α, β, γ) where {F,P,T}
     state = getstate(rng, Val{P}(), Val{W64}())
     GC.@preserve x begin
-        ptrx = stridedpointer(x)
-        W = VectorizationBase.pick_vector_width(T)
+        ptrx = stridedpointer(x); ptrβ = stridedpointer(β); ptrγ = stridedpointer(γ);
+        W = VectorizationBase.pick_vector_width(T); W2 = W+W; W3 = W2+W; W4 = W2+W2;
         Wval = VectorizationBase.pick_vector_width_val(T)
         N = length(x)
         n = _MM(Wval, 0)
         while VectorizationBase.scalar_less(n, vadd(N, 1 - 4W))
             state, (z₁,z₂,z₃,z₄) = f(state, Val{4}(), T)
-            vstore!(ptrx, z₁, (n,)); n = vadd(W, n)
-            vstore!(ptrx, z₂, (n,)); n = vadd(W, n)
-            vstore!(ptrx, z₃, (n,)); n = vadd(W, n)
-            vstore!(ptrx, z₄, (n,)); n = vadd(W, n) 
+            x₁ = vload(ptrx, (n,)); β₁ = vload(ptrβ, (n,)); γ₁ = vload(ptrγ, (n,));
+            x₂ = vload(ptrx, (vadd(W, n),)); β₂ = vload(ptrβ, (vadd(W, n),)); γ₂ = vload(ptrγ, (vadd(W, n),));
+            x₃ = vload(ptrx, (vadd(W2, n),)); β₃ = vload(ptrβ, (vadd(W2, n),)); γ₃ = vload(ptrγ, (vadd(W2, n),));
+            x₄ = vload(ptrx, (vadd(W3, n),)); β₄ = vload(ptrβ, (vadd(W3, n),)); γ₄ = vload(ptrγ, (vadd(W3, n),));
+            vstore!(ptrx, α * x₁ + z₁ * γ₁ + β₁, (n,));
+            vstore!(ptrx, α * x₂ + z₂ * y₂ + β₂, (vadd(W,n),));
+            vstore!(ptrx, α * x₃ + z₃ * γ₃ + β₃, (vadd(W2,n),));
+            vstore!(ptrx, α * x₄ + z₄ * γ₄ + β₄, (vadd(W3,n),));
+            n = vadd(W4, n) 
         end
         mask = VectorizationBase.mask(Wval, N)
         if VectorizationBase.scalar_less(n, vsub(N, 3W))
             state, (z₁,z₂,z₃,z₄) = f(state, Val{4}(), T)
-            vstore!(ptrx, z₁, (n,)); n = vadd(W, n)
-            vstore!(ptrx, z₂, (n,)); n = vadd(W, n)
-            vstore!(ptrx, z₃, (n,)); n = vadd(W, n)
-            vstore!(ptrx, z₄, (n,), mask);
+            x₁ = vload(ptrx, (n,)); β₁ = vload(ptrβ, (n,)); γ₁ = vload(ptrγ, (n,));
+            x₂ = vload(ptrx, (vadd(W, n),)); β₂ = vload(ptrβ, (vadd(W, n),)); γ₂ = vload(ptrγ, (vadd(W, n),));
+            x₃ = vload(ptrx, (vadd(W2, n),)); β₃ = vload(ptrβ, (vadd(W2, n),)); γ₃ = vload(ptrγ, (vadd(W2, n),));
+            x₄ = vload(ptrx, (vadd(W3, n),), mask); β₄ = vload(ptrβ, (vadd(W3, n),), mask); γ₄ = vload(ptrγ, (vadd(W3, n),), mask);
+            vstore!(ptrx, α * x₁ + z₁ * γ₁ + β₁, (n,));
+            vstore!(ptrx, α * x₂ + z₂ * y₂ + β₂, (vadd(W,n),));
+            vstore!(ptrx, α * x₃ + z₃ * γ₃ + β₃, (vadd(W2,n),));
+            vstore!(ptrx, α * x₄ + z₄ * γ₄ + β₄, (vadd(W3,n),), mask);
         elseif VectorizationBase.scalar_less(n, vsub(N, 2W))
             state, (z₁,z₂,z₃) = f(state, Val{3}(), T)
-            vstore!(ptrx, z₁, (n,)); n = vadd(W, n)
-            vstore!(ptrx, z₂, (n,)); n = vadd(W, n)
-            vstore!(ptrx, z₃, (n,), mask);
+            x₁ = vload(ptrx, (n,)); β₁ = vload(ptrβ, (n,)); γ₁ = vload(ptrγ, (n,));
+            x₂ = vload(ptrx, (vadd(W, n),)); β₂ = vload(ptrβ, (vadd(W, n),)); γ₂ = vload(ptrγ, (vadd(W, n),));
+            x₃ = vload(ptrx, (vadd(W2, n),), mask); β₃ = vload(ptrβ, (vadd(W2, n),), mask); γ₃ = vload(ptrγ, (vadd(W2, n),), mask);
+            vstore!(ptrx, α * x₁ + z₁ * γ₁ + β₁, (n,));
+            vstore!(ptrx, α * x₂ + z₂ * y₂ + β₂, (vadd(W,n),));
+            vstore!(ptrx, α * x₃ + z₃ * γ₃ + β₃, (vadd(W2,n),), mask);
         elseif VectorizationBase.scalar_less(n, vsub(N, W))
             state, (z₁,z₂) = f(state, Val{2}(), T)
-            vstore!(ptrx, z₁, (n,)); n = vadd(W, n)
-            vstore!(ptrx, z₂, (n,), mask);
+            x₁ = vload(ptrx, (n,)); β₁ = vload(ptrβ, (n,)); γ₁ = vload(ptrγ, (n,));
+            x₂ = vload(ptrx, (vadd(W, n),), mask); β₂ = vload(ptrβ, (vadd(W, n),), mask); γ₂ = vload(ptrγ, (vadd(W, n),), mask);
+            vstore!(ptrx, α * x₁ + z₁ * γ₁ + β₁, (n,));
+            vstore!(ptrx, α * x₂ + z₂ * γ₂ + β₂, (vadd(W,n),), mask);
         elseif VectorizationBase.scalar_less(n, N)
             vstate, (z₁,) = f(state, Val{1}(), T)
-            vstore!(ptrx, z₁, (n,), mask);
+            x₁ = vload(ptrx, (n,), mask); β₁ = vload(ptrβ, (n,), mask); γ₁ = vload(ptrγ, (n,), mask);
+            vstore!(ptrx, α * x₁ + z₁ * γ₁ + β₁, (n,), mask);
         end        
         storestate!(rng, state)
     end # GC preserve
     x
 end
-function Random.rand!(rng::AbstractVRNG, x::AbstractArray{T}) where {T <: Union{Float32,Float64}}
-    random_sample!(random_uniform, rng, x)
+function random_sample!(f::typeof(random_uniform), rng::AbstractVRNG{P}, x::AbstractArray{T}, ::Static{0}, β, γ) where {P,T <: Union{Float32,Float64}}
+    state = getstate(rng, Val{2}(), Val{W64}())
+    GC.@preserve x begin
+        ptrx = stridedpointer(x); ptrβ = stridedpointer(β); ptrγ = stridedpointer(γ);
+        W = VectorizationBase.pick_vector_width(T); W2 = W+W
+        Wval = VectorizationBase.pick_vector_width_val(T)
+        N = length(x)
+        n = _MM(Wval, 0)
+        while VectorizationBase.scalar_less(n, vadd(N, 1 - 2W))
+            state, (z₁,z₂) = f(state, Val{2}(), T)
+            β₁ = vload(ptrβ, (n,)); γ₁ = vload(ptrγ, (n,));
+            β₂ = vload(ptrβ, (vadd(W, n),)); γ₂ = vload(ptrγ, (vadd(W, n),));
+            vstore!(ptrx, z₁ * γ₁ + β₁, (n,));
+            vstore!(ptrx, z₂ * γ₂ + β₂, (vadd(W, n),));
+            n = vadd(W2, n)
+        end
+        mask = VectorizationBase.mask(Wval, N)
+        if VectorizationBase.scalar_less(n, vsub(N, W))
+            state, (z₁,z₂) = f(state, Val{2}(), T)
+            β₁ = vload(ptrβ, (n,)); γ₁ = vload(ptrγ, (n,));
+            β₂ = vload(ptrβ, (vadd(W, n),), mask); γ₂ = vload(ptrγ, (vadd(W, n),), mask);
+            vstore!(ptrx, z₁ * γ₁ + β₁, (n,));
+            vstore!(ptrx, z₂ * γ₂ + β₂, (vadd(W, n),), mask);
+        elseif VectorizationBase.scalar_less(n, N)
+            vstate, (z₁,) = f(state, Val{1}(), T)
+            β₁ = vload(ptrβ, (n,), mask); γ₁ = vload(ptrγ, (n,), mask);
+            vstore!(ptrx, z₁ * γ₁ + β₁, (n,), mask);
+        end
+        storestate!(rng, state)
+    end # GC preserve
+    x
 end
-function Random.randn!(rng::AbstractVRNG, x::AbstractArray{T}) where {T<:Union{Float32,Float64}}
-    random_sample!(random_normal, rng, x)
+function random_sample!(f::F, rng::AbstractVRNG{P}, x::AbstractArray{T}, ::Static{0}, β, γ) where {F,P,T}
+    state = getstate(rng, Val{P}(), Val{W64}())
+    GC.@preserve x begin
+        ptrx = stridedpointer(x); ptrβ = stridedpointer(β); ptrγ = stridedpointer(γ);
+        W = VectorizationBase.pick_vector_width(T); W2 = W+W; W3 = W2+W; W4 = W2+W2;
+        Wval = VectorizationBase.pick_vector_width_val(T)
+        N = length(x)
+        n = _MM(Wval, 0)
+        while VectorizationBase.scalar_less(n, vadd(N, 1 - 4W))
+            state, (z₁,z₂,z₃,z₄) = f(state, Val{4}(), T)
+            β₁ = vload(ptrβ, (n,)); γ₁ = vload(ptrγ, (n,));
+            β₂ = vload(ptrβ, (vadd(W, n),)); γ₂ = vload(ptrγ, (vadd(W, n),));
+            β₃ = vload(ptrβ, (vadd(W2, n),)); γ₃ = vload(ptrγ, (vadd(W2, n),));
+            β₄ = vload(ptrβ, (vadd(W3, n),)); γ₄ = vload(ptrγ, (vadd(W3, n),));
+            vstore!(ptrx, z₁ * γ₁ + β₁, (n,));
+            vstore!(ptrx, z₂ * γ₂ + β₂, (vadd(W,n),));
+            vstore!(ptrx, z₃ * γ₃ + β₃, (vadd(W2,n),));
+            vstore!(ptrx, z₄ * γ₄ + β₄, (vadd(W3,n),));
+            n = vadd(W4, n) 
+        end
+        mask = VectorizationBase.mask(Wval, N)
+        if VectorizationBase.scalar_less(n, vsub(N, 3W))
+            state, (z₁,z₂,z₃,z₄) = f(state, Val{4}(), T)
+            β₁ = vload(ptrβ, (n,)); γ₁ = vload(ptrγ, (n,));
+            β₂ = vload(ptrβ, (vadd(W, n),)); γ₂ = vload(ptrγ, (vadd(W, n),));
+            β₃ = vload(ptrβ, (vadd(W2, n),)); γ₃ = vload(ptrγ, (vadd(W2, n),));
+            β₄ = vload(ptrβ, (vadd(W3, n),), mask); γ₄ = vload(ptrγ, (vadd(W3, n),), mask);
+            vstore!(ptrx, z₁ * γ₁ + β₁, (n,));
+            vstore!(ptrx, z₂ * γ₂ + β₂, (vadd(W,n),));
+            vstore!(ptrx, z₃ * γ₃ + β₃, (vadd(W2,n),));
+            vstore!(ptrx, z₄ * γ₄ + β₄, (vadd(W3,n),), mask);
+        elseif VectorizationBase.scalar_less(n, vsub(N, 2W))
+            state, (z₁,z₂,z₃) = f(state, Val{3}(), T)
+            β₁ = vload(ptrβ, (n,)); γ₁ = vload(ptrγ, (n,));
+            β₂ = vload(ptrβ, (vadd(W, n),)); γ₂ = vload(ptrγ, (vadd(W, n),));
+            β₃ = vload(ptrβ, (vadd(W2, n),), mask); γ₃ = vload(ptrγ, (vadd(W2, n),), mask);
+            vstore!(ptrx, z₁ * γ₁ + β₁, (n,));
+            vstore!(ptrx, z₂ * γ₂ + β₂, (vadd(W,n),));
+            vstore!(ptrx, z₃ * γ₃ + β₃, (vadd(W2,n),), mask);
+        elseif VectorizationBase.scalar_less(n, vsub(N, W))
+            state, (z₁,z₂) = f(state, Val{2}(), T)
+            β₁ = vload(ptrβ, (n,)); γ₁ = vload(ptrγ, (n,));
+            β₂ = vload(ptrβ, (vadd(W, n),), mask); γ₂ = vload(ptrγ, (vadd(W, n),), mask);
+            vstore!(ptrx, z₁ * γ₁ + β₁, (n,));
+            vstore!(ptrx, z₂ * γ₂ + β₂, (vadd(W,n),), mask);
+        elseif VectorizationBase.scalar_less(n, N)
+            vstate, (z₁,) = f(state, Val{1}(), T)
+            β₁ = vload(ptrβ, (n,), mask); γ₁ = vload(ptrγ, (n,), mask);
+            vstore!(ptrx, z₁ * γ₁ + β₁, (n,), mask);
+        end        
+        storestate!(rng, state)
+    end # GC preserve
+    x
+end
+
+function Random.rand!(rng::AbstractVRNG, x::AbstractArray{T}, α = Static{0}(), β = Static{0}(), γ = Static{1}()) where {T <: Union{Float32,Float64}}
+    random_sample!(random_uniform, rng, x, α, β, γ)
+end
+function Random.randn!(rng::AbstractVRNG, x::AbstractArray{T}, α = Static{0}(), β = Static{0}(), γ = Static{1}()) where {T<:Union{Float32,Float64}}
+    random_sample!(random_normal, rng, x, α, β, γ)
 end
 @inline function random_unsigned(state::AbstractState, ::Val{N}, ::Type{T}) where {N,T}
     nextstate(state, Val{N}())

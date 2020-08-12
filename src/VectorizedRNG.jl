@@ -1,10 +1,9 @@
 module VectorizedRNG
 
-using VectorizationBase, SIMDPirates, Random
+using VectorizationBase, SIMDPirates, Random, UnPack
 using VectorizationBase: VE, REGISTER_SIZE, gep, _Vec
-using SIMDPirates: vreinterpret, vxor, vor, vand, vuright_bitshift,
-                        vbroadcast, vadd, vmul, vsub, vabs, vsqrt,
-                        extract_data, vcopysign, vleft_bitshift, vuright_bitshift
+using SIMDPirates: vreinterpret, vbroadcast, vadd, vmul, vsub, vabs, vsqrt,
+                        extract_data, vcopysign, rotate_right
 
 using Distributed: myid
 
@@ -16,20 +15,6 @@ abstract type AbstractState{N,W} end
 const W64 = REGISTER_SIZE >> 3
 const W32 = REGISTER_SIZE >> 2
 const W16 = REGISTER_SIZE >> 1
-
-@inline rotate(x::UInt32, r) = x >>> r | x << (0x00000020 - r)
-@inline function rotate(x::_Vec{W,UInt32}, r::_Vec{W,T}) where {W,T}
-    xshiftright = SIMDPirates.vuright_bitshift(x, r)
-    xshiftleft = SIMDPirates.vleft_bitshift(x, SIMDPirates.vsub(SIMDPirates.vbroadcast(_Vec{W,T}, 0x00000020), r))
-    SIMDPirates.vor(xshiftright, xshiftleft)
-end
-@inline rotate(x::UInt64, r) = x >>> r | x << (0x0000000000000040 - r)
-@inline function rotate(x::_Vec{W,UInt64}, r::_Vec{W,T}) where {W,T}
-    xshiftright = SIMDPirates.vuright_bitshift(x, r)
-    xshiftleft = SIMDPirates.vleft_bitshift(x, SIMDPirates.vsub(SIMDPirates.vbroadcast(_Vec{W,T}, 0x0000000000000040), r))
-    SIMDPirates.vor(xshiftright, xshiftleft)
-end
-@inline rotate(x::_Vec{W,U}, r::U) where {W,U} = rotate(x, vbroadcast(_Vec{W,U}, r))
 
 include("masks.jl")
 include("api.jl")

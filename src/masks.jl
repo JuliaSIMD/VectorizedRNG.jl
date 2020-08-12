@@ -69,6 +69,4 @@ uniform distribution would get complicated.
 """
 @inline mask(x, ::Type{Float64}) = reinterpret(Float64, setbits(reinterpret(UInt64, x), 0x3ff0000000000000, 0x000fffffffffffff))
 @inline mask(x, ::Type{Float32}) = reinterpret(Float32, setbits(reinterpret(UInt32, x), 0x3f800000, 0x007fffff))
-@inline mask(x::Vec, ::Type{Float64}) = extract_data(reinterpret(Float64, setbits(reinterpret(UInt64, SVec(x)), 0x3ff0000000000000, 0x000fffffffffffff)))
-@inline mask(x::Vec, ::Type{Float32}) = extract_data(reinterpret(Float32, setbits(reinterpret(UInt32, SVec(x)), 0x3f800000, 0x007fffff)))
 
