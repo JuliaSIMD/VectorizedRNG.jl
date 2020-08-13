@@ -309,7 +309,7 @@ end
     nextstate(state, Val{N}())
 end
 function Random.rand!(rng::AbstractVRNG, x::AbstractArray{UInt64})
-    random_sample!(random_unsigned, rng, x)
+    random_sample!(random_unsigned, rng, x, Static{0}(), Static{0}(), Static{1}())
 end
 
 Random.rand(rng::AbstractVRNG, d1::Integer, dims::Vararg{Integer,N}) where {N} = rand!(rng, Array{Float64}(undef, d1, dims...))
