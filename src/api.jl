@@ -126,7 +126,7 @@ end
     state, random_normal(u, T)
 end
 
-function random_sample!(f::typeof(random_uniform), rng::AbstractVRNG{P}, x::AbstractArray{T}, α, β, γ) where {P,T <: Union{Float32,Float64}}
+function random_sample_u2!(f::F, rng::AbstractVRNG{P}, x::AbstractArray{T}, α, β, γ) where {F,P,T}
     state = getstate(rng, Val{2}(), Val{W64}())
     GC.@preserve x begin
         ptrx = stridedpointer(x); ptrβ = stridedpointer(β); ptrγ = stridedpointer(γ);
@@ -158,7 +158,7 @@ function random_sample!(f::typeof(random_uniform), rng::AbstractVRNG{P}, x::Abst
     end # GC preserve
     x
 end
-function random_sample!(f::F, rng::AbstractVRNG{P}, x::AbstractArray{T}, α, β, γ) where {F,P,T}
+function random_sample_u4!(f::F, rng::AbstractVRNG{P}, x::AbstractArray{T}, α, β, γ) where {F,P,T}
     state = getstate(rng, Val{P}(), Val{W64}())
     GC.@preserve x begin
         ptrx = stridedpointer(x); ptrβ = stridedpointer(β); ptrγ = stridedpointer(γ);
@@ -212,7 +212,7 @@ function random_sample!(f::F, rng::AbstractVRNG{P}, x::AbstractArray{T}, α, β,
     end # GC preserve
     x
 end
-function random_sample!(f::typeof(random_uniform), rng::AbstractVRNG{P}, x::AbstractArray{T}, ::Static{0}, β, γ) where {P,T <: Union{Float32,Float64}}
+function random_sample_u2!(f::F, rng::AbstractVRNG{P}, x::AbstractArray{T}, ::Static{0}, β, γ) where {F,P,T}
     state = getstate(rng, Val{2}(), Val{W64}())
     GC.@preserve x begin
         ptrx = stridedpointer(x); ptrβ = stridedpointer(β); ptrγ = stridedpointer(γ);
@@ -244,7 +244,7 @@ function random_sample!(f::typeof(random_uniform), rng::AbstractVRNG{P}, x::Abst
     end # GC preserve
     x
 end
-function random_sample!(f::F, rng::AbstractVRNG{P}, x::AbstractArray{T}, ::Static{0}, β, γ) where {F,P,T}
+function random_sample_u4!(f::F, rng::AbstractVRNG{P}, x::AbstractArray{T}, ::Static{0}, β, γ) where {F,P,T}
     state = getstate(rng, Val{P}(), Val{W64}())
     GC.@preserve x begin
         ptrx = stridedpointer(x); ptrβ = stridedpointer(β); ptrγ = stridedpointer(γ);
@@ -300,16 +300,16 @@ function random_sample!(f::F, rng::AbstractVRNG{P}, x::AbstractArray{T}, ::Stati
 end
 
 function Random.rand!(rng::AbstractVRNG, x::AbstractArray{T}, α = Static{0}(), β = Static{0}(), γ = Static{1}()) where {T <: Union{Float32,Float64}}
-    random_sample!(random_uniform, rng, x, α, β, γ)
+    random_sample_u2!(random_uniform, rng, x, α, β, γ)
 end
 function Random.randn!(rng::AbstractVRNG, x::AbstractArray{T}, α = Static{0}(), β = Static{0}(), γ = Static{1}()) where {T<:Union{Float32,Float64}}
-    random_sample!(random_normal, rng, x, α, β, γ)
+    random_sample_u4!(random_normal, rng, x, α, β, γ)
 end
 @inline function random_unsigned(state::AbstractState, ::Val{N}, ::Type{T}) where {N,T}
     nextstate(state, Val{N}())
 end
 function Random.rand!(rng::AbstractVRNG, x::AbstractArray{UInt64})
-    random_sample!(random_unsigned, rng, x, Static{0}(), Static{0}(), Static{1}())
+    random_sample_u2!(random_unsigned, rng, x, Static{0}(), Static{0}(), Static{1}())
 end
 
 Random.rand(rng::AbstractVRNG, d1::Integer, dims::Vararg{Integer,N}) where {N} = rand!(rng, Array{Float64}(undef, d1, dims...))
