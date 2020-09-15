@@ -150,7 +150,7 @@ function random_sample_u2!(f::F, rng::AbstractVRNG{P}, x::AbstractArray{T}, α, 
             vstore!(ptrx, α * x₁ + z₁ * γ₁ + β₁, (n,));
             vstore!(ptrx, α * x₂ + z₂ * γ₂ + β₂, (vadd(W, n),), mask);
         elseif VectorizationBase.scalar_less(n, N)
-            vstate, (z₁,) = f(state, Val{1}(), T)
+            state, (z₁,) = f(state, Val{1}(), T)
             x₁ = vload(ptrx, (n,), mask); β₁ = vload(ptrβ, (n,), mask); γ₁ = vload(ptrγ, (n,), mask);
             vstore!(ptrx, α * x₁ + z₁ * γ₁ + β₁, (n,), mask);
         end
@@ -204,7 +204,7 @@ function random_sample_u4!(f::F, rng::AbstractVRNG{P}, x::AbstractArray{T}, α, 
             vstore!(ptrx, α * x₁ + z₁ * γ₁ + β₁, (n,));
             vstore!(ptrx, α * x₂ + z₂ * γ₂ + β₂, (vadd(W,n),), mask);
         elseif VectorizationBase.scalar_less(n, N)
-            vstate, (z₁,) = f(state, Val{1}(), T)
+            state, (z₁,) = f(state, Val{1}(), T)
             x₁ = vload(ptrx, (n,), mask); β₁ = vload(ptrβ, (n,), mask); γ₁ = vload(ptrγ, (n,), mask);
             vstore!(ptrx, α * x₁ + z₁ * γ₁ + β₁, (n,), mask);
         end        
@@ -236,7 +236,7 @@ function random_sample_u2!(f::F, rng::AbstractVRNG{P}, x::AbstractArray{T}, ::St
             vstore!(ptrx, z₁ * γ₁ + β₁, (n,));
             vstore!(ptrx, z₂ * γ₂ + β₂, (vadd(W, n),), mask);
         elseif VectorizationBase.scalar_less(n, N)
-            vstate, (z₁,) = f(state, Val{1}(), T)
+            state, (z₁,) = f(state, Val{1}(), T)
             β₁ = vload(ptrβ, (n,), mask); γ₁ = vload(ptrγ, (n,), mask);
             vstore!(ptrx, z₁ * γ₁ + β₁, (n,), mask);
         end
@@ -290,7 +290,7 @@ function random_sample_u4!(f::F, rng::AbstractVRNG{P}, x::AbstractArray{T}, ::St
             vstore!(ptrx, z₁ * γ₁ + β₁, (n,));
             vstore!(ptrx, z₂ * γ₂ + β₂, (vadd(W,n),), mask);
         elseif VectorizationBase.scalar_less(n, N)
-            vstate, (z₁,) = f(state, Val{1}(), T)
+            state, (z₁,) = f(state, Val{1}(), T)
             β₁ = vload(ptrβ, (n,), mask); γ₁ = vload(ptrγ, (n,), mask);
             vstore!(ptrx, z₁ * γ₁ + β₁, (n,), mask);
         end        
