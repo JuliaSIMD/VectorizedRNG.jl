@@ -1,13 +1,15 @@
 module VectorizedRNG
 
-using VectorizationBase, SIMDPirates, Random, UnPack
-using VectorizationBase: VE, REGISTER_SIZE, gep, _Vec
-using SIMDPirates: vreinterpret, vbroadcast, vadd, vmul, vsub, vabs, vsqrt,
-                        extract_data, vcopysign, rotate_right
+using VectorizationBase, Random, UnPack
+using VectorizationBase: REGISTER_SIZE, gep, _Vec, ifelse, VecUnroll, AbstractSIMD, rotate_right, vadd, vsub, zero_offsets, vfmadd, vfmsub, vfnmadd, shufflevector
 
 using Distributed: myid
 
 export local_rng, rand!, randn!#, randexp, randexp!
+
+const vloada = vload
+const vstorea! = vstore!
+const CACHELINE_SIZE = VectorizationBase.L₁CACHE.linesize
 
 abstract type AbstractVRNG{N} <: Random.AbstractRNG end
 abstract type AbstractState{N,W} end
@@ -31,11 +33,32 @@ local_rng() = local_rng(Base.Threads.threadid() - 1)
 # include("precompile.jl")
 # _precompile_()
 
+# const RANDBUFFER32 = Float32[]
+# const RANDNBUFFER32 = Float32[]
+# const RANDBUFFER64 = Float64[]
+# const RANDNBUFFER64 = Float64[]
+# const RANDBUFFERCOUNTER = UInt8[]
+# const RANDNBUFFER32COUNTER = UInt8[]
+# const RANDBUFFER64COUNTER = UInt8[]
+# const RANDNBUFFER64COUNTER = UInt8[]
+
+
+
 function __init__()
     nthreads = Base.Threads.nthreads()
     nstreams = XREGISTERS * nthreads * W64
-    GLOBAL_vRNGs[] = ptr = VectorizationBase.valloc(4nstreams, UInt64)
+    GLOBAL_vRNGs[] = ptr = VectorizationBase.valloc(5nstreams + 256 * 3nthreads, UInt64)
     initXoshift!(ptr, nstreams)
+    
+    # resize!(RANDBUFFER32, 256nthreads)
+    # resize!(RANDNBUFFER32, 256nthreads)
+    # resize!(RANDBUFFER64, 256nthreads)
+    # resize!(RANDNBUFFER64, 256nthreads)
+    
+    # resize!(RANDBUFFERCOUNTER, VectorizationBase.CACHELINE_SIZE*nthreads); fill!(RANDBUFFERCOUNTER, 0)
+    # resize!(RANDNBUFFER32COUNTER, VectorizationBase.CACHELINE_SIZE*nthreads)
+    # resize!(RANDBUFFER64COUNTER, VectorizationBase.CACHELINE_SIZE*nthreads)
+    # resize!(RANDNBUFFER64COUNTER, VectorizationBase.CACHELINE_SIZE*nthreads)
 end
 
     

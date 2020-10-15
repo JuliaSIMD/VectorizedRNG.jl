@@ -9,33 +9,10 @@ That is for scalar arguments or vector arguments without AVX512, it requires the
 ((y ⊻ m) & m) == m
 """
 @inline setbits(x, y, m) = (x & m) | y
-if SIMDPirates.VectorizationBase.AVX512F
+if VectorizationBase.AVX512F
     # AVX512 lets us use 1 instruction instead of 2 dependent instructions to set bits
-    for W ∈ [2,4,8]
-        bits = 64W
-        decl64 = "declare <$W x i64> @llvm.x86.avx512.mask.pternlog.q.$(bits)(<$W x i64>, <$W x i64>, <$W x i64>, i32, i8)"
-        instr64 = """
-            %res = call <$W x i64> @llvm.x86.avx512.mask.pternlog.q.$(bits)(<$W x i64> %0, <$W x i64> %1, <$W x i64> %2, i32 216, i8 -1)
-            ret <$W x i64> %res
-        """
-        W2 = W + W
-        decl32 = "declare <$W2 x i32> @llvm.x86.avx512.mask.pternlog.d.$(bits)(<$W2 x i32>, <$W2 x i32>, <$W2 x i32>, i32, i16)"
-        instr32 = """
-            %res = call <$W2 x i32> @llvm.x86.avx512.mask.pternlog.d.$(bits)(<$W2 x i32> %0, <$W2 x i32> %1, <$W2 x i32> %2, i32 216, i16 -1)
-            ret <$W2 x i32> %res
-        """
-        @eval begin
-            # @inline setbits(s1::UInt64, v2::SVec{$W,UInt64}, s3::SVec{$W,UInt64}) = setbits(vbroadcast(Val{$W}(),s1), v2, vbroadcast(Val{$W}(),s3))
-            @inline setbits(v1::SVec{$W,UInt64}, s2::UInt64, s3::UInt64) = setbits(v1, vbroadcast(Val{$W}(),s2), vbroadcast(Val{$W}(),s3))
-            @inline function setbits(v1::SVec{$W,UInt64}, v2::SVec{$W,UInt64}, v3::SVec{$W,UInt64})
-                SVec(Base.llvmcall(($decl64,$instr64), Vec{$W,UInt64}, Tuple{Vec{$W,UInt64},Vec{$W,UInt64},Vec{$W,UInt64}}, extract_data(v2), extract_data(v1), extract_data(v3)))
-            end
-            @inline setbits(v1::SVec{$W2,UInt32}, s2::UInt32, s3::UInt32) = setbits(v1, vbroadcast(Val{$W2}(),s2), vbroadcast(Val{$W2}(),s3))
-            @inline function setbits(v1::SVec{$W2,UInt32}, v2::SVec{$W2,UInt32}, v3::SVec{$W2,UInt32})
-                SVec(Base.llvmcall(($decl32,$instr32), Vec{$W2,UInt32}, Tuple{Vec{$W2,UInt32},Vec{$W2,UInt32},Vec{$W2,UInt32}}, extract_data(v2), extract_data(v1), extract_data(v3)))
-            end
-        end
-    end
+    @inline setbits(x::Vec{W,U}, y, m) where {W,U <: Union{UInt32,UInt64}} = VectorizationBase.vpternlog(vbroadcast(Val{W}(), y), x, vbroadcast(Val{W}(), m), Val{216}())
+    @inline setbits(x::VecUnroll{W,<:Union{UInt32,UInt64}}, y, m) where {W} = VectorizationBase.VecUnroll(VectorizationBase.fmap(setbits, x.data, y, m))
 end
 
 """
