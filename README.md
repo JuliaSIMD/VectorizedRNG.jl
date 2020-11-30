@@ -78,56 +78,66 @@ julia> using BenchmarkTools, Random, VectorizedRNG
 julia> x = Vector{Float64}(undef, 1024);
 
 julia> @benchmark randn!($x)
- BenchmarkTools.Trial:
+BenchmarkTools.Trial:
   memory estimate:  0 bytes
   allocs estimate:  0
   --------------
-  minimum time:     2.135 μs (0.00% GC)
-  median time:      2.298 μs (0.00% GC)
-  mean time:        2.301 μs (0.00% GC)
-  maximum time:     5.676 μs (0.00% GC)
-  --------------
-  samples:          10000
-  evals/sample:     9
-
-julia> @benchmark randn!(local_rng(), $x)
- BenchmarkTools.Trial:
-  memory estimate:  0 bytes
-  allocs estimate:  0
-  --------------
-  minimum time:     1.167 μs (0.00% GC)
-  median time:      1.171 μs (0.00% GC)
-  mean time:        1.180 μs (0.00% GC)
-  maximum time:     3.827 μs (0.00% GC)
+  minimum time:     1.676 μs (0.00% GC)
+  median time:      1.798 μs (0.00% GC)
+  mean time:        1.883 μs (0.00% GC)
+  maximum time:     5.769 μs (0.00% GC)
   --------------
   samples:          10000
   evals/sample:     10
-  
-julia> @benchmark rand!($x)
- BenchmarkTools.Trial:
+
+julia> @benchmark randn!(local_rng(), $x)
+BenchmarkTools.Trial:
   memory estimate:  0 bytes
   allocs estimate:  0
   --------------
-  minimum time:     593.229 ns (0.00% GC)
-  median time:      596.978 ns (0.00% GC)
-  mean time:        597.886 ns (0.00% GC)
-  maximum time:     767.034 ns (0.00% GC)
+  minimum time:     854.446 ns (0.00% GC)
+  median time:      962.369 ns (0.00% GC)
+  mean time:        991.798 ns (0.00% GC)
+  maximum time:     1.818 μs (0.00% GC)
   --------------
   samples:          10000
-  evals/sample:     179
+  evals/sample:     65
+
+julia> @benchmark rand!($x)
+BenchmarkTools.Trial:
+  memory estimate:  0 bytes
+  allocs estimate:  0
+  --------------
+  minimum time:     549.856 ns (0.00% GC)
+  median time:      567.626 ns (0.00% GC)
+  mean time:        603.958 ns (0.00% GC)
+  maximum time:     1.124 μs (0.00% GC)
+  --------------
+  samples:          10000
+  evals/sample:     187
 
 julia> @benchmark rand!(local_rng(), $x)
- BenchmarkTools.Trial:
+BenchmarkTools.Trial:
   memory estimate:  0 bytes
   allocs estimate:  0
   --------------
-  minimum time:     186.685 ns (0.00% GC)
-  median time:      187.384 ns (0.00% GC)
-  mean time:        187.516 ns (0.00% GC)
-  maximum time:     271.583 ns (0.00% GC)
+  minimum time:     159.907 ns (0.00% GC)
+  median time:      171.258 ns (0.00% GC)
+  mean time:        174.272 ns (0.00% GC)
+  maximum time:     958.197 ns (0.00% GC)
   --------------
   samples:          10000
-  evals/sample:     666
+  evals/sample:     788
+
+julia> versioninfo()
+Julia Version 1.6.0-DEV.1581
+Commit 377aa809eb (2020-11-26 01:44 UTC)
+Platform Info:
+  OS: Linux (x86_64-linux-gnu)
+  CPU: 11th Gen Intel(R) Core(TM) i7-1165G7 @ 2.80GHz
+  WORD_SIZE: 64
+  LIBM: libopenlibm
+  LLVM: libLLVM-11.0.0 (ORCJIT, tigerlake)
 ```
 
 ## Setting the seed
