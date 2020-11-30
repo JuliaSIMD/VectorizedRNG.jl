@@ -173,15 +173,16 @@ end
 end
 
 @inline function log2_3q(v, e)
+    T = eltype(v)
     m1 = v * v 
-    fma1 = muladd(m1, 0.22119417504560815, 0.22007686931522777)
-    fma2 = muladd(fma1, m1, 0.26237080574885147)
-    fma3 = muladd(fma2, m1, 0.32059774779444955)
-    fma4 = muladd(fma3, m1, 0.41219859454853247)
-    fma5 = muladd(fma4, m1, 0.5770780162997059)
-    fma6 = muladd(fma5, m1, 0.9617966939260809)
-    m2 = v * 2.8853900817779268
-    fma7 = VectorizationBase.vfmsub(v, 2.8853900817779268, m2)
+    fma1 = muladd(m1, T(0.22119417504560815), T(0.22007686931522777))
+    fma2 = muladd(fma1, m1, T(0.26237080574885147))
+    fma3 = muladd(fma2, m1, T(0.32059774779444955))
+    fma4 = muladd(fma3, m1, T(0.41219859454853247))
+    fma5 = muladd(fma4, m1, T(0.5770780162997059))
+    fma6 = muladd(fma5, m1, T(0.9617966939260809))
+    m2 = v * T(2.8853900817779268)
+    fma7 = VectorizationBase.vfmsub(v, T(2.8853900817779268), m2)
     a1 = e + m2
     s1 = e - a1
     a2 = m2 + s1
@@ -201,7 +202,9 @@ end
     l2 = log2_3q(f, T(-0.5849625007211561814537389439478165087598144076924810604557526545410982277943579) - lz)
     T(-0.6931471805599453) * l2
 end
-@inline function nlog01(u::AbstractSIMD{W,UInt64}, ::Type{Float32}) where {W}
-    -log(mask(u, Float32) - oneopenconst(Float32))
-end
+# TODO: Add support for Float32 
+
+# @inline function nlog01(u::AbstractSIMD{W,UInt64}, ::Type{Float32}) where {W}
+#     -log(mask(u, Float32) - oneopenconst(Float32))
+# end
 

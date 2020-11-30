@@ -334,10 +334,14 @@ function random_sample_u4!(f::F, rng::AbstractVRNG{P}, x::AbstractArray{T}, ::St
     x
 end
 
-function Random.rand!(rng::AbstractVRNG, x::AbstractArray{T}, α = StaticInt{0}(), β = StaticInt{0}(), γ = StaticInt{1}()) where {T <: Union{Float32,Float64}}
+function Random.rand!(
+    rng::AbstractVRNG, x::AbstractArray{T}, α::Number = StaticInt{0}(), β = StaticInt{0}(), γ = StaticInt{1}()
+) where {T <: Union{Float32,Float64}}
     random_sample_u2!(random_uniform, rng, x, α, β, γ)
 end
-function Random.randn!(rng::AbstractVRNG, x::AbstractArray{T}, α = StaticInt{0}(), β = StaticInt{0}(), γ = StaticInt{1}()) where {T<:Union{Float32,Float64}}
+function Random.randn!(
+    rng::AbstractVRNG, x::AbstractArray{T}, α::Number = StaticInt{0}(), β = StaticInt{0}(), γ = StaticInt{1}()
+) where {T<:Union{Float32,Float64}}
     random_sample_u2!(random_normal, rng, x, α, β, γ)
 end
 @inline function random_unsigned(state::AbstractState, ::Val{N}, ::Type{T}) where {N,T}
