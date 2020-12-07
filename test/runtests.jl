@@ -92,7 +92,9 @@ end
         @test mi > α
         @test ma < 1 - α
 
-
+        A = zeros(13, 29);
+        randn!(local_rng(), A);
+        @test iszero(sum(iszero, A))
         # TODO: Support this again
         # rngnorm = RNGTest.wrap(RandNormal01(local_rng()), Float32);
         # res = RNGTest.smallcrushJulia(rngnorm)
