@@ -1,21 +1,22 @@
-using Documenter, VectorizedRNG
+using VectorizedRNG
+using Documenter
 
 makedocs(;
     modules=[VectorizedRNG],
-    format=:html,
+    authors="Chris Elrod",
+    repo="https://github.com/chriselrod/VectorizedRNG.jl/blob/{commit}{path}#L{line}",
+    sitename="VectorizedRNG.jl",
+    format=Documenter.HTML(;
+        prettyurls=get(ENV, "CI", "false") == "true",
+        canonical="https://chriselrod.github.io/VectorizedRNG.jl",
+        assets=String[],
+    ),
     pages=[
         "Home" => "index.md",
     ],
-    repo="https://github.com/chriselrod/VectorizedRNG.jl/blob/{commit}{path}#L{line}",
-    sitename="VectorizedRNG.jl",
-    authors="Chris Elrod",
-    assets=[],
+    strict=false,
 )
 
 deploydocs(;
     repo="github.com/chriselrod/VectorizedRNG.jl",
-    target="build",
-    julia="1.0",
-    deps=nothing,
-    make=nothing,
 )
