@@ -112,13 +112,14 @@ end
     end
     @testset "Scaled sampling" begin
         A = Matrix{Float64}(undef, 89, 100);
-        randn!(local_rng(), A, VectorizedRNG.StaticInt(0), 5, 100)
+        randn!(local_rng(), A, VectorizedRNG.StaticInt(0), 5, 100);
         s,l = extrema(A)
-        @test s < -100, l > 100
-        randn!(local_rng(), A, VectorizedRNG.StaticInt(0), 100, 10)
-        @test sum(A) / length(A) > 90
-        randn!(local_rng(), A, VectorizedRNG.StaticInt(1), 100, 10)
-        @test sum(A) / length(A) > 190
+        @test s < -100
+        @test l > 100
+        randn!(local_rng(), A, VectorizedRNG.StaticInt(0), 100, 10);
+        @test 90 < sum(A) / length(A) < 110
+        randn!(local_rng(), A, VectorizedRNG.StaticInt(1), 100, 10);
+        @test 190 < sum(A) / length(A) < 210
     end
 end
 
