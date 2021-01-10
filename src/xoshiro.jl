@@ -206,10 +206,6 @@ end
     eins, zwei, drei, vier
 end
 
-# @inline function _unpack(s::XoshiftState{P}, ::Val{P}) where {P}
-#     @unpack eins, zwei, drei, vier = s
-#     eins, zwei, drei, vier
-# end
 @generated function _unpack(s::XoshiftState{P}, ::Val{U}) where {P,U}
     if U ≤ P
         quote
@@ -270,116 +266,6 @@ end
     XoshiftState( eins, zwei, drei, vier, s ), out
 end
 
-# @inline function nextstate(s::XoshiftState{2}, ::Val{2})
-#     (Base.Cartesian.@ntuple 2 eins) = s.eins;
-#     (Base.Cartesian.@ntuple 2 zwei) = s.zwei;
-#     (Base.Cartesian.@ntuple 2 drei) = s.drei;
-#     (Base.Cartesian.@ntuple 2 vier) = s.vier;
-#     # Base.Cartesian.@nexprs 2 n -> out_n = vmul(zwei_n, 0x000000000000005)
-#     # Base.Cartesian.@nexprs 2 n -> out_n = rotate_right(out_n, 0x0000000000000007)
-#     # Base.Cartesian.@nexprs 2 n -> out_n = vmul(out_n, 0x0000000000000009)
-#     Base.Cartesian.@nexprs 2 n -> out_n = vadd(eins_n, vier_n)
-#     Base.Cartesian.@nexprs 2 n -> t_n = zwei_n << 0x0000000000000011
-#     Base.Cartesian.@nexprs 2 n -> out_n = rotate_right(out_n, 0x0000000000000017)
-#     Base.Cartesian.@nexprs 2 n -> drei_n = drei_n ⊻ eins_n
-#     Base.Cartesian.@nexprs 2 n -> vier_n = vier_n ⊻ zwei_n
-#     Base.Cartesian.@nexprs 2 n -> out_n = vadd(eins_n, out_n)
-#     Base.Cartesian.@nexprs 2 n -> zwei_n = zwei_n ⊻ drei_n
-#     Base.Cartesian.@nexprs 2 n -> eins_n = eins_n ⊻ vier_n
-#     Base.Cartesian.@nexprs 2 n -> drei_n = drei_n ⊻ t_n
-#     Base.Cartesian.@nexprs 2 n -> vier_n = rotate_right(vier_n, 0x000000000000002d)
-#     XoshiftState(
-#         (Base.Cartesian.@ntuple 2 eins),
-#         (Base.Cartesian.@ntuple 2 zwei),
-#         (Base.Cartesian.@ntuple 2 drei),
-#         (Base.Cartesian.@ntuple 2 vier)
-#     ), Base.Cartesian.@ntuple 2 out
-# end
-# @inline function nextstate(s::XoshiftState{4}, ::Val{2})
-#     (Base.Cartesian.@ntuple 4 eins) = s.eins;
-#     (Base.Cartesian.@ntuple 4 zwei) = s.zwei;
-#     (Base.Cartesian.@ntuple 4 drei) = s.drei;
-#     (Base.Cartesian.@ntuple 4 vier) = s.vier;
-#     # Base.Cartesian.@nexprs 2 n -> out_n = vmul(zwei_n, 0x000000000000005)
-#     # Base.Cartesian.@nexprs 2 n -> out_n = rotate_right(out_n, 0x0000000000000007)
-#     # Base.Cartesian.@nexprs 2 n -> out_n = vmul(out_n, 0x0000000000000009)
-#     Base.Cartesian.@nexprs 2 n -> out_n = vadd(eins_n, vier_n)
-#     Base.Cartesian.@nexprs 2 n -> out_n = rotate_right(out_n, 0x0000000000000017)
-#     Base.Cartesian.@nexprs 2 n -> out_n = vadd(eins_n, out_n)
-#     Base.Cartesian.@nexprs 2 n -> t_n = zwei_n << 0x0000000000000011
-#     Base.Cartesian.@nexprs 2 n -> drei_n = drei_n ⊻ eins_n
-#     Base.Cartesian.@nexprs 2 n -> vier_n = vier_n ⊻ zwei_n
-#     Base.Cartesian.@nexprs 2 n -> zwei_n = zwei_n ⊻ drei_n
-#     Base.Cartesian.@nexprs 2 n -> eins_n = eins_n ⊻ vier_n
-#     Base.Cartesian.@nexprs 2 n -> drei_n = drei_n ⊻ t_n
-#     Base.Cartesian.@nexprs 2 n -> vier_n = rotate_right(vier_n, 0x000000000000002d)
-#     XoshiftState(
-#         (Base.Cartesian.@ntuple 4 eins),
-#         (Base.Cartesian.@ntuple 4 zwei),
-#         (Base.Cartesian.@ntuple 4 drei),
-#         (Base.Cartesian.@ntuple 4 vier)
-#     ), Base.Cartesian.@ntuple 2 out
-# end
-# @inline function nextstate(s::XoshiftState{4}, ::Val{3})
-#     (Base.Cartesian.@ntuple 4 eins) = s.eins;
-#     (Base.Cartesian.@ntuple 4 zwei) = s.zwei;
-#     (Base.Cartesian.@ntuple 4 drei) = s.drei;
-#     (Base.Cartesian.@ntuple 4 vier) = s.vier;
-#     # Base.Cartesian.@nexprs 3 n -> out_n = vmul(zwei_n, 0x000000000000005)
-#     # Base.Cartesian.@nexprs 3 n -> out_n = rotate_right(out_n, 0x0000000000000007)
-#     # Base.Cartesian.@nexprs 3 n -> out_n = vmul(out_n, 0x0000000000000009)
-#     Base.Cartesian.@nexprs 3 n -> out_n = vadd(eins_n, vier_n)
-#     Base.Cartesian.@nexprs 3 n -> out_n = rotate_right(out_n, 0x0000000000000017)
-#     Base.Cartesian.@nexprs 3 n -> out_n = vadd(eins_n, out_n)
-#     Base.Cartesian.@nexprs 3 n -> t_n = zwei_n << 0x0000000000000011
-#     Base.Cartesian.@nexprs 3 n -> drei_n = drei_n ⊻ eins_n
-#     Base.Cartesian.@nexprs 3 n -> vier_n = vier_n ⊻ zwei_n
-#     Base.Cartesian.@nexprs 3 n -> zwei_n = zwei_n ⊻ drei_n
-#     Base.Cartesian.@nexprs 3 n -> eins_n = eins_n ⊻ vier_n
-#     Base.Cartesian.@nexprs 3 n -> drei_n = drei_n ⊻ t_n
-#     Base.Cartesian.@nexprs 3 n -> vier_n = rotate_right(vier_n, 0x000000000000002d)
-#     XoshiftState(
-#         (Base.Cartesian.@ntuple 4 eins),
-#         (Base.Cartesian.@ntuple 4 zwei),
-#         (Base.Cartesian.@ntuple 4 drei),
-#         (Base.Cartesian.@ntuple 4 vier)
-#     ), Base.Cartesian.@ntuple 3 out
-# end
-# @inline function nextstate(s::XoshiftState{4}, ::Val{4})
-#     (Base.Cartesian.@ntuple 4 eins) = s.eins;
-#     (Base.Cartesian.@ntuple 4 zwei) = s.zwei;
-#     (Base.Cartesian.@ntuple 4 drei) = s.drei;
-#     (Base.Cartesian.@ntuple 4 vier) = s.vier;
-#     # Base.Cartesian.@nexprs 4 n -> out_n = vmul(zwei_n, 0x000000000000005)
-#     # Base.Cartesian.@nexprs 4 n -> out_n = rotate_right(out_n, 0x0000000000000007)
-#     # Base.Cartesian.@nexprs 4 n -> out_n = vmul(out_n, 0x0000000000000009)
-#     Base.Cartesian.@nexprs 4 n -> out_n = vadd(eins_n, vier_n)
-#     Base.Cartesian.@nexprs 4 n -> out_n = rotate_right(out_n, 0x0000000000000017)
-#     Base.Cartesian.@nexprs 4 n -> out_n = vadd(eins_n, out_n)
-#     Base.Cartesian.@nexprs 4 n -> t_n = zwei_n << 0x0000000000000011
-#     Base.Cartesian.@nexprs 4 n -> drei_n = drei_n ⊻ eins_n
-#     Base.Cartesian.@nexprs 4 n -> vier_n = vier_n ⊻ zwei_n
-#     Base.Cartesian.@nexprs 4 n -> zwei_n = zwei_n ⊻ drei_n
-#     Base.Cartesian.@nexprs 4 n -> eins_n = eins_n ⊻ vier_n
-#     Base.Cartesian.@nexprs 4 n -> drei_n = drei_n ⊻ t_n
-#     Base.Cartesian.@nexprs 4 n -> vier_n = rotate_right(vier_n, 0x000000000000002d)
-#     XoshiftState(
-#         (Base.Cartesian.@ntuple 4 eins),
-#         (Base.Cartesian.@ntuple 4 zwei),
-#         (Base.Cartesian.@ntuple 4 drei),
-#         (Base.Cartesian.@ntuple 4 vier)
-#     ), Base.Cartesian.@ntuple 4 out
-# end
-# @inline function nextstate(s::XoshiftState{2}, ::Val{3})
-#     s, (out_1,out_2) = nextstate(s, Val(2))
-#     s, (out_3,) = nextstate(s, Val(1))
-#     s, Base.Cartesian.@ntuple 3 out
-# end
-# @inline function nextstate(s::XoshiftState{2}, ::Val{4})
-#     s, (out_1,out_2) = nextstate(s, Val(2))
-#     s, (out_3,out_4) = nextstate(s, Val(2))
-#     s, Base.Cartesian.@ntuple 4 out
-# end
 function randbuffer64(r::Xoshift{P}) where {P}
     ptr = pointer(r)
     Buffer256(Base.unsafe_convert(Ptr{Float64}, ptr + P * 5REGISTER_SIZE))
