@@ -44,8 +44,9 @@ const INVSQRT2 = Float64(1/sqrt(big(2)))
 #     end
 #     x
 # end
+normalcdf(x::T) where {T} = T(0.5) * ( one(T) + erf( x * INVSQRT2 ) )
 function normalcdf!(x::AbstractVector{T}) where {T}
-    @. x = T(0.5) * ( one(T) + erf( x * INVSQRT2 ) )
+    @. x = normalcdf(x)
 end
 
     struct RandNormal01{T<:VectorizedRNG.AbstractVRNG} <: Random.AbstractRNG
@@ -65,13 +66,13 @@ end
 
     @test isempty(detect_unbound_args(VectorizedRNG))
     @testset "Small Crush" begin 
-        # Write your own tests here.
         rngunif64 = RNGTest.wrap(local_rng(), Float64);
         res = RNGTest.smallcrushJulia(rngunif64)
         mi, ma = smallcrushextrema(res)
         @show mi, ma
         @test mi > α
         @test ma < 1 - α
+
 
         rngunif32 = RNGTest.wrap(local_rng(), Float32);
         res = RNGTest.smallcrushJulia(rngunif32)
@@ -80,11 +81,6 @@ end
         @test mi > α
         @test ma < 1 - α
 
-        # rngunif = RNGTest.wrap(local_pcg(), Float64);
-        # res = RNGTest.smallcrushJulia(rngunif)
-        # mi, ma = smallcrushextrema(res)
-        # @test mi > α
-        # @test ma < 1 - α
         rngnorm = RNGTest.wrap(RandNormal01(local_rng()), Float64);
         res = RNGTest.smallcrushJulia(rngnorm)
         mi, ma = smallcrushextrema(res)
@@ -102,6 +98,19 @@ end
         # @show mi, ma
         # @test mi > α
         # @test ma < 1 - α
+
+        # scalar mode tests
+        res = RNGTest.smallcrushJulia(() -> rand(local_rng()))
+        mi, ma = smallcrushextrema(res)
+        @show mi, ma
+        @test mi > α
+        @test ma < 1 - α
+        
+        res = RNGTest.smallcrushJulia(() -> normalcdf(randn(local_rng())))
+        mi, ma = smallcrushextrema(res)
+        @show mi, ma
+        @test mi > α
+        @test ma < 1 - α
 
     end
     @testset "Discontiguous in place" begin

@@ -10,13 +10,13 @@ MatchingUInt(::Type{Tuple{VecUnroll{N,W,Float64,Vec{W,Float64}}}}) where {N,W} =
 
 
 @inline function Random.rand(rng::AbstractVRNG{P}, ::Type{Vec{W,UInt64}}) where {W,P}
-    state = getstate(rng, Val{1}(), Val{W}())
+    state = getstate(rng, Val{1}(), StaticInt{W}())
     state, out = nextstate(state, Val{1}())
     storestate!(rng, state)
     out.data[1]
 end
 @inline function Random.rand(rng::AbstractVRNG{P}, ::Type{VecUnroll{N,W,UInt64,Vec{W,UInt64}}}) where {W,P,N}
-    state = getstate(rng, Val{P}(), Val{W}())
+    state = getstate(rng, Val{P}(), StaticInt{W}())
     state, out = nextstate(state, Val{N}())
     storestate!(rng, state)
     out
@@ -152,11 +152,11 @@ end
 @inline _vload(x::Number, args::Vararg{Any,K}) where {K} = x
 
 function random_sample_u2!(f::F, rng::AbstractVRNG{P}, x::AbstractArray{T}, α, β, γ) where {F,P,T}
-    state = getstate(rng, Val{2}(), Val{W64}())
+    state = getstate(rng, Val{2}(), pick_vector_width_val(UInt64))
     GC.@preserve x begin
         ptrx = zero_pointer(x); ptrβ = zero_pointer(β); ptrγ = zero_pointer(γ);
         W = VectorizationBase.pick_vector_width(T); W2 = W+W
-        Wval = VectorizationBase.pick_vector_width_val(T)
+        Wval = pick_vector_width_val(T)
         N = length(x)
         n = MM(Wval, 0)
         while scalar_less(n, vadd(N, 1 - 2W))
@@ -246,11 +246,11 @@ end
 #     x
 # end
 function random_sample_u2!(f::F, rng::AbstractVRNG{P}, x::AbstractArray{T}, ::StaticInt{0}, β, γ) where {F,P,T}
-    state = getstate(rng, Val{2}(), Val{W64}())
+    state = getstate(rng, Val{2}(), pick_vector_width_val(UInt64))
     GC.@preserve x begin
         ptrx = zero_pointer(x); ptrβ = zero_pointer(β); ptrγ = zero_pointer(γ);
         W = VectorizationBase.pick_vector_width(T); W2 = W+W
-        Wval = VectorizationBase.pick_vector_width_val(T)
+        Wval = pick_vector_width_val(T)
         N = length(x)
         n = MM(Wval, 0)
         while scalar_less(n, vadd(N, 1 - 2W))
@@ -370,7 +370,7 @@ end
 Base.pointer(b::Buffer256) = b.ptr
 Base.length(::Buffer256) = 256
 Base.size(::Buffer256) = (256,)
-Base.getindex(b::Buffer256, i::Int) = vload(stridedpointer(b), (i-1,))
+Base.getindex(b::Buffer256, i::Int) = vload(stridedpointer(b), (i,))
 Base.strides(::Buffer256) = (1,)
 VectorizationBase.ArrayInterface.contiguous_axis(::Type{<:Buffer256}) = VectorizationBase.ArrayInterface.Contiguous{1}()
 VectorizationBase.ArrayInterface.contiguous_batch_size(::Type{<:Buffer256}) = VectorizationBase.ArrayInterface.ContiguousBatch{0}()
@@ -382,13 +382,13 @@ function Random.rand(rng::AbstractVRNG)
     b = randbuffer64(rng)
     setrand64counter!(rng, i + 0x01)
     iszero(i) && rand!(rng, b)
-    vload(pointer(b), VectorizationBase.LazyMulAdd{8,0}(i))
+    vload(pointer(b), VectorizationBase.LazyMulAdd{8,0}(i % UInt32))
 end
 function Random.randn(rng::AbstractVRNG)
     i = getrandn64counter(rng)
     b = randnbuffer64(rng)
     setrandn64counter!(rng, i + 0x01)
     iszero(i) && randn!(rng, b)
-    vload(pointer(b), VectorizationBase.LazyMulAdd{8,0}(i))
+    vload(pointer(b), VectorizationBase.LazyMulAdd{8,0}(i % UInt32))
 end
 

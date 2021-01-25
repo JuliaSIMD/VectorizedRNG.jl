@@ -9,10 +9,22 @@ That is for scalar arguments or vector arguments without AVX512, it requires the
 ((y ⊻ m) & m) == m
 """
 @inline setbits(x, y, m) = (x & m) | y
-if VectorizationBase.AVX512F
+@generated function setbits(x::Vec{W,U}, y, m) where {W,U <: Union{UInt32,UInt64}}
     # AVX512 lets us use 1 instruction instead of 2 dependent instructions to set bits
-    @inline setbits(x::Vec{W,U}, y, m) where {W,U <: Union{UInt32,UInt64}} = VectorizationBase.vpternlog(vbroadcast(Val{W}(), y), x, vbroadcast(Val{W}(), m), Val{216}())
-    @inline setbits(x::VecUnroll{W,<:Union{UInt32,UInt64}}, y, m) where {W} = VectorizationBase.VecUnroll(VectorizationBase.fmap(setbits, x.data, y, m))
+    ex = if VectorizationBase.has_feature("x86_64_avx512f")
+        :(VectorizationBase.vpternlog(vbroadcast(Val{W}(), y), x, vbroadcast(Val{W}(), m), Val{216}()))
+    else
+        :((x & m) | y)
+    end    
+    return Expr(:block, Expr(:meta,:inline), ex)
+end
+@generated function setbits(x::VecUnroll{W,<:Union{UInt32,UInt64}}, y, m) where {W}
+    ex = if VectorizationBase.has_feature("x86_64_avx512f")
+        :(VectorizationBase.VecUnroll(VectorizationBase.fmap(setbits, x.data, y, m)))
+    else
+        :((x & m) | y)
+    end    
+    return Expr(:block, Expr(:meta,:inline), ex)
 end
 
 """
