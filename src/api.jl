@@ -372,9 +372,9 @@ Base.length(::Buffer256) = 256
 Base.size(::Buffer256) = (256,)
 Base.getindex(b::Buffer256, i::Int) = vload(stridedpointer(b), (i,))
 Base.strides(::Buffer256) = (1,)
-VectorizationBase.ArrayInterface.contiguous_axis(::Type{<:Buffer256}) = VectorizationBase.ArrayInterface.Contiguous{1}()
-VectorizationBase.ArrayInterface.contiguous_batch_size(::Type{<:Buffer256}) = VectorizationBase.ArrayInterface.ContiguousBatch{0}()
-VectorizationBase.ArrayInterface.stride_rank(::Type{<:Buffer256}) = VectorizationBase.ArrayInterface.StrideRank{(1,)}()
+VectorizationBase.ArrayInterface.contiguous_axis(::Type{<:Buffer256}) = VectorizationBase.One()
+VectorizationBase.ArrayInterface.contiguous_batch_size(::Type{<:Buffer256}) = VectorizationBase.Zero()
+VectorizationBase.ArrayInterface.stride_rank(::Type{<:Buffer256}) = (VectorizationBase.One(),)
 
 
 function Random.rand(rng::AbstractVRNG)
