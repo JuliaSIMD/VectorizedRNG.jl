@@ -155,10 +155,9 @@ function random_sample_u2!(f::F, rng::AbstractVRNG{P}, x::AbstractArray{T}, α, 
     state = getstate(rng, Val{2}(), pick_vector_width_val(UInt64))
     GC.@preserve x begin
         ptrx = zero_pointer(x); ptrβ = zero_pointer(β); ptrγ = zero_pointer(γ);
-        W = VectorizationBase.pick_vector_width(T); W2 = W+W
-        Wval = pick_vector_width_val(T)
+        W = pick_vector_width(T); W2 = W+W
         N = length(x)
-        n = MM(Wval, 0)
+        n = MM(W, 0)
         while scalar_less(n, vadd(N, 1 - 2W))
             state, zvu2 = f(state, Val{2}(), T)
             z₁, z₂ = zvu2.data
@@ -168,7 +167,7 @@ function random_sample_u2!(f::F, rng::AbstractVRNG{P}, x::AbstractArray{T}, α, 
             vstore!(ptrx, α * x₂ + z₁ * γ₂ + β₂, (vadd(W, n),));
             n = vadd(W2, n)
         end
-        mask = VectorizationBase.mask(Wval, N)
+        mask = VectorizationBase.mask(W, N)
         if scalar_less(n, vsub(N, W))
             state, zvu2 = f(state, Val{2}(), T)
             z₁, z₂ = zvu2.data
@@ -246,13 +245,12 @@ end
 #     x
 # end
 function random_sample_u2!(f::F, rng::AbstractVRNG{P}, x::AbstractArray{T}, ::StaticInt{0}, β, γ) where {F,P,T}
-    state = getstate(rng, Val{2}(), pick_vector_width_val(UInt64))
+    state = getstate(rng, Val{2}(), pick_vector_width(UInt64))
     GC.@preserve x begin
         ptrx = zero_pointer(x); ptrβ = zero_pointer(β); ptrγ = zero_pointer(γ);
-        W = VectorizationBase.pick_vector_width(T); W2 = W+W
-        Wval = pick_vector_width_val(T)
+        W = pick_vector_width(T); W2 = W+W
         N = length(x)
-        n = MM(Wval, 0)
+        n = MM(W, 0)
         while scalar_less(n, vadd(N, 1 - 2W))
             state, zvu2 = f(state, Val{2}(), T)
             (z₁,z₂) = zvu2.data
@@ -262,7 +260,7 @@ function random_sample_u2!(f::F, rng::AbstractVRNG{P}, x::AbstractArray{T}, ::St
             vstore!(ptrx, z₂ * γ₂ + β₂, (vadd(W, n),));
             n = vadd(W2, n)
         end
-        mask = VectorizationBase.mask(Wval, N)
+        mask = VectorizationBase.mask(W, N)
         if scalar_less(n, vsub(N, W))
             state, zvu2 = f(state, Val{2}(), T)
             (z₁,z₂) = zvu2.data
