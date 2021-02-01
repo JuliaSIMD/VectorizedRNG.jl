@@ -12,7 +12,7 @@ VectorizationBase = "3d5dd08c-fd9d-11e8-17fa-ed2836048c2f"
 [compat]
 UnPack = "1"
 VectorizationBase = "0.18"
-julia = "1.6"
+julia = "1.5"
 
 [extras]
 RNGTest = "97cc5700-e6cb-5ca1-8fb2-7f6b45264ecd"

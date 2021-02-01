@@ -152,7 +152,7 @@ end
 @inline _vload(x::Number, args::Vararg{Any,K}) where {K} = x
 
 function random_sample_u2!(f::F, rng::AbstractVRNG{P}, x::AbstractArray{T}, α, β, γ) where {F,P,T}
-    state = getstate(rng, Val{2}(), pick_vector_width_val(UInt64))
+    state = getstate(rng, Val{2}(), pick_vector_width(UInt64))
     GC.@preserve x begin
         ptrx = zero_pointer(x); ptrβ = zero_pointer(β); ptrγ = zero_pointer(γ);
         W = pick_vector_width(T); W2 = W+W
@@ -190,7 +190,7 @@ end
 #     GC.@preserve x begin
 #         ptrx = zero_offsets(stridedpointer(x)); ptrβ = zero_offsets(stridedpointer(β)); ptrγ = zero_offsets(stridedpointer(γ));
 #         W = VectorizationBase.pick_vector_width(T); W2 = W+W; W3 = W2+W; W4 = W2+W2;
-#         Wval = VectorizationBase.pick_vector_width_val(T)
+#         Wval = VectorizationBase.pick_vector_width(T)
 #         N = length(x)
 #         n = MM(Wval, 0)
 #         while scalar_less(n, vadd(N, 1 - 4W))
@@ -285,7 +285,7 @@ end
 #     GC.@preserve x begin
 #         ptrx = zero_offsets(stridedpointer(x)); ptrβ = zero_offsets(stridedpointer(β)); ptrγ = zero_offsets(stridedpointer(γ));
 #         W = VectorizationBase.pick_vector_width(T); W2 = W+W; W3 = W2+W; W4 = W2+W2;
-#         Wval = VectorizationBase.pick_vector_width_val(T)
+#         Wval = VectorizationBase.pick_vector_width(T)
 #         N = length(x)
 #         n = MM(Wval, 0)
 #         while scalar_less(n, vadd(N, 1 - 4W))

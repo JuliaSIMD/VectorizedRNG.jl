@@ -14,7 +14,7 @@ struct XoshiftState{P,W} <: AbstractState{P,W}
 end
 
 Xoshift(ptr, ::StaticInt{X}) where {X} = Xoshift{X}(ptr)
-Xoshift(ptr) = Xoshift(ptr, pick_vector_width_val(UInt64) * StaticInt(XREGISTERS))
+Xoshift(ptr) = Xoshift(ptr, pick_vector_width(UInt64) * StaticInt(XREGISTERS))
 function randnonzero()
     while true
         r = rand(UInt64)
@@ -62,7 +62,7 @@ function seed!(seed::Integer)
         v = ((d * 0x90ce6ecbad5e33b5) + increment)
         increment += 0x0000000000000002
     end
-    nstreams = XREGISTERS * Base.Threads.nthreads() * pick_vector_width_val(UInt64)
+    nstreams = XREGISTERS * Base.Threads.nthreads() * pick_vector_width(UInt64)
     initXoshift!(GLOBAL_vRNGs[], nstreams, e, z, d, v)
 end
 
@@ -161,13 +161,13 @@ end
     @unpack eins, zwei, drei, vier = s;
     _eins = eins.data; _zwei = zwei.data; _drei = drei.data; _vier = vier.data;
     @inbounds begin
-        vstorea!(ptr, _eins[1],      )
-        vstorea!(ptr, _eins[2],   register_size())
-        vstorea!(ptr, _zwei[1],   register_size()*       P)
+        vstorea!(ptr, _eins[1],                            )
+        vstorea!(ptr, _eins[2],   register_size()          )
+        vstorea!(ptr, _zwei[1],   register_size()*       P )
         vstorea!(ptr, _zwei[2],   register_size()*(1 +   P))
-        vstorea!(ptr, _drei[1],   register_size()*      2P)
+        vstorea!(ptr, _drei[1],   register_size()*      2P )
         vstorea!(ptr, _drei[2],   register_size()*(1 +  2P))
-        vstorea!(ptr, _vier[1],   register_size()*      3P)
+        vstorea!(ptr, _vier[1],   register_size()*      3P )
         vstorea!(ptr, _vier[2],   register_size()*(1 +  3P))
     end
 end

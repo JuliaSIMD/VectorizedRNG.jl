@@ -12,7 +12,7 @@ That is for scalar arguments or vector arguments without AVX512, it requires the
 @inline function setbits(x::Vec{W,U}, y, m, ::True) where {W,U<:Union{UInt32,UInt64}}
     VectorizationBase.vpternlog(vbroadcast(Val{W}(), y), x, vbroadcast(Val{W}(), m), Val{216}())
 end
-@inline function setbits(x::VecUnroll{W,U}, y, m, ::True) where {W,U<:Union{UInt32,UInt64}}
+@inline function setbits(x::VecUnroll{N,W,U}, y, m, ::True) where {N,W,U<:Union{UInt32,UInt64}}
     VectorizationBase.VecUnroll(VectorizationBase.fmap(setbits, x.data, y, m))
 end
 @inline setbits(x, y, m, ::False) = ((x & m) | y)
