@@ -215,7 +215,7 @@ julia> @everywhere begin;
         end
         function normalcdf!(x::AbstractVector{T}) where {T}
                 _W, Wshift = VectorizedRNG.VectorizationBase.pick_vector_width_shift(T)
-                W = VectorizedRNG.VectorizationBase.pick_vector_width_val(T)
+                W = VectorizedRNG.VectorizationBase.pick_vector_width(T)
                 N = length(x)
                 ptrx = pointer(x)
                 i = 0

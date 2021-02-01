@@ -9,23 +9,14 @@ That is for scalar arguments or vector arguments without AVX512, it requires the
 ((y ⊻ m) & m) == m
 """
 @inline setbits(x, y, m) = (x & m) | y
-@generated function setbits(x::Vec{W,U}, y, m) where {W,U <: Union{UInt32,UInt64}}
-    # AVX512 lets us use 1 instruction instead of 2 dependent instructions to set bits
-    ex = if VectorizationBase.has_feature("x86_64_avx512f")
-        :(VectorizationBase.vpternlog(vbroadcast(Val{W}(), y), x, vbroadcast(Val{W}(), m), Val{216}()))
-    else
-        :((x & m) | y)
-    end    
-    return Expr(:block, Expr(:meta,:inline), ex)
+@inline function setbits(x::Vec{W,U}, y, m, ::True) where {W,U<:Union{UInt32,UInt64}}
+    VectorizationBase.vpternlog(vbroadcast(Val{W}(), y), x, vbroadcast(Val{W}(), m), Val{216}())
 end
-@generated function setbits(x::VecUnroll{W,<:Union{UInt32,UInt64}}, y, m) where {W}
-    ex = if VectorizationBase.has_feature("x86_64_avx512f")
-        :(VectorizationBase.VecUnroll(VectorizationBase.fmap(setbits, x.data, y, m)))
-    else
-        :((x & m) | y)
-    end    
-    return Expr(:block, Expr(:meta,:inline), ex)
+@inline function setbits(x::VecUnroll{N,W,U}, y, m, ::True) where {N,W,U<:Union{UInt32,UInt64}}
+    VectorizationBase.VecUnroll(VectorizationBase.fmap(setbits, x.data, y, m))
 end
+@inline setbits(x, y, m, ::False) = ((x & m) | y)
+@inline setbits(x::VectorizationBase.AbstractSIMD, y, m) = setbits(x, y, m, VectorizationBase.has_feature(Val(:x86_64_avx512f)))
 
 """
 The masks mask off bits so that a set of bits will be within the range 1.0 and prevfloat(2.0).

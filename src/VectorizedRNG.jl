@@ -3,7 +3,7 @@ module VectorizedRNG
 using VectorizationBase, Random, UnPack
 using VectorizationBase: register_size, gep, _Vec, ifelse, VecUnroll, AbstractSIMD,
     rotate_right, vadd, vsub, zero_offsets, vfmadd, vfmsub, vfnmadd, shufflevector,
-    cacheline_size, vloada, vstorea!, StaticInt, pick_vector_width_val
+    cache_linesize, vloada, vstorea!, StaticInt, pick_vector_width
 
 using Distributed: myid
 
