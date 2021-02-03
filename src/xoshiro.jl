@@ -94,6 +94,10 @@ end
 @inline function setrandn32counter!(rng::Xoshift{P}, v::UInt8) where {P}
     vstore!(Base.unsafe_convert(Ptr{UInt8}, pointer(rng)), v, 4simd_integer_register_size()*P + 1)
 end
+getoffset() = 4simd_integer_register_size()*2 + 2
+@inline function setrand64counter!(rng::Xoshift{2}, v::UInt8) where {P}
+    vstore!(Base.unsafe_convert(Ptr{UInt8}, pointer(rng)), v, getoffset())
+end
 @inline function setrand64counter!(rng::Xoshift{P}, v::UInt8) where {P}
     vstore!(Base.unsafe_convert(Ptr{UInt8}, pointer(rng)), v, 4simd_integer_register_size()*P + 2)
 end

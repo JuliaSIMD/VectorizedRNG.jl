@@ -38,6 +38,7 @@ local_rng() = local_rng(Base.Threads.threadid() - 1)
 
 
 function __init__()
+    # ccall(:jl_generating_output, Cint, ()) == 1 && return
     nthreads = Base.Threads.nthreads()
     nstreams = XREGISTERS * nthreads * simd_integer_register_size()
     GLOBAL_vRNGs[] = ptr = VectorizationBase.valloc(5nstreams + 256 * 3nthreads, UInt64)
