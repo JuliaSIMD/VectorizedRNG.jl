@@ -155,7 +155,7 @@ function random_sample_u2!(f::F, rng::AbstractVRNG{P}, x::AbstractArray{T}, α, 
     state = getstate(rng, Val{2}(), pick_vector_width(UInt64))
     GC.@preserve x begin
         ptrx = zero_pointer(x); ptrβ = zero_pointer(β); ptrγ = zero_pointer(γ);
-        W = pick_vector_width(T); W2 = W+W
+        W = (pick_vector_width(T) * pick_vector_width(UInt64)) ÷ pick_vector_width(Float64); W2 = W+W
         N = length(x)
         n = MM(W, 0)
         while scalar_less(n, vadd(N, 1 - 2W))
@@ -248,7 +248,7 @@ function random_sample_u2!(f::F, rng::AbstractVRNG{P}, x::AbstractArray{T}, ::St
     state = getstate(rng, Val{2}(), pick_vector_width(UInt64))
     GC.@preserve x begin
         ptrx = zero_pointer(x); ptrβ = zero_pointer(β); ptrγ = zero_pointer(γ);
-        W = pick_vector_width(T); W2 = W+W
+        W = (pick_vector_width(T) * pick_vector_width(UInt64)) ÷ pick_vector_width(Float64); W2 = W+W
         N = length(x)
         n = MM(W, 0)
         while scalar_less(n, vadd(N, 1 - 2W))

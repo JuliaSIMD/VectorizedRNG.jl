@@ -1,7 +1,7 @@
 module VectorizedRNG
 
 using VectorizationBase, Random, UnPack
-using VectorizationBase: register_size, gep, _Vec, ifelse, VecUnroll, AbstractSIMD,
+using VectorizationBase: simd_integer_register_size, gep, _Vec, ifelse, VecUnroll, AbstractSIMD,
     rotate_right, vadd, vsub, zero_offsets, vfmadd, vfmsub, vfnmadd, shufflevector,
     cache_linesize, vloada, vstorea!, StaticInt, pick_vector_width
 
@@ -20,7 +20,7 @@ include("xoshiro.jl")
 
 const GLOBAL_vRNGs = Ref{Ptr{UInt64}}()
 
-local_rng(i) = Xoshift{XREGISTERS}(i*4register_size()*XREGISTERS + GLOBAL_vRNGs[])
+local_rng(i) = Xoshift{XREGISTERS}(i*4simd_integer_register_size()*XREGISTERS + GLOBAL_vRNGs[])
 local_rng() = local_rng(Base.Threads.threadid() - 1)
 
 # include("precompile.jl")
@@ -39,7 +39,7 @@ local_rng() = local_rng(Base.Threads.threadid() - 1)
 
 function __init__()
     nthreads = Base.Threads.nthreads()
-    nstreams = XREGISTERS * nthreads * register_size()
+    nstreams = XREGISTERS * nthreads * simd_integer_register_size()
     GLOBAL_vRNGs[] = ptr = VectorizationBase.valloc(5nstreams + 256 * 3nthreads, UInt64)
     initXoshift!(ptr, nstreams)
 

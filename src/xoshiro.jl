@@ -77,51 +77,51 @@ end
 #     )
 # end
 @inline function getrand32counter(rng::Xoshift{P}) where {P}
-    vload(Base.unsafe_convert(Ptr{UInt8}, pointer(rng)), 4register_size()*P)
+    vload(Base.unsafe_convert(Ptr{UInt8}, pointer(rng)), 4simd_integer_register_size()*P)
 end
 @inline function getrandn32counter(rng::Xoshift{P}) where {P}
-    vload(Base.unsafe_convert(Ptr{UInt8}, pointer(rng)), 4register_size()*P + 1)
+    vload(Base.unsafe_convert(Ptr{UInt8}, pointer(rng)), 4simd_integer_register_size()*P + 1)
 end
 @inline function getrand64counter(rng::Xoshift{P}) where {P}
-    vload(Base.unsafe_convert(Ptr{UInt8}, pointer(rng)), 4register_size()*P + 2)
+    vload(Base.unsafe_convert(Ptr{UInt8}, pointer(rng)), 4simd_integer_register_size()*P + 2)
 end
 @inline function getrandn64counter(rng::Xoshift{P}) where {P}
-    vload(Base.unsafe_convert(Ptr{UInt8}, pointer(rng)), 4register_size()*P + 3)
+    vload(Base.unsafe_convert(Ptr{UInt8}, pointer(rng)), 4simd_integer_register_size()*P + 3)
 end
 @inline function setrand32counter!(rng::Xoshift{P}, v::UInt8) where {P}
-    vstore!(Base.unsafe_convert(Ptr{UInt8}, pointer(rng)), v, 4register_size()*P)
+    vstore!(Base.unsafe_convert(Ptr{UInt8}, pointer(rng)), v, 4simd_integer_register_size()*P)
 end
 @inline function setrandn32counter!(rng::Xoshift{P}, v::UInt8) where {P}
-    vstore!(Base.unsafe_convert(Ptr{UInt8}, pointer(rng)), v, 4register_size()*P + 1)
+    vstore!(Base.unsafe_convert(Ptr{UInt8}, pointer(rng)), v, 4simd_integer_register_size()*P + 1)
 end
 @inline function setrand64counter!(rng::Xoshift{P}, v::UInt8) where {P}
-    vstore!(Base.unsafe_convert(Ptr{UInt8}, pointer(rng)), v, 4register_size()*P + 2)
+    vstore!(Base.unsafe_convert(Ptr{UInt8}, pointer(rng)), v, 4simd_integer_register_size()*P + 2)
 end
 @inline function setrandn64counter!(rng::Xoshift{P}, v::UInt8) where {P}
-    vstore!(Base.unsafe_convert(Ptr{UInt8}, pointer(rng)), v, 4register_size()*P + 3)
+    vstore!(Base.unsafe_convert(Ptr{UInt8}, pointer(rng)), v, 4simd_integer_register_size()*P + 3)
 end
 
 @inline function getstate(rng::Xoshift{P}, ::Val{1}, ::StaticInt{W}) where {P,W}
     ptr = pointer(rng)
     XoshiftState(
         VecUnroll((vloada(ptr, MM{W,8}(StaticInt{0}())),)),
-        VecUnroll((vloada(ptr, MM{W,8}(register_size()*P)),)),
-        VecUnroll((vloada(ptr, MM{W,8}(2register_size()*P)),)),
-        VecUnroll((vloada(ptr, MM{W,8}(3register_size()*P)),))
+        VecUnroll((vloada(ptr, MM{W,8}(simd_integer_register_size()*P)),)),
+        VecUnroll((vloada(ptr, MM{W,8}(2simd_integer_register_size()*P)),)),
+        VecUnroll((vloada(ptr, MM{W,8}(3simd_integer_register_size()*P)),))
     )
 end
 @inline function getstate(rng::Xoshift{P}, ::Val{2}, ::StaticInt{W}) where {P,W}
     ptr = pointer(rng)
     XoshiftState(
-        VecUnroll((vloada(ptr, MM{W,8}(StaticInt{0}()  )), vloada(ptr, MM{W,8}(register_size()         )))),
-        VecUnroll((vloada(ptr, MM{W,8}( P*register_size())), vloada(ptr, MM{W,8}(register_size()*(1 +  P))))),
-        VecUnroll((vloada(ptr, MM{W,8}(2P*register_size())), vloada(ptr, MM{W,8}(register_size()*(1 + 2P))))),
-        VecUnroll((vloada(ptr, MM{W,8}(3P*register_size())), vloada(ptr, MM{W,8}(register_size()*(1 + 3P)))))
+        VecUnroll((vloada(ptr, MM{W,8}(StaticInt{0}()  )), vloada(ptr, MM{W,8}(simd_integer_register_size()         )))),
+        VecUnroll((vloada(ptr, MM{W,8}( P*simd_integer_register_size())), vloada(ptr, MM{W,8}(simd_integer_register_size()*(1 +  P))))),
+        VecUnroll((vloada(ptr, MM{W,8}(2P*simd_integer_register_size())), vloada(ptr, MM{W,8}(simd_integer_register_size()*(1 + 2P))))),
+        VecUnroll((vloada(ptr, MM{W,8}(3P*simd_integer_register_size())), vloada(ptr, MM{W,8}(simd_integer_register_size()*(1 + 3P)))))
     )
 end
 @inline function getstate(rng::Xoshift{P}, ::Val{4}, ::StaticInt{W}) where {P,W}
     ptr = pointer(rng)
-    RS = register_size()
+    RS = simd_integer_register_size()
     XoshiftState(
         VecUnroll((vloada(ptr, MM{W,8}(StaticInt{0}())), vloada(ptr, MM{W,8}(RS)         ), vloada(ptr, MM{W,8}(RS* 2)      ), vloada(ptr, MM{W,8}(RS* 3      )))),
         VecUnroll((vloada(ptr, MM{W,8}( P*RS)),          vloada(ptr, MM{W,8}(RS*(1 +  P))), vloada(ptr, MM{W,8}(RS*(2 +  P))), vloada(ptr, MM{W,8}(RS*(3 +  P))))),
@@ -133,16 +133,16 @@ end
     ptr = pointer(rng)
     @unpack eins, zwei, drei, vier = s
     @inbounds for n ∈ 0:N
-        vstorea!(rng, eins.data[n], register_size()*n)
+        vstorea!(rng, eins.data[n], simd_integer_register_size()*n)
     end
     @inbounds for n ∈ 0:N
-        vstorea!(rng, zwei.data[n], register_size()*(n +  P))
+        vstorea!(rng, zwei.data[n], simd_integer_register_size()*(n +  P))
     end
     @inbounds for n ∈ 0:N
-        vstorea!(rng, drei.data[n], register_size()*(n + 2P))
+        vstorea!(rng, drei.data[n], simd_integer_register_size()*(n + 2P))
     end
     @inbounds for n ∈ 0:N
-        vstorea!(rng, vier.data[n], register_size()*(n + 3P))
+        vstorea!(rng, vier.data[n], simd_integer_register_size()*(n + 3P))
     end
 end
 @inline function storestate!(rng::Xoshift{P}, s::XoshiftState{0,W}) where {P,W}
@@ -151,9 +151,9 @@ end
     _eins = eins.data; _zwei = zwei.data; _drei = drei.data; _vier = vier.data;
     @inbounds begin
         vstorea!(ptr, _eins[1],       )
-        vstorea!(ptr, _zwei[1],  P*register_size())
-        vstorea!(ptr, _drei[1], 2P*register_size())
-        vstorea!(ptr, _vier[1], 3P*register_size())
+        vstorea!(ptr, _zwei[1],  P*simd_integer_register_size())
+        vstorea!(ptr, _drei[1], 2P*simd_integer_register_size())
+        vstorea!(ptr, _vier[1], 3P*simd_integer_register_size())
     end
 end
 @inline function storestate!(rng::Xoshift{P}, s::XoshiftState{1,W}) where {P,W}
@@ -162,13 +162,13 @@ end
     _eins = eins.data; _zwei = zwei.data; _drei = drei.data; _vier = vier.data;
     @inbounds begin
         vstorea!(ptr, _eins[1],                            )
-        vstorea!(ptr, _eins[2],   register_size()          )
-        vstorea!(ptr, _zwei[1],   register_size()*       P )
-        vstorea!(ptr, _zwei[2],   register_size()*(1 +   P))
-        vstorea!(ptr, _drei[1],   register_size()*      2P )
-        vstorea!(ptr, _drei[2],   register_size()*(1 +  2P))
-        vstorea!(ptr, _vier[1],   register_size()*      3P )
-        vstorea!(ptr, _vier[2],   register_size()*(1 +  3P))
+        vstorea!(ptr, _eins[2],   simd_integer_register_size()          )
+        vstorea!(ptr, _zwei[1],   simd_integer_register_size()*       P )
+        vstorea!(ptr, _zwei[2],   simd_integer_register_size()*(1 +   P))
+        vstorea!(ptr, _drei[1],   simd_integer_register_size()*      2P )
+        vstorea!(ptr, _drei[2],   simd_integer_register_size()*(1 +  2P))
+        vstorea!(ptr, _vier[1],   simd_integer_register_size()*      3P )
+        vstorea!(ptr, _vier[2],   simd_integer_register_size()*(1 +  3P))
     end
 end
 @inline function storestate!(rng::Xoshift{P}, s::XoshiftState{3,W}) where {P,W}
@@ -177,21 +177,21 @@ end
     _eins = eins.data; _zwei = zwei.data; _drei = drei.data; _vier = vier.data;
     @inbounds begin
         vstorea!(ptr, _eins[1],      )
-        vstorea!(ptr, _eins[2],   register_size())
-        vstorea!(ptr, _eins[3],   register_size()*2)
-        vstorea!(ptr, _eins[4],   register_size()*3)
-        vstorea!(ptr, _zwei[1],   register_size()*       P)
-        vstorea!(ptr, _zwei[2],   register_size()*(1 +   P))
-        vstorea!(ptr, _zwei[3],   register_size()*(2 +   P))
-        vstorea!(ptr, _zwei[4],   register_size()*(3 +   P))
-        vstorea!(ptr, _drei[1],   register_size()*      2P)
-        vstorea!(ptr, _drei[2],   register_size()*(1 +  2P))
-        vstorea!(ptr, _drei[3],   register_size()*(2 +  2P))
-        vstorea!(ptr, _drei[4],   register_size()*(3 +  2P))
-        vstorea!(ptr, _vier[1],   register_size()*      3P)
-        vstorea!(ptr, _vier[2],   register_size()*(1 +  3P))
-        vstorea!(ptr, _vier[3],   register_size()*(2 +  3P))
-        vstorea!(ptr, _vier[4],   register_size()*(3 +  3P))
+        vstorea!(ptr, _eins[2],   simd_integer_register_size())
+        vstorea!(ptr, _eins[3],   simd_integer_register_size()*2)
+        vstorea!(ptr, _eins[4],   simd_integer_register_size()*3)
+        vstorea!(ptr, _zwei[1],   simd_integer_register_size()*       P)
+        vstorea!(ptr, _zwei[2],   simd_integer_register_size()*(1 +   P))
+        vstorea!(ptr, _zwei[3],   simd_integer_register_size()*(2 +   P))
+        vstorea!(ptr, _zwei[4],   simd_integer_register_size()*(3 +   P))
+        vstorea!(ptr, _drei[1],   simd_integer_register_size()*      2P)
+        vstorea!(ptr, _drei[2],   simd_integer_register_size()*(1 +  2P))
+        vstorea!(ptr, _drei[3],   simd_integer_register_size()*(2 +  2P))
+        vstorea!(ptr, _drei[4],   simd_integer_register_size()*(3 +  2P))
+        vstorea!(ptr, _vier[1],   simd_integer_register_size()*      3P)
+        vstorea!(ptr, _vier[2],   simd_integer_register_size()*(1 +  3P))
+        vstorea!(ptr, _vier[3],   simd_integer_register_size()*(2 +  3P))
+        vstorea!(ptr, _vier[4],   simd_integer_register_size()*(3 +  3P))
     end
 end
 
@@ -268,18 +268,18 @@ end
 
 function randbuffer64(r::Xoshift{P}) where {P}
     ptr = pointer(r)
-    Buffer256(Base.unsafe_convert(Ptr{Float64}, ptr + P * 5register_size()))
+    Buffer256(Base.unsafe_convert(Ptr{Float64}, ptr + P * 5simd_integer_register_size()))
 end
 function randnbuffer64(r::Xoshift{P}) where {P}
     ptr = pointer(r)
-    Buffer256(Base.unsafe_convert(Ptr{Float64}, ptr + P * 5register_size() + 2048))
+    Buffer256(Base.unsafe_convert(Ptr{Float64}, ptr + P * 5simd_integer_register_size() + 2048))
 end
 function randbuffer32(r::Xoshift{P}) where {P}
     ptr = pointer(r)
-    Buffer256(Base.unsafe_convert(Ptr{Float64}, ptr + P * 5register_size() + 4096))
+    Buffer256(Base.unsafe_convert(Ptr{Float64}, ptr + P * 5simd_integer_register_size() + 4096))
 end
 function randnbuffer32(r::Xoshift{P}) where {P}
     ptr = pointer(r)
-    Buffer256(Base.unsafe_convert(Ptr{Float64}, ptr + P * 5register_size() + 5120))
+    Buffer256(Base.unsafe_convert(Ptr{Float64}, ptr + P * 5simd_integer_register_size() + 5120))
 end
 
