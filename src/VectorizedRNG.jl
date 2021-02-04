@@ -46,8 +46,8 @@ function __init__()
 
     for tid ∈ 0:nthreads-1
         rng = local_rng(tid)
-        setrand32counter!(rng, 0x00)
-        setrandn32counter!(rng, 0x00)
+        setrandu64counter!(rng, 0x00)
+        # setrandn32counter!(rng, 0x00)
         setrand64counter!(rng, 0x00)
         setrandn64counter!(rng, 0x00)
     end

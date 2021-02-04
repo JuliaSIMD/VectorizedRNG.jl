@@ -76,25 +76,28 @@ end
 #         ntuple(n -> vloada(Vec{W,UInt64}, ptr, W64*(n - 1) + 3W64*P), Val{N}())
 #     )
 # end
-@inline function getrand32counter(rng::Xoshift{P}) where {P}
+@inline function getrandu64counter(rng::Xoshift{P}) where {P}
     vload(Base.unsafe_convert(Ptr{UInt8}, pointer(rng)), 4simd_integer_register_size()*P)
 end
-@inline function getrandn32counter(rng::Xoshift{P}) where {P}
-    vload(Base.unsafe_convert(Ptr{UInt8}, pointer(rng)), 4simd_integer_register_size()*P + 1)
-end
+# @inline function getrandn32counter(rng::Xoshift{P}) where {P}
+#     vload(Base.unsafe_convert(Ptr{UInt8}, pointer(rng)), 4simd_integer_register_size()*P + 1)
+# end
 @inline function getrand64counter(rng::Xoshift{P}) where {P}
     vload(Base.unsafe_convert(Ptr{UInt8}, pointer(rng)), 4simd_integer_register_size()*P + 2)
 end
 @inline function getrandn64counter(rng::Xoshift{P}) where {P}
     vload(Base.unsafe_convert(Ptr{UInt8}, pointer(rng)), 4simd_integer_register_size()*P + 3)
 end
-@inline function setrand32counter!(rng::Xoshift{P}, v::UInt8) where {P}
+@inline function setrandu64counter!(rng::Xoshift{P}, v::UInt8) where {P}
     vstore!(Base.unsafe_convert(Ptr{UInt8}, pointer(rng)), v, 4simd_integer_register_size()*P)
 end
-@inline function setrandn32counter!(rng::Xoshift{P}, v::UInt8) where {P}
-    vstore!(Base.unsafe_convert(Ptr{UInt8}, pointer(rng)), v, 4simd_integer_register_size()*P + 1)
-end
-# # TODO: find out why when `sirs` is invalidated, `getoffset` isn't.
+# @inline function setrand32counter!(rng::Xoshift{P}, v::UInt8) where {P}
+#     vstore!(Base.unsafe_convert(Ptr{UInt8}, pointer(rng)), v, 4simd_integer_register_size()*P)
+# end
+# @inline function setrandn32counter!(rng::Xoshift{P}, v::UInt8) where {P}
+#     vstore!(Base.unsafe_convert(Ptr{UInt8}, pointer(rng)), v, 4simd_integer_register_size()*P + 1)
+# end
+# # # TODO: find out why when `sirs` is invalidated, `getoffset` isn't.
 # sirs() = simd_integer_register_size()
 # getoffset() = 4sirs()*2 + 2
 # @inline function setrand64counter!(rng::Xoshift{2}, v::UInt8)
@@ -280,12 +283,16 @@ function randnbuffer64(r::Xoshift{P}) where {P}
     ptr = pointer(r)
     Buffer256(Base.unsafe_convert(Ptr{Float64}, ptr + P * 5simd_integer_register_size() + 2048))
 end
-function randbuffer32(r::Xoshift{P}) where {P}
+# function randbuffer32(r::Xoshift{P}) where {P}
+#     ptr = pointer(r)
+#     Buffer256(Base.unsafe_convert(Ptr{Float64}, ptr + P * 5simd_integer_register_size() + 4096))
+# end
+function randubuffer64(r::Xoshift{P}) where {P}
     ptr = pointer(r)
-    Buffer256(Base.unsafe_convert(Ptr{Float64}, ptr + P * 5simd_integer_register_size() + 4096))
+    Buffer256(Base.unsafe_convert(Ptr{UInt64}, ptr + P * 5simd_integer_register_size() + 4096))
 end
-function randnbuffer32(r::Xoshift{P}) where {P}
-    ptr = pointer(r)
-    Buffer256(Base.unsafe_convert(Ptr{Float64}, ptr + P * 5simd_integer_register_size() + 5120))
-end
+# function randnbuffer32(r::Xoshift{P}) where {P}
+#     ptr = pointer(r)
+#     Buffer256(Base.unsafe_convert(Ptr{Float64}, ptr + P * 5simd_integer_register_size() + 5120))
+# end
 

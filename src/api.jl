@@ -1,3 +1,6 @@
+
+Random.rng_native_52(::AbstractVRNG) = UInt64
+
 MatchingUInt(::Type{_Vec{W,Float64}}) where {W} = _Vec{W,UInt64}
 MatchingUInt(::Type{Tuple{VecUnroll{N,W,Float64,Vec{W,Float64}}}}) where {N,W} = VecUnroll{N,W,UInt64,Vec{W,UInt6}}
 
@@ -83,6 +86,11 @@ end
     s, c = randsincos(u1, T)
     r = sqrt(nlog01(u2,T))
     s * r, c * r
+end
+@inline function randnormal(u1::AbstractSIMD{1,UInt64}, u2::AbstractSIMD{1,UInt64}, ::Type{Float64})
+    s, c = randsincos(u1(1), Float64)
+    r = sqrt(nlog01(u2(1), Float64))
+    Vec{1,Float64}((Core.VecElement(s * r),)), Vec{1,Float64}((Core.VecElement(c * r),))
 end
 
 @generated function random_normal(vu::VecUnroll{Nm1,W,UInt64,Vec{W,UInt64}}, ::Type{T}) where {Nm1,W,T}
@@ -382,11 +390,23 @@ function Random.rand(rng::AbstractVRNG)
     iszero(i) && rand!(rng, b)
     vload(pointer(b), VectorizationBase.LazyMulAdd{8,0}(i % UInt32))
 end
-function Random.randn(rng::AbstractVRNG)
+
+# Box-Cox for scalars is probably only faster with AVX512, so we use Ziggurat if we don't have it.
+function randn_scalar(rng::AbstractVRNG, ::VectorizationBase.True)
     i = getrandn64counter(rng)
     b = randnbuffer64(rng)
     setrandn64counter!(rng, i + 0x01)
     iszero(i) && randn!(rng, b)
+    vload(pointer(b), VectorizationBase.LazyMulAdd{8,0}(i % UInt32))
+end
+randn_scalar(rng::AbstractVRNG, ::VectorizationBase.False) = Random._randn(rng, rand(rng, Random.UInt52Raw{UInt64}()))
+Random.randn(rng::AbstractVRNG) = randn_scalar(rng, VectorizationBase.has_feature(Val(:x86_64_avx512f)))
+
+function Random.rand(rng::AbstractVRNG, ::Random.UInt52Raw{UInt64})
+    i = getrandu64counter(rng)
+    b = randubuffer64(rng)
+    setrandu64counter!(rng, i + 0x01)
+    iszero(i) && rand!(rng, b)
     vload(pointer(b), VectorizationBase.LazyMulAdd{8,0}(i % UInt32))
 end
 
