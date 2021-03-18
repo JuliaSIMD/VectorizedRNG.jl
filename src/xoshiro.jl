@@ -29,11 +29,11 @@ end
 function initXoshift!(ptr::Ptr{UInt64}, P, e::UInt64, z::UInt64, d::UInt64, v::UInt64) # P here means number of streams
     for j ∈ 1:P-1
         i = P - j
-        vstore!(ptr, e, 8i); vstore!(ptr, z, 8*(i + P)); vstore!(ptr, d, 8*(i + 2P)); vstore!(ptr, v, 8*(i + 3P));
+        vstoreu!(ptr, e, 8i); vstoreu!(ptr, z, 8*(i + P)); vstoreu!(ptr, d, 8*(i + 2P)); vstoreu!(ptr, v, 8*(i + 3P));
         e, z, d, v = jump(e, z, d, v)
     end
-    vstore!(ptr, e); vstore!(ptr, z, 8P); vstore!(ptr, d, 8*(2P)); vstore!(ptr, v, 8*(3P));
-    vstore!(Base.unsafe_convert(Ptr{UInt32}, ptr), 0x00000000, 8*(4P));
+    vstoreu!(ptr, e); vstoreu!(ptr, z, 8P); vstoreu!(ptr, d, 8*(2P)); vstoreu!(ptr, v, 8*(3P));
+    vstoreu!(Base.unsafe_convert(Ptr{UInt32}, ptr), 0x00000000, 8*(4P));
 end
 function jump(eins, zwei, drei, vier)
     e = zero(UInt64); z = zero(UInt64); d = zero(UInt64); v = zero(UInt64)
@@ -77,37 +77,37 @@ end
 #     )
 # end
 @inline function getrandu64counter(rng::Xoshift{P}) where {P}
-    vload(Base.unsafe_convert(Ptr{UInt8}, pointer(rng)), 4simd_integer_register_size()*P)
+    vloadu(Base.unsafe_convert(Ptr{UInt8}, pointer(rng)), 4simd_integer_register_size()*P)
 end
 # @inline function getrandn32counter(rng::Xoshift{P}) where {P}
 #     vload(Base.unsafe_convert(Ptr{UInt8}, pointer(rng)), 4simd_integer_register_size()*P + 1)
 # end
 @inline function getrand64counter(rng::Xoshift{P}) where {P}
-    vload(Base.unsafe_convert(Ptr{UInt8}, pointer(rng)), 4simd_integer_register_size()*P + 2)
+    vloadu(Base.unsafe_convert(Ptr{UInt8}, pointer(rng)), 4simd_integer_register_size()*P + 2)
 end
 @inline function getrandn64counter(rng::Xoshift{P}) where {P}
-    vload(Base.unsafe_convert(Ptr{UInt8}, pointer(rng)), 4simd_integer_register_size()*P + 3)
+    vloadu(Base.unsafe_convert(Ptr{UInt8}, pointer(rng)), 4simd_integer_register_size()*P + 3)
 end
 @inline function setrandu64counter!(rng::Xoshift{P}, v::UInt8) where {P}
-    vstore!(Base.unsafe_convert(Ptr{UInt8}, pointer(rng)), v, 4simd_integer_register_size()*P)
+    vstoreu!(Base.unsafe_convert(Ptr{UInt8}, pointer(rng)), v, 4simd_integer_register_size()*P)
 end
 # @inline function setrand32counter!(rng::Xoshift{P}, v::UInt8) where {P}
-#     vstore!(Base.unsafe_convert(Ptr{UInt8}, pointer(rng)), v, 4simd_integer_register_size()*P)
+#     vstoreu!(Base.unsafe_convert(Ptr{UInt8}, pointer(rng)), v, 4simd_integer_register_size()*P)
 # end
 # @inline function setrandn32counter!(rng::Xoshift{P}, v::UInt8) where {P}
-#     vstore!(Base.unsafe_convert(Ptr{UInt8}, pointer(rng)), v, 4simd_integer_register_size()*P + 1)
+#     vstoreu!(Base.unsafe_convert(Ptr{UInt8}, pointer(rng)), v, 4simd_integer_register_size()*P + 1)
 # end
 # # # TODO: find out why when `sirs` is invalidated, `getoffset` isn't.
 # sirs() = simd_integer_register_size()
 # getoffset() = 4sirs()*2 + 2
 # @inline function setrand64counter!(rng::Xoshift{2}, v::UInt8)
-#     vstore!(Base.unsafe_convert(Ptr{UInt8}, pointer(rng)), v, getoffset())
+#     vstoreu!(Base.unsafe_convert(Ptr{UInt8}, pointer(rng)), v, getoffset())
 # end
 @inline function setrand64counter!(rng::Xoshift{P}, v::UInt8) where {P}
-    vstore!(Base.unsafe_convert(Ptr{UInt8}, pointer(rng)), v, 4simd_integer_register_size()*P + 2)
+    vstoreu!(Base.unsafe_convert(Ptr{UInt8}, pointer(rng)), v, 4simd_integer_register_size()*P + 2)
 end
 @inline function setrandn64counter!(rng::Xoshift{P}, v::UInt8) where {P}
-    vstore!(Base.unsafe_convert(Ptr{UInt8}, pointer(rng)), v, 4simd_integer_register_size()*P + 3)
+    vstoreu!(Base.unsafe_convert(Ptr{UInt8}, pointer(rng)), v, 4simd_integer_register_size()*P + 3)
 end
 
 @inline function getstate(rng::Xoshift{P}, ::Val{1}, ::StaticInt{W}) where {P,W}
@@ -142,22 +142,22 @@ end
     ptr = pointer(rng)
     @unpack eins, zwei, drei, vier = s
     @inbounds for n ∈ 0:N
-        vstorea!(rng, eins.data[n], simd_integer_register_size()*n)
+        vstorea!(rng, data(eins)[n], simd_integer_register_size()*n)
     end
     @inbounds for n ∈ 0:N
-        vstorea!(rng, zwei.data[n], simd_integer_register_size()*(n +  P))
+        vstorea!(rng, data(zwei)[n], simd_integer_register_size()*(n +  P))
     end
     @inbounds for n ∈ 0:N
-        vstorea!(rng, drei.data[n], simd_integer_register_size()*(n + 2P))
+        vstorea!(rng, data(drei)[n], simd_integer_register_size()*(n + 2P))
     end
     @inbounds for n ∈ 0:N
-        vstorea!(rng, vier.data[n], simd_integer_register_size()*(n + 3P))
+        vstorea!(rng, data(vier)[n], simd_integer_register_size()*(n + 3P))
     end
 end
 @inline function storestate!(rng::Xoshift{P}, s::XoshiftState{0,W}) where {P,W}
     ptr = pointer(rng)
     @unpack eins, zwei, drei, vier = s;
-    _eins = eins.data; _zwei = zwei.data; _drei = drei.data; _vier = vier.data;
+    _eins = data(eins); _zwei = data(zwei); _drei = data(drei); _vier = data(vier);
     @inbounds begin
         vstorea!(ptr, _eins[1],       )
         vstorea!(ptr, _zwei[1],  P*simd_integer_register_size())
@@ -168,7 +168,7 @@ end
 @inline function storestate!(rng::Xoshift{P}, s::XoshiftState{1,W}) where {P,W}
     ptr = pointer(rng)
     @unpack eins, zwei, drei, vier = s;
-    _eins = eins.data; _zwei = zwei.data; _drei = drei.data; _vier = vier.data;
+    _eins = data(eins); _zwei = data(zwei); _drei = data(drei); _vier = data(vier);
     @inbounds begin
         vstorea!(ptr, _eins[1],                            )
         vstorea!(ptr, _eins[2],   simd_integer_register_size()          )
@@ -183,7 +183,7 @@ end
 @inline function storestate!(rng::Xoshift{P}, s::XoshiftState{3,W}) where {P,W}
     ptr = pointer(rng)
     @unpack eins, zwei, drei, vier = s;
-    _eins = eins.data; _zwei = zwei.data; _drei = drei.data; _vier = vier.data;
+    _eins = data(eins); _zwei = data(zwei); _drei = data(drei); _vier = data(vier);
     @inbounds begin
         vstorea!(ptr, _eins[1],      )
         vstorea!(ptr, _eins[2],   simd_integer_register_size())
@@ -220,7 +220,7 @@ end
         quote
             $(Expr(:meta,:inline))
             @unpack eins, zwei, drei, vier = s
-            _eins = eins.data; _zwei = zwei.data; _drei = drei.data; _vier = vier.data;
+            _eins = data(eins); _zwei = data(zwei); _drei = data(drei); _vier = data(vier);
             (
                 VecUnroll( Base.Cartesian.@ntuple $U u -> _eins[u] ),
                 VecUnroll( Base.Cartesian.@ntuple $U u -> _zwei[u] ),
@@ -243,8 +243,8 @@ end
     @assert P > N
     q = quote
         $(Expr(:meta,:inline))
-        e = eins.data; z = zwei.data; d = drei.data; v = vier.data
-        _e = s.eins.data; _z = s.zwei.data; _d = s.drei.data; _v = s.vier.data
+        e = data(eins); z = data(zwei); d = data(drei); v = data(vier)
+        _e = data(s.eins); _z = data(s.zwei); _d = data(s.drei); _v = data(s.vier)
     end
     _eins = Expr(:tuple)
     _zwei = Expr(:tuple)

@@ -16,7 +16,7 @@ MatchingUInt(::Type{Tuple{VecUnroll{N,W,Float64,Vec{W,Float64}}}}) where {N,W} =
     state = getstate(rng, Val{1}(), StaticInt{W}())
     state, out = nextstate(state, Val{1}())
     storestate!(rng, state)
-    out.data[1]
+    data(out)[1]
 end
 @inline function Random.rand(rng::AbstractVRNG{P}, ::Type{VecUnroll{N,W,UInt64,Vec{W,UInt64}}}) where {W,P,N}
     state = getstate(rng, Val{P}(), StaticInt{W}())
@@ -96,7 +96,7 @@ end
 @generated function random_normal(vu::VecUnroll{Nm1,W,UInt64,Vec{W,UInt64}}, ::Type{T}) where {Nm1,W,T}
     # @assert isodd(Nm1)
     N = Nm1 + 1
-    q = Expr(:block, Expr(:meta, :inline), :(u = vu.data))
+    q = Expr(:block, Expr(:meta, :inline), :(u = data(vu)))
     ib = Expr(:block)
     n = 0
     if n < Nm1
@@ -108,7 +108,7 @@ end
             n += 2
         end
         push!(ib.args, :((sr,cr) = randnormal(VecUnroll($u1t), VecUnroll($u2t), $T)))
-        push!(ib.args, :(srd = sr.data)); push!(ib.args, :(crd = cr.data))
+        push!(ib.args, :(srd = data(sr))); push!(ib.args, :(crd = data(cr)))
     end
     nout = Expr(:tuple)
     for n ∈ 1:N>>1
@@ -152,7 +152,7 @@ end
     state, u = nextstate(state, Val{N}())
     state, random_normal(u, T)
 end
-@inline scalar_less(n::MM, i) = n.i < i
+@inline scalar_less(n::MM, i) = data(n) < i
 
 @inline zero_pointer(A::AbstractArray) = zero_offsets(stridedpointer(A));
 @inline zero_pointer(x) = x
@@ -168,7 +168,7 @@ function random_sample_u2!(f::F, rng::AbstractVRNG{P}, x::AbstractArray{T}, α, 
         n = MM(W, 0)
         while scalar_less(n, vadd(N, 1 - 2W))
             state, zvu2 = f(state, Val{2}(), T)
-            z₁, z₂ = zvu2.data
+            z₁, z₂ = data(zvu2)
             x₁ = vload(ptrx, (n,)); β₁ = _vload(ptrβ, (n,)); γ₁ = _vload(ptrγ, (n,));
             x₂ = vload(ptrx, (vadd(W, n),)); β₂ = _vload(ptrβ, (vadd(W, n),)); γ₂ = _vload(ptrγ, (vadd(W, n),));
             vstore!(ptrx, α * x₁ + z₁ * γ₁ + β₁, (n,));
@@ -178,14 +178,14 @@ function random_sample_u2!(f::F, rng::AbstractVRNG{P}, x::AbstractArray{T}, α, 
         mask = VectorizationBase.mask(W, N)
         if scalar_less(n, vsub(N, W))
             state, zvu2 = f(state, Val{2}(), T)
-            z₁, z₂ = zvu2.data
+            z₁, z₂ = data(zvu2)
             x₁ = vload(ptrx, (n,)); β₁ = _vload(ptrβ, (n,)); γ₁ = _vload(ptrγ, (n,));
             x₂ = vload(ptrx, (vadd(W, n),), mask); β₂ = _vload(ptrβ, (vadd(W, n),), mask); γ₂ = _vload(ptrγ, (vadd(W, n),), mask);
             vstore!(ptrx, α * x₁ + z₁ * γ₁ + β₁, (n,));
             vstore!(ptrx, α * x₂ + z₂ * γ₂ + β₂, (vadd(W, n),), mask);
         elseif scalar_less(n, N)
             state, zvu1 = f(state, Val{1}(), T)
-            (z₁,) = zvu1.data
+            (z₁,) = data(zvu1)
             x₁ = vload(ptrx, (n,), mask); β₁ = _vload(ptrβ, (n,), mask); γ₁ = _vload(ptrγ, (n,), mask);
             vstore!(ptrx, α * x₁ + z₁ * γ₁ + β₁, (n,), mask);
         end
@@ -203,7 +203,7 @@ end
 #         n = MM(Wval, 0)
 #         while scalar_less(n, vadd(N, 1 - 4W))
 #             state, zvu4 = f(state, Val{4}(), T)
-#             (z₁,z₂,z₃,z₄) = zvu4.data
+#             (z₁,z₂,z₃,z₄) = data(zvu4)
 #             x₁ = vload(ptrx, (n,)); β₁ = vload(ptrβ, (n,)); γ₁ = vload(ptrγ, (n,));
 #             x₂ = vload(ptrx, (vadd(W, n),)); β₂ = vload(ptrβ, (vadd(W, n),)); γ₂ = vload(ptrγ, (vadd(W, n),));
 #             x₃ = vload(ptrx, (vadd(W2, n),)); β₃ = vload(ptrβ, (vadd(W2, n),)); γ₃ = vload(ptrγ, (vadd(W2, n),));
@@ -217,7 +217,7 @@ end
 #         mask = VectorizationBase.mask(Wval, N)
 #         if scalar_less(n, vsub(N, 3W))
 #             state, zvu4 = f(state, Val{4}(), T)
-#             (z₁,z₂,z₃,z₄) = zvu4.data
+#             (z₁,z₂,z₃,z₄) = data(zvu4)
 #             x₁ = vload(ptrx, (n,)); β₁ = vload(ptrβ, (n,)); γ₁ = vload(ptrγ, (n,));
 #             x₂ = vload(ptrx, (vadd(W, n),)); β₂ = vload(ptrβ, (vadd(W, n),)); γ₂ = vload(ptrγ, (vadd(W, n),));
 #             x₃ = vload(ptrx, (vadd(W2, n),)); β₃ = vload(ptrβ, (vadd(W2, n),)); γ₃ = vload(ptrγ, (vadd(W2, n),));
@@ -228,7 +228,7 @@ end
 #             vstore!(ptrx, α * x₄ + z₄ * γ₄ + β₄, (vadd(W3,n),), mask);
 #         elseif scalar_less(n, vsub(N, 2W))
 #             state, zvu3 = f(state, Val{3}(), T)
-#             (z₁,z₂,z₃) = zvu3.data
+#             (z₁,z₂,z₃) = data(zvu3)
 #             x₁ = vload(ptrx, (n,)); β₁ = vload(ptrβ, (n,)); γ₁ = vload(ptrγ, (n,));
 #             x₂ = vload(ptrx, (vadd(W, n),)); β₂ = vload(ptrβ, (vadd(W, n),)); γ₂ = vload(ptrγ, (vadd(W, n),));
 #             x₃ = vload(ptrx, (vadd(W2, n),), mask); β₃ = vload(ptrβ, (vadd(W2, n),), mask); γ₃ = vload(ptrγ, (vadd(W2, n),), mask);
@@ -237,14 +237,14 @@ end
 #             vstore!(ptrx, α * x₃ + z₃ * γ₃ + β₃, (vadd(W2,n),), mask);
 #         elseif scalar_less(n, vsub(N, W))
 #             state, zvu2 = f(state, Val{2}(), T)
-#             (z₁,z₂) = zvu2.data
+#             (z₁,z₂) = data(zvu2)
 #             x₁ = vload(ptrx, (n,)); β₁ = vload(ptrβ, (n,)); γ₁ = vload(ptrγ, (n,));
 #             x₂ = vload(ptrx, (vadd(W, n),), mask); β₂ = vload(ptrβ, (vadd(W, n),), mask); γ₂ = vload(ptrγ, (vadd(W, n),), mask);
 #             vstore!(ptrx, α * x₁ + z₁ * γ₁ + β₁, (n,));
 #             vstore!(ptrx, α * x₂ + z₂ * γ₂ + β₂, (vadd(W,n),), mask);
 #         elseif scalar_less(n, N)
 #             state, zvu1 = f(state, Val{1}(), T)
-#             (z₁,) = zvu1.data
+#             (z₁,) = data(zvu1)
 #             x₁ = vload(ptrx, (n,), mask); β₁ = vload(ptrβ, (n,), mask); γ₁ = vload(ptrγ, (n,), mask);
 #             vstore!(ptrx, α * x₁ + z₁ * γ₁ + β₁, (n,), mask);
 #         end        
@@ -261,7 +261,7 @@ function random_sample_u2!(f::F, rng::AbstractVRNG{P}, x::AbstractArray{T}, ::St
         n = MM(W, 0)
         while scalar_less(n, vadd(N, 1 - 2W))
             state, zvu2 = f(state, Val{2}(), T)
-            (z₁,z₂) = zvu2.data
+            (z₁,z₂) = data(zvu2)
             β₁ = _vload(ptrβ, (n,)); γ₁ = _vload(ptrγ, (n,));
             β₂ = _vload(ptrβ, (vadd(W, n),)); γ₂ = _vload(ptrγ, (vadd(W, n),));
             vstore!(ptrx, z₁ * γ₁ + β₁, (n,));
@@ -271,14 +271,14 @@ function random_sample_u2!(f::F, rng::AbstractVRNG{P}, x::AbstractArray{T}, ::St
         mask = VectorizationBase.mask(W, N)
         if scalar_less(n, vsub(N, W))
             state, zvu2 = f(state, Val{2}(), T)
-            (z₁,z₂) = zvu2.data
+            (z₁,z₂) = data(zvu2)
             β₁ = _vload(ptrβ, (n,)); γ₁ = _vload(ptrγ, (n,));
             β₂ = _vload(ptrβ, (vadd(W, n),), mask); γ₂ = _vload(ptrγ, (vadd(W, n),), mask);
             vstore!(ptrx, z₁ * γ₁ + β₁, (n,));
             vstore!(ptrx, z₂ * γ₂ + β₂, (vadd(W, n),), mask);
         elseif scalar_less(n, N)
             state, zvu1 = f(state, Val{1}(), T)
-            (z₁,) = zvu1.data
+            (z₁,) = data(zvu1)
             β₁ = _vload(ptrβ, (n,), mask); γ₁ = _vload(ptrγ, (n,), mask);
             vstore!(ptrx, z₁ * γ₁ + β₁, (n,), mask);
         end
@@ -298,7 +298,7 @@ end
 #         n = MM(Wval, 0)
 #         while scalar_less(n, vadd(N, 1 - 4W))
 #             state, zvu4 = f(state, Val{4}(), T)
-#             (z₁,z₂,z₃,z₄) = zvu4.data
+#             (z₁,z₂,z₃,z₄) = data(zvu4)
 #             β₁ = vload(ptrβ, (n,)); γ₁ = vload(ptrγ, (n,));
 #             β₂ = vload(ptrβ, (vadd(W, n),)); γ₂ = vload(ptrγ, (vadd(W, n),));
 #             β₃ = vload(ptrβ, (vadd(W2, n),)); γ₃ = vload(ptrγ, (vadd(W2, n),));
@@ -312,7 +312,7 @@ end
 #         mask = VectorizationBase.mask(Wval, N)
 #         if scalar_less(n, vsub(N, 3W))
 #             state, zvu4 = f(state, Val{4}(), T)
-#             (z₁,z₂,z₃,z₄) = zvu4.data
+#             (z₁,z₂,z₃,z₄) = data(zvu4)
 #             β₁ = vload(ptrβ, (n,)); γ₁ = vload(ptrγ, (n,));
 #             β₂ = vload(ptrβ, (vadd(W, n),)); γ₂ = vload(ptrγ, (vadd(W, n),));
 #             β₃ = vload(ptrβ, (vadd(W2, n),)); γ₃ = vload(ptrγ, (vadd(W2, n),));
@@ -323,7 +323,7 @@ end
 #             vstore!(ptrx, z₄ * γ₄ + β₄, (vadd(W3,n),), mask);
 #         elseif scalar_less(n, vsub(N, 2W))
 #             state, zvu3 = f(state, Val{3}(), T)
-#             (z₁,z₂,z₃) = zvu3.data
+#             (z₁,z₂,z₃) = data(zvu3)
 #             β₁ = vload(ptrβ, (n,)); γ₁ = vload(ptrγ, (n,));
 #             β₂ = vload(ptrβ, (vadd(W, n),)); γ₂ = vload(ptrγ, (vadd(W, n),));
 #             β₃ = vload(ptrβ, (vadd(W2, n),), mask); γ₃ = vload(ptrγ, (vadd(W2, n),), mask);
@@ -332,14 +332,14 @@ end
 #             vstore!(ptrx, z₃ * γ₃ + β₃, (vadd(W2,n),), mask);
 #         elseif scalar_less(n, vsub(N, W))
 #             state, zvu2 = f(state, Val{2}(), T)
-#             (z₁,z₂) = zvu2.data
+#             (z₁,z₂) = data(zvu2)
 #             β₁ = vload(ptrβ, (n,)); γ₁ = vload(ptrγ, (n,));
 #             β₂ = vload(ptrβ, (vadd(W, n),), mask); γ₂ = vload(ptrγ, (vadd(W, n),), mask);
 #             vstore!(ptrx, z₁ * γ₁ + β₁, (n,));
 #             vstore!(ptrx, z₂ * γ₂ + β₂, (vadd(W,n),), mask);
 #         elseif scalar_less(n, N)
 #             state, zvu1 = f(state, Val{1}(), T)
-#             (z₁,) = zvu1.data
+#             (z₁,) = data(zvu1)
 #             β₁ = vload(ptrβ, (n,), mask); γ₁ = vload(ptrγ, (n,), mask);
 #             vstore!(ptrx, z₁ * γ₁ + β₁, (n,), mask);
 #         end        
@@ -388,7 +388,7 @@ function Random.rand(rng::AbstractVRNG)
     b = randbuffer64(rng)
     setrand64counter!(rng, i + 0x01)
     iszero(i) && rand!(rng, b)
-    vload(pointer(b), VectorizationBase.LazyMulAdd{8,0}(i % UInt32))
+    vloadu(pointer(b), VectorizationBase.LazyMulAdd{8,0}(i % UInt32))
 end
 
 # Box-Cox for scalars is probably only faster with AVX512, so we use Ziggurat if we don't have it.
@@ -397,7 +397,7 @@ function randn_scalar(rng::AbstractVRNG, ::VectorizationBase.True)
     b = randnbuffer64(rng)
     setrandn64counter!(rng, i + 0x01)
     iszero(i) && randn!(rng, b)
-    vload(pointer(b), VectorizationBase.LazyMulAdd{8,0}(i % UInt32))
+    vloadu(pointer(b), VectorizationBase.LazyMulAdd{8,0}(i % UInt32))
 end
 randn_scalar(rng::AbstractVRNG, ::VectorizationBase.False) = Random._randn(rng, rand(rng, Random.UInt52Raw{UInt64}()))
 Random.randn(rng::AbstractVRNG) = randn_scalar(rng, VectorizationBase.has_feature(Val(:x86_64_avx512f)))
@@ -407,6 +407,6 @@ function Random.rand(rng::AbstractVRNG, ::Random.UInt52Raw{UInt64})
     b = randubuffer64(rng)
     setrandu64counter!(rng, i + 0x01)
     iszero(i) && rand!(rng, b)
-    vload(pointer(b), VectorizationBase.LazyMulAdd{8,0}(i % UInt32))
+    vloadu(pointer(b), VectorizationBase.LazyMulAdd{8,0}(i % UInt32))
 end
 

@@ -2,8 +2,8 @@ module VectorizedRNG
 
 using VectorizationBase, Random, UnPack
 using VectorizationBase: simd_integer_register_size, gep, _Vec, ifelse, VecUnroll, AbstractSIMD,
-    rotate_right, vadd, vsub, zero_offsets, vfmadd, vfmsub, vfnmadd, shufflevector,
-    cache_linesize, vloada, vstorea!, StaticInt, pick_vector_width
+    rotate_right, vadd, vsub, zero_offsets, vfmadd, vfmsub, vfnmadd, shufflevector, register_size,
+    cache_linesize, StaticInt, pick_vector_width, data
 
 using Distributed: myid
 
@@ -11,6 +11,19 @@ export local_rng, rand!, randn!#, randexp, randexp!
 
 abstract type AbstractVRNG{N} <: Random.AbstractRNG end
 abstract type AbstractState{N,W} end
+
+@inline vloadu(ptr::Ptr) = VectorizationBase.__vload(ptr, VectorizationBase.False(), register_size())
+@inline vloadu(ptr::Ptr, i) = VectorizationBase.__vload(ptr, i, VectorizationBase.False(), register_size())
+@inline vloada(ptr::Ptr) = VectorizationBase.__vload(ptr, VectorizationBase.True(), register_size())
+@inline vloada(ptr::Ptr, i) = VectorizationBase.__vload(ptr, i, VectorizationBase.True(), register_size())
+@inline vloada(ptr::Ptr, i, m) = VectorizationBase.__vload(ptr, i, m, VectorizationBase.True(), register_size())
+@inline vstorea!(ptr::Ptr, v) = VectorizationBase.__vstore!(ptr, v, VectorizationBase.True(), VectorizationBase.False(), VectorizationBase.False(), register_size())
+@inline vstorea!(ptr::Ptr, v, i) = VectorizationBase.__vstore!(ptr, v, i, VectorizationBase.True(), VectorizationBase.False(), VectorizationBase.False(), register_size())
+@inline vstorea!(ptr::Ptr, v, i, m) = VectorizationBase.__vstore!(ptr, v, i, m, VectorizationBase.True(), VectorizationBase.False(), VectorizationBase.False(), register_size())
+@inline vstoreu!(ptr::Ptr, v, i) = VectorizationBase.__vstore!(ptr, v, i, VectorizationBase.False(), VectorizationBase.False(), VectorizationBase.False(), register_size())
+@inline vstoreu!(ptr::Ptr, v) = VectorizationBase.__vstore!(ptr, v, VectorizationBase.False(), VectorizationBase.False(), VectorizationBase.False(), register_size())
+
+
 
 include("masks.jl")
 include("api.jl")

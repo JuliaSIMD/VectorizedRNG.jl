@@ -13,7 +13,7 @@ That is for scalar arguments or vector arguments without AVX512, it requires the
     VectorizationBase.vpternlog(vbroadcast(Val{W}(), y), x, vbroadcast(Val{W}(), m), Val{216}())
 end
 @inline function setbits(x::VecUnroll{N,W,U}, y, m, ::True) where {N,W,U<:Union{UInt32,UInt64}}
-    VectorizationBase.VecUnroll(VectorizationBase.fmap(setbits, x.data, y, m))
+    VectorizationBase.VecUnroll(VectorizationBase.fmap(setbits, data(x), y, m))
 end
 @inline setbits(x, y, m, ::False) = ((x & m) | y)
 @inline setbits(x::VectorizationBase.AbstractSIMD, y, m) = setbits(x, y, m, VectorizationBase.has_feature(Val(:x86_64_avx512f)))
