@@ -1,10 +1,10 @@
 # VectorizedRNG
 
-[![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://chriselrod.github.io/VectorizedRNG.jl/stable)
-[![Latest](https://img.shields.io/badge/docs-latest-blue.svg)](https://chriselrod.github.io/VectorizedRNG.jl/dev)
-[![CI](https://github.com/chriselrod/VectorizedRNG.jl/workflows/CI/badge.svg)](https://github.com/chriselrod/VectorizedRNG.jl/actions?query=workflow%3ACI)
-[![CI (Julia nightly)](https://github.com/chriselrod/VectorizedRNG.jl/workflows/CI%20(Julia%20nightly)/badge.svg)](https://github.com/chriselrod/VectorizedRNG.jl/actions?query=workflow%3A%22CI+%28Julia+nightly%29%22)
-[![Codecov](https://codecov.io/gh/chriselrod/VectorizedRNG.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/chriselrod/VectorizedRNG.jl)
+[![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://JuliaSIMD.github.io/VectorizedRNG.jl/stable)
+[![Latest](https://img.shields.io/badge/docs-latest-blue.svg)](https://JuliaSIMD.github.io/VectorizedRNG.jl/dev)
+[![CI](https://github.com/JuliaSIMD/VectorizedRNG.jl/workflows/CI/badge.svg)](https://github.com/JuliaSIMD/VectorizedRNG.jl/actions?query=workflow%3ACI)
+[![CI (Julia nightly)](https://github.com/JuliaSIMD/VectorizedRNG.jl/workflows/CI%20(Julia%20nightly)/badge.svg)](https://github.com/JuliaSIMD/VectorizedRNG.jl/actions?query=workflow%3A%22CI+%28Julia+nightly%29%22)
+[![Codecov](https://codecov.io/gh/JuliaSIMD/VectorizedRNG.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/JuliaSIMD/VectorizedRNG.jl)
 
 
 This library provides a vectorized Xoshiro256++ random number generator. The larger the host computers SIMD vector width, the better they will perform. On a machine with AVX-512, they are faster than [SIMD-oriented Fast Mersenne Twister (SFMT) ](http://www.math.sci.hiroshima-u.ac.jp/~m-mat/MT/SFMT/). Base Julia uses dSFMT,  which in a few tests appears to outperform this library on avx2 systems in generating uniformly distributed random numbers.

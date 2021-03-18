@@ -4,11 +4,11 @@ using Documenter
 makedocs(;
     modules=[VectorizedRNG],
     authors="Chris Elrod",
-    repo="https://github.com/chriselrod/VectorizedRNG.jl/blob/{commit}{path}#L{line}",
+    repo="https://github.com/JuliaSIMD/VectorizedRNG.jl/blob/{commit}{path}#L{line}",
     sitename="VectorizedRNG.jl",
     format=Documenter.HTML(;
         prettyurls=get(ENV, "CI", "false") == "true",
-        canonical="https://chriselrod.github.io/VectorizedRNG.jl",
+        canonical="https://JuliaSIMD.github.io/VectorizedRNG.jl",
         assets=String[],
     ),
     pages=[
@@ -18,5 +18,5 @@ makedocs(;
 )
 
 deploydocs(;
-    repo="github.com/chriselrod/VectorizedRNG.jl",
+    repo="github.com/JuliaSIMD/VectorizedRNG.jl",
 )
