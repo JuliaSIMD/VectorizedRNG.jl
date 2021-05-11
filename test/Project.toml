@@ -1,6 +1,7 @@
 [deps]
 Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
+InteractiveUtils = "b77e0a4c-d291-57a0-90e8-8db25a27a240"
 RNGTest = "97cc5700-e6cb-5ca1-8fb2-7f6b45264ecd"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 SpecialFunctions = "276daf66-3868-5448-9aa4-cd146d93841b"

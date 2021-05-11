@@ -1,6 +1,9 @@
 using VectorizedRNG
 using Test
 
+using InteractiveUtils: versioninfo
+versioninfo(verbose=true)
+
 using RNGTest, Random, SpecialFunctions, Aqua, Distributions
 
 const α = 1e-4
