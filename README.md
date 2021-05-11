@@ -199,60 +199,7 @@ julia> minimum(minimum.(bcjunif))
 julia> maximum(maximum.(bcjunif))
 0.99900365621945
 ```
-and applying the cdf to the normal generator, it runs in under 10 minutes:
-```julia
-julia> using Distributed; addprocs(); nprocs()
-37
-
-julia> @everywhere begin;
-        using Random
-        using VectorizedRNG
-        using RNGTest
-        const INVSQRT2 = 1/sqrt(2)
-        @inline function normalcdf(v)
-                T = eltype(v)
-                T(0.5) * ( one(T) + VectorizedRNG.SIMDPirates.verf( v * INVSQRT2 ) )
-        end
-        function normalcdf!(x::AbstractVector{T}) where {T}
-                _W, Wshift = VectorizedRNG.VectorizationBase.pick_vector_width_shift(T)
-                W = VectorizedRNG.VectorizationBase.pick_vector_width(T)
-                N = length(x)
-                ptrx = pointer(x)
-                i = 0
-                for _ ∈ 1:(N >>> Wshift)
-                        ptrxᵢ = VectorizedRNG.VectorizationBase.gep(ptrx, i)
-                        v = VectorizedRNG.SIMDPirates.vload(W, ptrxᵢ)
-                        VectorizedRNG.SIMDPirates.vstore!(ptrxᵢ, normalcdf(v))
-                        i += _W
-                end
-                if i < N
-                        ptrxᵢ = VectorizedRNG.VectorizationBase.gep(ptrx, i)
-                        mask = VectorizedRNG.VectorizationBase.mask(T, N & (_W - 1))
-                        v = VectorizedRNG.SIMDPirates.vload(W, ptrxᵢ, mask)
-                        VectorizedRNG.SIMDPirates.vstore!(ptrxᵢ, normalcdf(v), mask)
-                end
-                x
-        end
-       end
-
-julia> @everywhere struct RN01 <: Random.AbstractRNG end
-
-julia> @everywhere Random.rand!(r::RN01, x::AbstractArray) = normalcdf!(randn!(local_rng(), x))
-
-julia> rngnorm = RNGTest.wrap(RN01(), Float64);
-
-julia> @time bcj = RNGTest.bigcrushJulia(rngnorm);
-592.920986 seconds (9.58 M allocations: 498.928 MiB, 0.03% gc time)
-
-julia> minimum(minimum.(bcj))
-0.0007985263854837221
-
-julia> maximum(maximum.(bcj))
-0.9990856044252019
-```
-Given the comparatively small diference in runtimes between the uniforn and normal -> normal quantile RNG Tests, most of the runtime is spent in RNGTest rather than evaluating the random numbers.
-
-I don't think these are great looking minimum or maximum p-values. For comparison, the default MersenneTwister:
+While not great looking minimum or maximum p-values. For comparison, the default MersenneTwister:
 ```julia
 julia> wrappedtwister = RNGTest.wrap(MersenneTwister(), Float64);
 

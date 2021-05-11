@@ -118,7 +118,7 @@ end
         @test mi > α
         @test ma < 1 - α
 
-        res = RNGTest.smallcrushJulia(() -> VectorizedRNG.mask((rand(local_rng(), UInt128) >> 64) % UInt64, Float64) - VectorizedRNG.oneopenconst(Float64))
+        res = RNGTest.smallcrushJulia(() -> VectorizedRNG.floatbitmask((rand(local_rng(), UInt128) >> 64) % UInt64, Float64) - VectorizedRNG.oneopenconst(Float64))
         mi, ma = smallcrushextrema(res)
         @show mi, ma
         @test mi > α

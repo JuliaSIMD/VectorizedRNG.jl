@@ -51,7 +51,7 @@ end
 @inline suboneopenconst(::Type{Float64}) = 1.9999999999999998
 @inline function randsincos(u, ::Type{T}) where {T}
     # return SLEEFPirates.sincos(mask(u, T))
-    r = mask(u, T)
+    r = floatbitmask(u, T)
     ooc = oneopenconst(T)
     sininput = vsub(r, ooc)
     s = copysign( approx_sin8(sininput), reinterpret(T, u))
@@ -197,7 +197,7 @@ end
     # f = mask(u, Float64) # shift by lz
     # f = vmul(0.75, mask(shift_excess_zeros(u, lz), Float64)) # shift by lz
     # f = vfdiv(vsub(f, 1.0), vadd(f, 1.0))
-    f = mask(shift_excess_zeros(u, lz), T) # shift by lz
+    f = floatbitmask(shift_excess_zeros(u, lz), T) # shift by lz
     f = ( f - T(1.3333333333333333) ) / ( f + T(1.3333333333333333) )
     # l2h = log12_9(f)
     l2 = log2_3q(f, T(-0.5849625007211561814537389439478165087598144076924810604557526545410982277943579) - lz)

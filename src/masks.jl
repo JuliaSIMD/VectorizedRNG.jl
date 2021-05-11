@@ -47,6 +47,6 @@ Choosing other fractional intervals, eg [0.5, 1.0) or [2.0, 4.0) would take more
 Alternatively, if we tried to span multiple fractional intervals, suddenly trying to get a fairly
 uniform distribution would get complicated.
 """
-@inline mask(x, ::Type{Float64}) = reinterpret(Float64, setbits(reinterpret(UInt64, x), 0x3ff0000000000000, 0x000fffffffffffff))
-@inline mask(x, ::Type{Float32}) = reinterpret(Float32, setbits(reinterpret(UInt32, x), 0x3f800000, 0x007fffff))
+@inline floatbitmask(x, ::Type{Float64}) = reinterpret(Float64, setbits(reinterpret(UInt64, x), 0x3ff0000000000000, 0x000fffffffffffff))
+@inline floatbitmask(x, ::Type{Float32}) = reinterpret(Float32, setbits(reinterpret(UInt32, x), 0x3f800000, 0x007fffff))
 
