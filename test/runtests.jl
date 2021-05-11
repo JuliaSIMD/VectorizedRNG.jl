@@ -59,7 +59,13 @@ end
     end
     # rngnorm = RNGTest.wrap(RandNormal01(local_pcg()), Float64);
 
-
+function test_serial_rng(f)
+  res = RNGTest.smallcrushJulia(f)
+  mi, ma = smallcrushextrema(res)
+  @show mi, ma
+  @test mi > α
+  @test ma < 1 - α
+end
 
 @testset "VectorizedRNG.jl" begin
     Aqua.test_all(VectorizedRNG)#, ambiguities = VERSION < v"1.6-DEV")
@@ -100,29 +106,10 @@ end
         # @test ma < 1 - α
 
         # scalar mode tests
-        res = RNGTest.smallcrushJulia(() -> rand(local_rng()))
-        mi, ma = smallcrushextrema(res)
-        @show mi, ma
-        @test mi > α
-        @test ma < 1 - α
-        
-        res = RNGTest.smallcrushJulia(() -> normalcdf(randn(local_rng())))
-        mi, ma = smallcrushextrema(res)
-        @show mi, ma
-        @test mi > α
-        @test ma < 1 - α
-
-        res = RNGTest.smallcrushJulia(() -> cdf(Gamma(), rand(local_rng(), Gamma())))
-        mi, ma = smallcrushextrema(res)
-        @show mi, ma
-        @test mi > α
-        @test ma < 1 - α
-
-        res = RNGTest.smallcrushJulia(() -> VectorizedRNG.floatbitmask((rand(local_rng(), UInt128) >> 64) % UInt64, Float64) - VectorizedRNG.oneopenconst(Float64))
-        mi, ma = smallcrushextrema(res)
-        @show mi, ma
-        @test mi > α
-        @test ma < 1 - α
+        test_serial_rng(() -> rand(local_rng()))
+        test_serial_rng(() -> normalcdf(randn(local_rng())))
+        test_serial_rng(() -> cdf(Gamma(), rand(local_rng(), Gamma())))
+        test_serial_rng(() -> VectorizedRNG.floatbitmask((rand(local_rng(), UInt128) >> 64) % UInt64, Float64) - VectorizedRNG.oneopenconst(Float64))
         
     end
     @testset "Discontiguous in place" begin
