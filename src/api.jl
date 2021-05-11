@@ -1,6 +1,4 @@
 
-Random.rng_native_52(::AbstractVRNG) = UInt64
-
 MatchingUInt(::Type{_Vec{W,Float64}}) where {W} = _Vec{W,UInt64}
 MatchingUInt(::Type{Tuple{VecUnroll{N,W,Float64,Vec{W,Float64}}}}) where {N,W} = VecUnroll{N,W,UInt64,Vec{W,UInt6}}
 
