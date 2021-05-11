@@ -383,7 +383,7 @@ VectorizationBase.ArrayInterface.contiguous_batch_size(::Type{<:Buffer256}) = Ve
 VectorizationBase.ArrayInterface.stride_rank(::Type{<:Buffer256}) = (VectorizationBase.One(),)
 
 
-function Random.rand(rng::AbstractVRNG)
+@inline function Random.rand(rng::AbstractVRNG)
     i = getrand64counter(rng)
     b = randbuffer64(rng)
     setrand64counter!(rng, i + 0x01)
@@ -391,22 +391,39 @@ function Random.rand(rng::AbstractVRNG)
     vloadu(pointer(b), VectorizationBase.LazyMulAdd{8,0}(i % UInt32))
 end
 
-# Box-Cox for scalars is probably only faster with AVX512, so we use Ziggurat if we don't have it.
-function randn_scalar(rng::AbstractVRNG, ::VectorizationBase.True)
+# Box-Muller for scalars is probably only faster with AVX512, so we use Ziggurat if we don't have it.
+@inline function randn_scalar(rng::AbstractVRNG, ::VectorizationBase.True)
     i = getrandn64counter(rng)
     b = randnbuffer64(rng)
     setrandn64counter!(rng, i + 0x01)
     iszero(i) && randn!(rng, b)
     vloadu(pointer(b), VectorizationBase.LazyMulAdd{8,0}(i % UInt32))
 end
-randn_scalar(rng::AbstractVRNG, ::VectorizationBase.False) = Random._randn(rng, rand(rng, Random.UInt52Raw{UInt64}()))
-Random.randn(rng::AbstractVRNG) = randn_scalar(rng, VectorizationBase.has_feature(Val(:x86_64_avx512f)))
+@inline randn_scalar(rng::AbstractVRNG, ::VectorizationBase.False) = Random._randn(rng, rand(rng, Random.UInt52Raw{UInt64}()))
+@inline Random.randn(rng::AbstractVRNG) = randn_scalar(rng, VectorizationBase.has_feature(Val(:x86_64_avx512f)))
 
-function Random.rand(rng::AbstractVRNG, ::Random.UInt52Raw{UInt64})
+@inline function Random.rand(rng::AbstractVRNG, ::Random.SamplerType{UInt64})
     i = getrandu64counter(rng)
     b = randubuffer64(rng)
     setrandu64counter!(rng, i + 0x01)
     iszero(i) && rand!(rng, b)
     vloadu(pointer(b), VectorizationBase.LazyMulAdd{8,0}(i % UInt32))
 end
+@inline Random.rand(rng::AbstractVRNG, ::Random.UInt52Raw{UInt64}) = Random.rand(rng, Random.SamplerType{UInt64}())
+for T ∈ [:Int8,:UInt8,:Int16,:UInt16,:Int32,:UInt32,:Int64]
+  @eval @inline Random.rand(rng::AbstractVRNG, ::Random.SamplerType{$T}) = Random.rand(rng, Random.SamplerType{UInt64}()) % $T
+end
+@inline function Random.rand(rng::AbstractVRNG, ::Random.SamplerType{T}) where {T<:Union{UInt128,Int128}}
+  i = getrandu64counter(rng)
+  b = randubuffer64(rng)
+  if i == 0xff
+    rand!(rng, b)
+    setrandu64counter!(rng, 0x02)
+  else
+    setrandu64counter!(rng, 0x02 + i)
+    iszero(i) && rand!(rng, b)
+  end
+    vloadu(Base.unsafe_convert(Ptr{T}, pointer(b)), VectorizationBase.LazyMulAdd{8,0}(i % UInt32))
+end
+Random.rng_native_52(::AbstractVRNG) = UInt64
 

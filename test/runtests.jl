@@ -1,7 +1,7 @@
 using VectorizedRNG
 using Test
 
-using RNGTest, Random, SpecialFunctions, Aqua#, Distributions
+using RNGTest, Random, SpecialFunctions, Aqua, Distributions
 
 const α = 1e-4
 
@@ -112,6 +112,18 @@ end
         @test mi > α
         @test ma < 1 - α
 
+        res = RNGTest.smallcrushJulia(() -> cdf(Gamma(), rand(local_rng(), Gamma())))
+        mi, ma = smallcrushextrema(res)
+        @show mi, ma
+        @test mi > α
+        @test ma < 1 - α
+
+        res = RNGTest.smallcrushJulia(() -> VectorizedRNG.mask((rand(local_rng(), UInt128) >> 64) % UInt64, Float64))
+        mi, ma = smallcrushextrema(res)
+        @show mi, ma
+        @test mi > α
+        @test ma < 1 - α
+        
     end
     @testset "Discontiguous in place" begin
         x = zeros(5, 117); xv = view(x, 5, :)

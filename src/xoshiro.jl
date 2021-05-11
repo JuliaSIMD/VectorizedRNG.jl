@@ -79,9 +79,6 @@ end
 @inline function getrandu64counter(rng::Xoshift{P}) where {P}
     vloadu(Base.unsafe_convert(Ptr{UInt8}, pointer(rng)), 4simd_integer_register_size()*P)
 end
-# @inline function getrandn32counter(rng::Xoshift{P}) where {P}
-#     vload(Base.unsafe_convert(Ptr{UInt8}, pointer(rng)), 4simd_integer_register_size()*P + 1)
-# end
 @inline function getrand64counter(rng::Xoshift{P}) where {P}
     vloadu(Base.unsafe_convert(Ptr{UInt8}, pointer(rng)), 4simd_integer_register_size()*P + 2)
 end
@@ -91,18 +88,6 @@ end
 @inline function setrandu64counter!(rng::Xoshift{P}, v::UInt8) where {P}
     vstoreu!(Base.unsafe_convert(Ptr{UInt8}, pointer(rng)), v, 4simd_integer_register_size()*P)
 end
-# @inline function setrand32counter!(rng::Xoshift{P}, v::UInt8) where {P}
-#     vstoreu!(Base.unsafe_convert(Ptr{UInt8}, pointer(rng)), v, 4simd_integer_register_size()*P)
-# end
-# @inline function setrandn32counter!(rng::Xoshift{P}, v::UInt8) where {P}
-#     vstoreu!(Base.unsafe_convert(Ptr{UInt8}, pointer(rng)), v, 4simd_integer_register_size()*P + 1)
-# end
-# # # TODO: find out why when `sirs` is invalidated, `getoffset` isn't.
-# sirs() = simd_integer_register_size()
-# getoffset() = 4sirs()*2 + 2
-# @inline function setrand64counter!(rng::Xoshift{2}, v::UInt8)
-#     vstoreu!(Base.unsafe_convert(Ptr{UInt8}, pointer(rng)), v, getoffset())
-# end
 @inline function setrand64counter!(rng::Xoshift{P}, v::UInt8) where {P}
     vstoreu!(Base.unsafe_convert(Ptr{UInt8}, pointer(rng)), v, 4simd_integer_register_size()*P + 2)
 end
