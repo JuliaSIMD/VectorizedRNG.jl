@@ -1,7 +1,7 @@
 name = "VectorizedRNG"
 uuid = "33b4df10-0173-11e9-2a0c-851a7edac40e"
 authors = ["Chris Elrod <elrodc@gmail.com>"]
-version = "0.2.10"
+version = "0.2.11"
 
 [deps]
 Distributed = "8ba89e20-285c-5b6f-9357-94700520ee1b"
@@ -11,7 +11,7 @@ VectorizationBase = "3d5dd08c-fd9d-11e8-17fa-ed2836048c2f"
 
 [compat]
 UnPack = "1"
-VectorizationBase = "0.19.38"
+VectorizationBase = "0.19.38, 0.20"
 julia = "1.5"
 
 [extras]
