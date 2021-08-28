@@ -7,7 +7,7 @@
 [![Codecov](https://codecov.io/gh/JuliaSIMD/VectorizedRNG.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/JuliaSIMD/VectorizedRNG.jl)
 
 
-This library provides a vectorized Xoshiro256++ random number generator. The larger the host computers SIMD vector width, the better they will perform. On a machine with AVX-512, they are faster than [SIMD-oriented Fast Mersenne Twister (SFMT) ](http://www.math.sci.hiroshima-u.ac.jp/~m-mat/MT/SFMT/). Base Julia uses dSFMT,  which in a few tests appears to outperform this library on avx2 systems in generating uniformly distributed random numbers.
+This library provides a vectorized Xoshiro256++ random number generator. The larger the host computers SIMD vector width, the better they will perform. On a machine with AVX-512, they are faster than [SIMD-oriented Fast Mersenne Twister (SFMT)](http://www.math.sci.hiroshima-u.ac.jp/~m-mat/MT/SFMT/). Base Julia used dSFMT, up to version 1.7, which in a few tests appears to outperform this library on AVX2 systems in generating uniformly distributed random numbers.
 
 You can get a thread-local instance of the `Xoshiro` generator with `local_rng()`. Each parallel stream jumps ahead `2^128` samples, which should be more than enough samples per stream for any real calculation. Each thread gets 8 parallel streams with AVX, or 16 with AVX512, allowing there to be up to `2^125` or `2^124` threads with AVX512.
 
