@@ -100,6 +100,9 @@ end
         A = zeros(13, 29);
         randn!(local_rng(), A);
         @test iszero(sum(iszero, A))
+        A32 = zeros(Float32, 13, 29);
+        randn!(local_rng(), A32);
+        @test iszero(sum(iszero, A32))
         # TODO: Support this again
         # rngnorm = RNGTest.wrap(RandNormal01(local_rng()), Float32);
         # res = RNGTest.smallcrushJulia(rngnorm)
