@@ -81,59 +81,59 @@ end
 
 
 @inline function randnormal(u1::AbstractSIMD{W,UInt64}, u2::AbstractSIMD{W,UInt64}, ::Type{T}) where {W,T<:Union{Float32,Float64}}
-    s, c = randsincos(u1, T)
-    r = sqrt(nlog01(u2,T))
-    s * r, c * r
+  s, c = randsincos(u1, T)
+  r = sqrt(nlog01(u2,T))
+  s * r, c * r
 end
 @inline function randnormal(u1::AbstractSIMD{1,UInt64}, u2::AbstractSIMD{1,UInt64}, ::Type{Float64})
-    s, c = randsincos(u1(1), Float64)
-    r = sqrt(nlog01(u2(1), Float64))
-    Vec{1,Float64}((Core.VecElement(s * r),)), Vec{1,Float64}((Core.VecElement(c * r),))
+  s, c = randsincos(u1(1), Float64)
+  r = sqrt(nlog01(u2(1), Float64))
+  Vec{1,Float64}((Core.VecElement(s * r),)), Vec{1,Float64}((Core.VecElement(c * r),))
 end
 
 @generated function random_normal(vu::VecUnroll{Nm1,W,UInt64,Vec{W,UInt64}}, ::Type{T}) where {Nm1,W,T}
-    # @assert isodd(Nm1)
-    N = Nm1 + 1
-    q = Expr(:block, Expr(:meta, :inline), :(u = data(vu)))
-    ib = Expr(:block)
-    n = 0
-    if n < Nm1
-        u1t = Expr(:tuple); u2t = Expr(:tuple)
-        while n < Nm1
-            push!(u1t.args, Expr(:ref, :u, n+1))
-            push!(u2t.args, Expr(:ref, :u, n+2))
-            # push!(ib.args, Expr(:(=), Expr(:tuple, Symbol(:n_,n), Symbol(:n_,n+1)), Expr(:call, :randnormal, Expr(:ref, :u, n+1), Expr(:ref, :u, n+2), T)))
-            n += 2
-        end
-        push!(ib.args, :((sr,cr) = randnormal(VecUnroll($u1t), VecUnroll($u2t), $T)))
-        push!(ib.args, :(srd = data(sr))); push!(ib.args, :(crd = data(cr)))
+  # @assert isodd(Nm1)
+  N = Nm1 + 1
+  q = Expr(:block, Expr(:meta, :inline), :(u = data(vu)))
+  ib = Expr(:block)
+  n = 0
+  if n < Nm1
+    u1t = Expr(:tuple); u2t = Expr(:tuple)
+    while n < Nm1
+      push!(u1t.args, Expr(:ref, :u, n+1))
+      push!(u2t.args, Expr(:ref, :u, n+2))
+      # push!(ib.args, Expr(:(=), Expr(:tuple, Symbol(:n_,n), Symbol(:n_,n+1)), Expr(:call, :randnormal, Expr(:ref, :u, n+1), Expr(:ref, :u, n+2), T)))
+      n += 2
     end
-    nout = Expr(:tuple)
-    for n ∈ 1:N>>1
-        push!(nout.args, Expr(:ref, :srd, n))
-        push!(nout.args, Expr(:ref, :crd, n))
+    push!(ib.args, :((sr,cr) = randnormal(VecUnroll($u1t), VecUnroll($u2t), $T)))
+    push!(ib.args, :(srd = data(sr))); push!(ib.args, :(crd = data(cr)))
+  end
+  nout = Expr(:tuple)
+  for n ∈ 1:N>>1
+    push!(nout.args, Expr(:ref, :srd, n))
+    push!(nout.args, Expr(:ref, :crd, n))
+  end
+  if n < N # then there is odd remainder
+    # we split the vector in two, gen randnormal, and then recombine.
+    Wl = (W << 3) ÷ sizeof(T) 
+    Wh = Wl >>> 1
+    t1 = Expr(:tuple); t2 = Expr(:tuple); t3 = Expr(:tuple);
+    append!(t1.args, 0:Wh-1); append!(t2.args, Wh:Wl-1); append!(t3.args, 0:Wl-1)
+    lm = Expr(:call, Expr(:curly, :Val, t1))
+    um = Expr(:call, Expr(:curly, :Val, t2))
+    cm = Expr(:call, Expr(:curly, :Val, t3))
+    remq = quote
+      ulast = u[$N]
+      (sₗ, cᵤ) = randnormal(shufflevector(ulast, $lm), shufflevector(ulast, $um), $T)
     end
-    if n < N # then there is odd remainder
-        # we split the vector in two, gen randnormal, and then recombine.
-        Wl = (W << 3) ÷ sizeof(T) 
-        Wh = Wl >>> 1
-        t1 = Expr(:tuple); t2 = Expr(:tuple); t3 = Expr(:tuple);
-        append!(t1.args, 0:Wh-1); append!(t2.args, Wh:Wl-1); append!(t3.args, 0:Wl-1)
-        lm = Expr(:call, Expr(:curly, :Val, t1))
-        um = Expr(:call, Expr(:curly, :Val, t2))
-        cm = Expr(:call, Expr(:curly, :Val, t3))
-        remq = quote
-            ulast = u[$N]
-            (sₗ, cᵤ) = randnormal(shufflevector(ulast, $lm), shufflevector(ulast, $um), $T)
-        end
-        push!(ib.args, remq)
-        push!(nout.args, :(shufflevector(sₗ, cᵤ, $cm)))
-    end
-    push!(ib.args, :(nout = $nout))
-    push!(q.args, Expr(:macrocall, Symbol("@inbounds"), LineNumberNode(@__LINE__, Symbol(@__FILE__)), ib))
-                                   # push!(q.args, Expr(:tuple, [Symbol(:n_,n) for n ∈ 0:N-1]...))
-    push!(q.args, :(VecUnroll(nout)))
-    q
+    push!(ib.args, remq)
+    push!(nout.args, :(shufflevector(sₗ, cᵤ, $cm)))
+  end
+  push!(ib.args, :(nout = $nout))
+  push!(q.args, Expr(:macrocall, Symbol("@inbounds"), LineNumberNode(@__LINE__, Symbol(@__FILE__)), ib))
+  # push!(q.args, Expr(:tuple, [Symbol(:n_,n) for n ∈ 0:N-1]...))
+  push!(q.args, :(VecUnroll(nout)))
+  q
 end
 
 @inline Random.randn(rng::AbstractVRNG, ::Type{VecUnroll{N,W,T}}) where {N,W,T} = randn(rng, VecUnroll{N,W,T,Vec{W,T}})

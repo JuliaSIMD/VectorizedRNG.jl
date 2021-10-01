@@ -175,31 +175,27 @@ end
 # end
 
 @inline function log2_3q(v, e)
-    T = eltype(v)
-    m1 = v * v 
-    fma1 = muladd(m1, T(0.22119417504560815), T(0.22007686931522777))
-    fma2 = muladd(fma1, m1, T(0.26237080574885147))
-    fma3 = muladd(fma2, m1, T(0.32059774779444955))
-    fma4 = muladd(fma3, m1, T(0.41219859454853247))
-    fma5 = muladd(fma4, m1, T(0.5770780162997059))
-    fma6 = muladd(fma5, m1, T(0.9617966939260809))
-    m2 = v * T(2.8853900817779268)
-    fma7 = VectorizationBase.vfmsub(v, T(2.8853900817779268), m2)
-    a1 = e + m2
-    s1 = e - a1
-    a2 = m2 + s1
-    a3 = fma7 + a2
-    m3 = v * m1
-    a4 = a1 + a3
-    muladd(fma6, m3, a4)
+  T = eltype(v)
+  m1 = v * v 
+  fma1 = muladd(m1, T(0.22119417504560815), T(0.22007686931522777))
+  fma2 = muladd(fma1, m1, T(0.26237080574885147))
+  fma3 = muladd(fma2, m1, T(0.32059774779444955))
+  fma4 = muladd(fma3, m1, T(0.41219859454853247))
+  fma5 = muladd(fma4, m1, T(0.5770780162997059))
+  fma6 = muladd(fma5, m1, T(0.9617966939260809))
+  m2 = v * T(2.8853900817779268)
+  fma7 = VectorizationBase.vfmsub(v, T(2.8853900817779268), m2)
+  a1 = e + m2
+  s1 = e - a1
+  a2 = m2 + s1
+  a3 = fma7 + a2
+  m3 = v * m1
+  a4 = a1 + a3
+  muladd(fma6, m3, a4)
 end
 @inline function nlog01(u, ::Type{T}) where {T}
-  lz = leading_zeros( u )
-  # f = mask(u, Float64) # shift by lz
-  # f = vmul(0.75, mask(shift_excess_zeros(u, lz), Float64)) # shift by lz
-  # f = vfdiv(vsub(f, 1.0), vadd(f, 1.0))
+  lz = reinterpret(Base.uinttype(T), leading_zeros( u ))
   f = floatbitmask(shift_excess_zeros(u, lz), T) # shift by lz
-  # f = muladd(T(0.75), f, -one(T)) / muladd(T(0.75), f, one(T))
   f = ( f - T(1.3333333333333333) ) / ( f + T(1.3333333333333333) )
   # l2h = log12_9(f)
   l2 = log2_3q(f, T(-0.5849625007211561814537389439478165087598144076924810604557526545410982277943579) - lz)
