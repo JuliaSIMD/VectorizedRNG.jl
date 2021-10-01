@@ -1,7 +1,7 @@
 # Coefficients calculated with https://github.com/simonbyrne/Remez.jl
 
-@inline function approx_sin8(x::Union{T,Vec{<:Any,T}}) where {T <: Real}
-    # poly(x) ≈ (xʳ = sqrt(x); sin((xʳ*π)/2)/xʳ)
+@inline function approx_sin8(x::Union{T,Vec{<:Any,T},VecUnroll{<:Any,<:Any,T}}) where {T <: Real}
+  # poly(x) ≈ (xʳ = sqrt(x); sin((xʳ*π)/2)/xʳ)
     x² = x * x
     c0 = T(2.22144146907918312350794048535203995923494010677251491220479906920966593121882)
     c1 = T(-0.9135311874994298224944388934705417261765270518848695099428083902179199377101094)
@@ -50,14 +50,15 @@ end
 @inline suboneopenconst(::Type{Float32}) = 1.9999999f0
 @inline suboneopenconst(::Type{Float64}) = 1.9999999999999998
 @inline function randsincos(u, ::Type{T}) where {T}
-    # return SLEEFPirates.sincos(mask(u, T))
-    r = floatbitmask(u, T)
-    ooc = oneopenconst(T)
-    sininput = vsub(r, ooc)
-    s = copysign( approx_sin8(sininput), reinterpret(T, u))
-    cosinput = vfnmadd(ooc, r, suboneopenconst(T))
-    c = copysign( approx_sin8(cosinput), reinterpret(T, u << 1))
-    s, c
+  # return SLEEFPirates.sincos(mask(u, T))
+  r = floatbitmask(u, T)
+  ooc = oneopenconst(T)
+  sininput = vsub(r, ooc)
+  cosinput = vfnmadd(ooc, r, suboneopenconst(T))
+  sc = data(approx_sin8(VecUnroll((sininput, cosinput))))
+  s = copysign( getfield(sc,1), reinterpret(T, u))
+  c = copysign( getfield(sc,2), reinterpret(T, u << 1))
+  s, c
 end
 
 
@@ -193,15 +194,16 @@ end
     muladd(fma6, m3, a4)
 end
 @inline function nlog01(u, ::Type{T}) where {T}
-    lz = leading_zeros( u )
-    # f = mask(u, Float64) # shift by lz
-    # f = vmul(0.75, mask(shift_excess_zeros(u, lz), Float64)) # shift by lz
-    # f = vfdiv(vsub(f, 1.0), vadd(f, 1.0))
-    f = floatbitmask(shift_excess_zeros(u, lz), T) # shift by lz
-    f = ( f - T(1.3333333333333333) ) / ( f + T(1.3333333333333333) )
-    # l2h = log12_9(f)
-    l2 = log2_3q(f, T(-0.5849625007211561814537389439478165087598144076924810604557526545410982277943579) - lz)
-    T(-0.6931471805599453) * l2
+  lz = leading_zeros( u )
+  # f = mask(u, Float64) # shift by lz
+  # f = vmul(0.75, mask(shift_excess_zeros(u, lz), Float64)) # shift by lz
+  # f = vfdiv(vsub(f, 1.0), vadd(f, 1.0))
+  f = floatbitmask(shift_excess_zeros(u, lz), T) # shift by lz
+  # f = muladd(T(0.75), f, -one(T)) / muladd(T(0.75), f, one(T))
+  f = ( f - T(1.3333333333333333) ) / ( f + T(1.3333333333333333) )
+  # l2h = log12_9(f)
+  l2 = log2_3q(f, T(-0.5849625007211561814537389439478165087598144076924810604557526545410982277943579) - lz)
+  T(-0.6931471805599453) * l2
 end
 # TODO: Add support for Float32 
 
