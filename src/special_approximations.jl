@@ -193,14 +193,21 @@ end
   a4 = a1 + a3
   muladd(fma6, m3, a4)
 end
-@inline function nlog01(u, ::Type{T}) where {T}
-  lz = reinterpret(Base.uinttype(T), leading_zeros( u ))
-  f = floatbitmask(shift_excess_zeros(u, lz), T) # shift by lz
-  f = ( f - T(1.3333333333333333) ) / ( f + T(1.3333333333333333) )
+@inline function nlog01(u, ::Type{Float64})
+  lz = reinterpret(Base.uinttype(Float64), leading_zeros( u ))
+  f = floatbitmask(shift_excess_zeros(u, lz), Float64) # shift by lz
+  f = ( f - (1.3333333333333333) ) / ( f + (1.3333333333333333) )
   # l2h = log12_9(f)
-  l2 = log2_3q(f, T(-0.5849625007211561814537389439478165087598144076924810604557526545410982277943579) - lz)
-  T(-0.6931471805599453) * l2
+  l2 = log2_3q(f, (-0.5849625007211561814537389439478165087598144076924810604557526545410982277943579) - lz)
+  (-0.6931471805599453) * l2
 end
+# TODO: don't depend on SLEEFPirates.jl
+
+@inline function nlog01(u, ::Type{Float32})
+  -Base.FastMath.log_fast(floatbitmask(u, Float32) - oneopenconst(Float32))
+end
+
+
 # TODO: Add support for Float32 
 
 # @inline function nlog01(u::AbstractSIMD{W,UInt64}, ::Type{Float32}) where {W}

@@ -4,6 +4,7 @@ using VectorizationBase, Random, UnPack
 using VectorizationBase: simd_integer_register_size, gep, _Vec, ifelse, VecUnroll, AbstractSIMD,
     rotate_right, vadd, vsub, zero_offsets, vfmadd, vfmsub, vfnmadd, shufflevector, register_size,
     cache_linesize, StaticInt, pick_vector_width, data
+using SLEEFPirates
 
 using Distributed: myid
 
