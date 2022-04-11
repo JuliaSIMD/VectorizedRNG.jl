@@ -6,6 +6,12 @@ struct Xoshift{P} <: AbstractVRNG{P}
 end
 @inline Base.pointer(rng::Xoshift) = rng.ptr
 
+struct XoshiftScalarState <: AbstractState{1,0}
+    eins::UInt64
+    zwei::UInt64
+    drei::UInt64
+    vier::UInt64
+end
 struct XoshiftState{P,W} <: AbstractState{P,W}
     eins::VecUnroll{P,W,UInt64,Vec{W,UInt64}}
     zwei::VecUnroll{P,W,UInt64,Vec{W,UInt64}}
@@ -38,7 +44,7 @@ end
 function jump(eins, zwei, drei, vier)
     e = zero(UInt64); z = zero(UInt64); d = zero(UInt64); v = zero(UInt64)
     for u ∈ (0x180ec6d33cfd0aba, 0xd5a61266f0c9392c, 0xa9582618e03fc9aa, 0x39abdc4529b1661c)
-        for b ∈ 0:63
+        for _ ∈ 0:63
             if u % Bool
                 e ⊻= eins
                 z ⊻= zwei
@@ -95,6 +101,15 @@ end
     vstoreu!(Base.unsafe_convert(Ptr{UInt8}, pointer(rng)), v, 4simd_integer_register_size()*P + 3)
 end
 
+@inline function getstate(rng::Xoshift{P}) where {P}
+    ptr = pointer(rng)
+    XoshiftScalarState(
+        vloadu(ptr, StaticInt{0}()),
+        vloadu(ptr, simd_integer_register_size()*P),
+        vloadu(ptr, 2simd_integer_register_size()*P),
+        vloadu(ptr, 3simd_integer_register_size()*P)
+    )
+end
 @inline function getstate(rng::Xoshift{P}, ::Val{1}, ::StaticInt{W}) where {P,W}
     ptr = pointer(rng)
     XoshiftState(
@@ -127,17 +142,25 @@ end
     ptr = pointer(rng)
     @unpack eins, zwei, drei, vier = s
     @inbounds for n ∈ 0:N
-        vstorea!(rng, data(eins)[n], simd_integer_register_size()*n)
+        vstorea!(ptr, data(eins)[n], simd_integer_register_size()*n)
     end
     @inbounds for n ∈ 0:N
-        vstorea!(rng, data(zwei)[n], simd_integer_register_size()*(n +  P))
+        vstorea!(ptr, data(zwei)[n], simd_integer_register_size()*(n +  P))
     end
     @inbounds for n ∈ 0:N
-        vstorea!(rng, data(drei)[n], simd_integer_register_size()*(n + 2P))
+        vstorea!(ptr, data(drei)[n], simd_integer_register_size()*(n + 2P))
     end
     @inbounds for n ∈ 0:N
-        vstorea!(rng, data(vier)[n], simd_integer_register_size()*(n + 3P))
+        vstorea!(ptr, data(vier)[n], simd_integer_register_size()*(n + 3P))
     end
+end
+@inline function storestate!(rng::Xoshift{P}, s::XoshiftScalarState) where {P}
+  ptr = pointer(rng)
+  @unpack eins, zwei, drei, vier = s;
+  vstorea!(ptr, eins,       )
+  vstorea!(ptr, zwei,  P*simd_integer_register_size())
+  vstorea!(ptr, drei, 2P*simd_integer_register_size())
+  vstorea!(ptr, vier, 3P*simd_integer_register_size())
 end
 @inline function storestate!(rng::Xoshift{P}, s::XoshiftState{0,W}) where {P,W}
     ptr = pointer(rng)
@@ -252,12 +275,20 @@ end
 end
 
 @inline function nextstate(s::XoshiftState{P}, ::Val{U}) where {P,U}
-    eins, zwei, drei, vier = _unpack(s, Val{U}())
-    out = eins + vier
-    out = rotate_right(out, 0x0000000000000017)
-    eins, zwei, drei, vier = nextstate(eins, zwei, drei, vier)
+  eins, zwei, drei, vier = _unpack(s, Val{U}())
+  out = eins + vier
+  out = rotate_right(out, 0x0000000000000017)
+  eins, zwei, drei, vier = nextstate(eins, zwei, drei, vier)
     # out += eins
-    XoshiftState( eins, zwei, drei, vier, s ), out
+  XoshiftState( eins, zwei, drei, vier, s ), out
+end
+@inline function nextstate(s::XoshiftScalarState)
+  @unpack eins, zwei, drei, vier = s
+  out = eins + vier
+  out = rotate_right(out, 0x0000000000000017)
+  eins, zwei, drei, vier = nextstate(eins, zwei, drei, vier)
+  # out += eins
+  XoshiftScalarState( eins, zwei, drei, vier ), out
 end
 
 function randbuffer64(r::Xoshift{P}) where {P}

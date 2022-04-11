@@ -1,7 +1,7 @@
 name = "VectorizedRNG"
 uuid = "33b4df10-0173-11e9-2a0c-851a7edac40e"
 authors = ["Chris Elrod <elrodc@gmail.com>"]
-version = "0.2.14"
+version = "0.2.15"
 
 [deps]
 Distributed = "8ba89e20-285c-5b6f-9357-94700520ee1b"

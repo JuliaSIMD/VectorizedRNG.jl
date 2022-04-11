@@ -283,12 +283,17 @@ end
 @inline Random.randn(rng::AbstractVRNG) = randn_scalar(rng, VectorizationBase.has_feature(Val(:x86_64_avx512f)))
 
 @inline function Random.rand(rng::AbstractVRNG, ::Random.SamplerType{UInt64})
-    i = getrandu64counter(rng)
-    b = randubuffer64(rng)
-    setrandu64counter!(rng, i + 0x01)
-    iszero(i) && rand!(rng, b)
-    vloadu(pointer(b), VectorizationBase.LazyMulAdd{8,0}(i % UInt32))
+  state, u = nextstate(getstate(rng))
+  storestate!(rng, state)
+  return u
 end
+# @inline function Random.rand(rng::AbstractVRNG, ::Random.SamplerType{UInt64})
+#     i = getrandu64counter(rng)
+#     b = randubuffer64(rng)
+#     setrandu64counter!(rng, i + 0x01)
+#     iszero(i) && rand!(rng, b)
+#     vloadu(pointer(b), VectorizationBase.LazyMulAdd{8,0}(i % UInt32))
+# end
 @inline Random.rand(rng::AbstractVRNG, ::Random.UInt52Raw{UInt64}) = Random.rand(rng, Random.SamplerType{UInt64}())
 for T ∈ [:Int8,:UInt8,:Int16,:UInt16,:Int32,:UInt32,:Int64]
   @eval @inline Random.rand(rng::AbstractVRNG, ::Random.SamplerType{$T}) = Random.rand(rng, Random.SamplerType{UInt64}()) % $T
