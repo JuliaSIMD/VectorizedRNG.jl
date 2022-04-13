@@ -58,6 +58,7 @@ function __init__()
   __init()
 end
 
+@static if VERSION >= v"1.8.0-beta1"
 let
   while false; end
   __init()
@@ -67,6 +68,7 @@ let
   x32 = Vector{Float32}(undef, 16)
   rand!(local_rng(), x32)
   randn!(local_rng(), x32)
+end
 end
 
 end # module
