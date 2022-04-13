@@ -39,11 +39,8 @@ const RNG_MEM_SIZE = (5(simd_integer_register_size()*XREGISTERS + 2048*3))
 local_rng(i) = Xoshift{XREGISTERS}(i*(RNG_MEM_SIZE) + GLOBAL_vRNGs[])
 local_rng() = local_rng(Base.Threads.threadid() - 1)
 
-# include("precompile.jl")
-# _precompile_()
 
-function __init__()
-    # ccall(:jl_generating_output, Cint, ()) == 1 && return
+function __init()
   nthreads = Base.Threads.nthreads()
   GLOBAL_vRNGs[] = ptr = VectorizationBase.valloc((RNG_MEM_SIZE ÷ 8)*nthreads, UInt64)
   nstreams = XREGISTERS * nthreads * simd_integer_register_size()
@@ -56,6 +53,20 @@ function __init__()
     setrandn64counter!(rng, 0x00)
   end
 end
+function __init__()
+  ccall(:jl_generating_output, Cint, ()) == 1 && return
+  __init()
+end
 
-    
+let
+  while false; end
+  __init()
+  x64 = Vector{Float64}(undef, 16)
+  rand!(local_rng(), x64)
+  randn!(local_rng(), x64)
+  x32 = Vector{Float32}(undef, 16)
+  rand!(local_rng(), x32)
+  randn!(local_rng(), x32)
+end
+
 end # module
