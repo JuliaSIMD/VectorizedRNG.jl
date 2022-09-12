@@ -18,7 +18,7 @@ StaticArraysCore = "1"
 StrideArraysCore = "0.3"
 UnPack = "1"
 VectorizationBase = "0.19.38, 0.20.1, 0.21"
-julia = "1.5"
+julia = "1.6"
 
 [extras]
 RNGTest = "97cc5700-e6cb-5ca1-8fb2-7f6b45264ecd"
