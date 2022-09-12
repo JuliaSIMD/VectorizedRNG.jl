@@ -90,6 +90,11 @@ end
   r = sqrt(nlog01(u2(1), Float64))
   Vec{1,Float64}((Core.VecElement(s * r),)), Vec{1,Float64}((Core.VecElement(c * r),))
 end
+@inline function randnormal(u1::UInt64, u2::UInt64, ::Type{Float64})
+  s, c = randsincos(u1, Float64)
+  r = sqrt(nlog01(u2, Float64))
+  s*r, c*r
+end
 
 @generated function random_normal(vu::VecUnroll{Nm1,W,UInt64,Vec{W,UInt64}}, ::Type{T}) where {Nm1,W,T}
   # @assert isodd(Nm1)
