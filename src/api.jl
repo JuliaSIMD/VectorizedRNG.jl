@@ -231,19 +231,60 @@ end
 function Random.rand!(
     rng::AbstractVRNG, x::AbstractArray{T}, α::Number = StaticInt{0}(), β = StaticInt{0}(), γ = StaticInt{1}()
 ) where {T <: Union{Float32,Float64}}
-    random_sample_u2!(random_uniform, rng, x, α, β, γ)
+  random_sample_u2!(random_uniform, rng, x, α, β, γ)
 end
 function Random.randn!(
     rng::AbstractVRNG, x::AbstractArray{T}, α::Number = StaticInt{0}(), β = StaticInt{0}(), γ = StaticInt{1}()
 ) where {T<:Union{Float32,Float64}}
-    random_sample_u2!(random_normal, rng, x, α, β, γ)
+  random_sample_u2!(random_normal, rng, x, α, β, γ)
 end
 @inline function random_unsigned(state::AbstractState, ::Val{N}, ::Type{T}) where {N,T}
-    nextstate(state, Val{N}())
+  nextstate(state, Val{N}())
 end
 function Random.rand!(rng::AbstractVRNG, x::AbstractArray{UInt64})
-    random_sample_u2!(random_unsigned, rng, x, StaticInt{0}(), StaticInt{0}(), StaticInt{1}())
+  random_sample_u2!(random_unsigned, rng, x, StaticInt{0}(), StaticInt{0}(), StaticInt{1}())
 end
+
+using StaticArraysCore, StrideArraysCore
+function Random.rand!(rng::AbstractVRNG, x::StaticArraysCore.MArray{<:Tuple,T}) where {T<:Union{Float32,Float64}}
+  GC.@preserve x begin
+    random_sample_u2!(random_uniform, rng, PtrArray(x), α, β, γ)
+  end
+  return x
+end
+function Random.rand!(rng::AbstractVRNG, x::SA) where {S<:Tuple,T<:Union{Float32,Float64},SA<:StaticArraysCore.StaticArray{S,T}}
+  a = MArray{S,UInt64}(undef)
+  GC.@preserve a begin
+    random_sample_u2!(random_uniform, rng, PtrArray(a), α, β, γ)
+  end
+  x .= a
+end
+function Random.randn!(rng::AbstractVRNG, x::StaticArraysCore.MArray{<:Tuple,T}) where {T<:Union{Float32,Float64}}
+  GC.@preserve x begin
+    random_sample_u2!(random_normal, rng, PtrArray(x), α, β, γ)
+  end
+  return x
+end
+function Random.randn!(rng::AbstractVRNG, x::SA) where {S<:Tuple,T<:Union{Float32,Float64},SA<:StaticArraysCore.StaticArray{S,T}}
+  a = MArray{S,UInt64}(undef)
+  GC.@preserve a begin
+    random_sample_u2!(random_normal, rng, PtrArray(a), α, β, γ)
+  end
+  x .= a
+end
+
+function Random.rand!(rng::AbstractVRNG, x::StaticArraysCore.MArray{<:Tuple,UInt64})
+  random_sample_u2!(random_unsigned, rng, x, StaticInt{0}(), StaticInt{0}(), StaticInt{1}())
+end
+function Random.rand!(rng::AbstractVRNG, x::SA) where {S<:Tuple,SA<:StaticArraysCore.StaticArray{S,UInt64}}
+  a = MArray{S,UInt64}(undef)
+  GC.@preserve a begin
+    random_sample_u2!(random_unsigned, rng, PtrArray(a), StaticInt{0}(), StaticInt{0}(), StaticInt{1}())
+  end
+  x .= a
+end
+
+
 
 Random.rand(rng::AbstractVRNG, d1::Integer, dims::Vararg{Integer,N}) where {N} = rand!(rng, Array{Float64}(undef, d1, dims...))
 Random.randn(rng::AbstractVRNG, d1::Integer, dims::Vararg{Integer,N}) where {N} = randn!(rng, Array{Float64}(undef, d1, dims...))
