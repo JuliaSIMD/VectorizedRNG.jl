@@ -41,6 +41,7 @@ function initXoshift!(ptr::Ptr{UInt64}, P, e::UInt64, z::UInt64, d::UInt64, v::U
     vstoreu!(ptr, e); vstoreu!(ptr, z, 8P); vstoreu!(ptr, d, 8*(2P)); vstoreu!(ptr, v, 8*(3P));
     vstoreu!(Base.unsafe_convert(Ptr{UInt32}, ptr), 0x00000000, 8*(4P));
 end
+# https://prng.di.unimi.it/xoshiro256starstar.c
 function jump(eins, zwei, drei, vier)
     e = zero(UInt64); z = zero(UInt64); d = zero(UInt64); v = zero(UInt64)
     for u ∈ (0x180ec6d33cfd0aba, 0xd5a61266f0c9392c, 0xa9582618e03fc9aa, 0x39abdc4529b1661c)
