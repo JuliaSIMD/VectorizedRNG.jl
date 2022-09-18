@@ -15,12 +15,15 @@ abstract type AbstractState{N,W} end
 
 @inline vloadu(ptr::Ptr) = VectorizationBase.__vload(ptr, VectorizationBase.False(), register_size())
 @inline vloadu(ptr::Ptr, i) = VectorizationBase.__vload(ptr, i, VectorizationBase.False(), register_size())
-@inline vloada(ptr::Ptr) = VectorizationBase.__vload(ptr, VectorizationBase.True(), register_size())
-@inline vloada(ptr::Ptr, i) = VectorizationBase.__vload(ptr, i, VectorizationBase.True(), register_size())
-@inline vloada(ptr::Ptr, i, m) = VectorizationBase.__vload(ptr, i, m, VectorizationBase.True(), register_size())
-@inline vstorea!(ptr::Ptr, v) = VectorizationBase.__vstore!(ptr, v, VectorizationBase.True(), VectorizationBase.False(), VectorizationBase.False(), register_size())
-@inline vstorea!(ptr::Ptr, v, i) = VectorizationBase.__vstore!(ptr, v, i, VectorizationBase.True(), VectorizationBase.False(), VectorizationBase.False(), register_size())
-@inline vstorea!(ptr::Ptr, v, i, m) = VectorizationBase.__vstore!(ptr, v, i, m, VectorizationBase.True(), VectorizationBase.False(), VectorizationBase.False(), register_size())
+
+const ALIGN = VectorizationBase.False()
+
+@inline vloada(ptr::Ptr) = VectorizationBase.__vload(ptr, ALIGN, register_size())
+@inline vloada(ptr::Ptr, i) = VectorizationBase.__vload(ptr, i, ALIGN, register_size())
+@inline vloada(ptr::Ptr, i, m) = VectorizationBase.__vload(ptr, i, m, ALIGN, register_size())
+@inline vstorea!(ptr::Ptr, v) = VectorizationBase.__vstore!(ptr, v, ALIGN, VectorizationBase.False(), VectorizationBase.False(), register_size())
+@inline vstorea!(ptr::Ptr, v, i) = VectorizationBase.__vstore!(ptr, v, i, ALIGN, VectorizationBase.False(), VectorizationBase.False(), register_size())
+@inline vstorea!(ptr::Ptr, v, i, m) = VectorizationBase.__vstore!(ptr, v, i, m, ALIGN, VectorizationBase.False(), VectorizationBase.False(), register_size())
 @inline vstoreu!(ptr::Ptr, v, i) = VectorizationBase.__vstore!(ptr, v, i, VectorizationBase.False(), VectorizationBase.False(), VectorizationBase.False(), register_size())
 @inline vstoreu!(ptr::Ptr, v) = VectorizationBase.__vstore!(ptr, v, VectorizationBase.False(), VectorizationBase.False(), VectorizationBase.False(), register_size())
 

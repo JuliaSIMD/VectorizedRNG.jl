@@ -1,7 +1,8 @@
 
 const XREGISTERS = 2
 
-struct Xoshift{P} <: AbstractVRNG{P}
+abstract type AbstractXoshift{P} <: AbstractVRNG{P} end
+struct Xoshift{P} <: AbstractXoshift{P}
     ptr::Ptr{UInt64}
 end
 @inline Base.pointer(rng::Xoshift) = rng.ptr
@@ -41,8 +42,57 @@ function initXoshift!(ptr::Ptr{UInt64}, P, e::UInt64, z::UInt64, d::UInt64, v::U
     vstoreu!(ptr, e); vstoreu!(ptr, z, 8P); vstoreu!(ptr, d, 8*(2P)); vstoreu!(ptr, v, 8*(3P));
     vstoreu!(Base.unsafe_convert(Ptr{UInt32}, ptr), 0x00000000, 8*(4P));
 end
+function initXoshift(::Val{P}, ::Val{W}) where {P, W}
+    e = randnonzero(); z = randnonzero();
+    d = randnonzero(); v = randnonzero();
+    initXoshift(Val{P}(), Val{W}(), e, z, d, v)
+end
+@generated function initXoshift(::Val{P}, ::Val{W}, e_0::UInt64, z_0::UInt64, d_0::UInt64, v_0::UInt64) where {W, P}
+  q = Expr(:block)
+  et = Expr(:tuple)
+  zt = Expr(:tuple)
+  dt = Expr(:tuple)
+  vt = Expr(:tuple)
+  eold = :e_0
+  zold = :z_0
+  dold = :d_0
+  vold = :v_0
+  i = 0
+  for p = 1:P
+    ev = Expr(:call, Vec)
+    zv = Expr(:call, Vec)
+    dv = Expr(:call, Vec)
+    vv = Expr(:call, Vec)
+    for w = 1:W
+      push!(ev.args, eold)
+      push!(zv.args, zold)
+      push!(dv.args, dold)
+      push!(vv.args, vold)
+      ((w == W) && (p == P)) && break
+      i += 1
+      enew = Symbol(:e_,i)
+      znew = Symbol(:z_,i)
+      dnew = Symbol(:d_,i)
+      vnew = Symbol(:v_,i)
+      push!(q.args, :(($enew, $znew, $dnew, $vnew) = jump($eold, $zold, $dold, $vold)))
+      eold = enew
+      zold = znew
+      dold = dnew
+      vold = vnew
+    end
+    push!(et.args, ev)
+    push!(zt.args, zv)
+    push!(dt.args, dv)
+    push!(vt.args, vv)
+  end
+  push!(q.args, :(XoshiftState(VecUnroll($et),VecUnroll($zt),VecUnroll($dt),VecUnroll($vt))))
+  q
+end
+
+
 # https://prng.di.unimi.it/xoshiro256starstar.c
-function jump(eins, zwei, drei, vier)
+@static if VERSION >= v"1.8"
+Base.@assume_effects total function jump(eins::UInt64, zwei::UInt64, drei::UInt64, vier::UInt64)
     e = zero(UInt64); z = zero(UInt64); d = zero(UInt64); v = zero(UInt64)
     for u ∈ (0x180ec6d33cfd0aba, 0xd5a61266f0c9392c, 0xa9582618e03fc9aa, 0x39abdc4529b1661c)
         for _ ∈ 0:63
@@ -58,23 +108,81 @@ function jump(eins, zwei, drei, vier)
     end
     e, z, d, v
 end
-function seed!(seed::Integer) 
-    i = seed % UInt64
-    e = z = d = v = zero(UInt64)
-    increment = 0xa04de531e612e1b9
-    while any(iszero, (e, z, d, v))
-        e = ((i * 0x90ce6ecbad5e33b5) + increment)
-        z = ((e * 0x90ce6ecbad5e33b5) + increment)
-        d = ((z * 0x90ce6ecbad5e33b5) + increment)
-        v = ((d * 0x90ce6ecbad5e33b5) + increment)
-        increment += 0x0000000000000002
+else
+function jump(eins::UInt64, zwei::UInt64, drei::UInt64, vier::UInt64)
+    e = zero(UInt64); z = zero(UInt64); d = zero(UInt64); v = zero(UInt64)
+    for u ∈ (0x180ec6d33cfd0aba, 0xd5a61266f0c9392c, 0xa9582618e03fc9aa, 0x39abdc4529b1661c)
+        for _ ∈ 0:63
+            if u % Bool
+                e ⊻= eins
+                z ⊻= zwei
+                d ⊻= drei
+                v ⊻= vier
+            end
+            u >>>= 1
+            e, z, d, v = nextstate(e, z, d, v)
+        end
     end
-    nstreams = XREGISTERS * Base.Threads.nthreads() * pick_vector_width(UInt64)
-    initXoshift!(GLOBAL_vRNGs[], nstreams, e, z, d, v)
+    e, z, d, v
+end
+end
+@static if VERSION >= v"1.8"
+
+Base.@assume_effects consistent nothrow terminates_globally function seed(s::Base.BitInteger)
+  i = s % UInt64
+  e = z = d = v = zero(UInt64)
+  increment = 0xa04de531e612e1b9
+  while any(iszero, (e, z, d, v))
+    e = ((i * 0x90ce6ecbad5e33b5) + increment)
+    z = ((e * 0x90ce6ecbad5e33b5) + increment)
+    d = ((z * 0x90ce6ecbad5e33b5) + increment)
+    v = ((d * 0x90ce6ecbad5e33b5) + increment)
+    increment += 0x0000000000000002
+  end
+  e, z, d, v
+end
+else
+function seed(s::Base.BitInteger)
+  i = s % UInt64
+  e = z = d = v = zero(UInt64)
+  increment = 0xa04de531e612e1b9
+  while any(iszero, (e, z, d, v))
+    e = ((i * 0x90ce6ecbad5e33b5) + increment)
+    z = ((e * 0x90ce6ecbad5e33b5) + increment)
+    d = ((z * 0x90ce6ecbad5e33b5) + increment)
+    v = ((d * 0x90ce6ecbad5e33b5) + increment)
+    increment += 0x0000000000000002
+  end
+  e, z, d, v
+end
+end
+seed(s::Integer) = seed((s % UInt64)::UInt64)
+
+function seed!(s::Integer)
+  e, z, d, v = seed(s)
+  nstreams = XREGISTERS * Base.Threads.nthreads() * pick_vector_width(UInt64)
+  initXoshift!(GLOBAL_vRNGs[], nstreams, e, z, d, v)
 end
 
+mutable struct MutableXoshift{P,W} <: AbstractXoshift{P}
+  state::XoshiftState{P,W}
+  @inline function MutableXoshift(s::Integer)
+    MutableXoshift{XREGISTERS,Int(pick_vector_width(UInt64))}(s)
+  end
+  @inline function MutableXoshift{P,W}(s::Integer) where {P,W}
+    e, z, d, v = seed(s)
+    state = initXoshift(Val{P}(), Val{W}(), e, z, d, v)
+    rng = new{P,W}()
+    storestate!(rng, state)
+    return rng
+  end
+end
+@inline Base.pointer(rng::MutableXoshift) = Base.unsafe_convert(Ptr{UInt64}, Base.pointer_from_objref(rng))
+Xoshiro(m::MutableXoshift{P}) where {P} = Xoshiro{P}(pointer(m))
 
-# @inline function getstate(rng::Xoshift{P}, ::Val{N}, ::Val{W}) where {P,N,W}
+
+
+# @inline function getstate(rng::AbstractXoshift{P}, ::Val{N}, ::Val{W}) where {P,N,W}
 #     ptr = pointer(rng)
 #     XoshiftState(
 #         ntuple(n -> vloada(Vec{W,UInt64}, ptr, W64*(n - 1)), Val{N}()),
@@ -84,7 +192,7 @@ end
 #     )
 # end
 @inline function getrandu64counter(rng::Xoshift{P}) where {P}
-    vloadu(Base.unsafe_convert(Ptr{UInt8}, pointer(rng)), 4simd_integer_register_size()*P)
+  vloadu(Base.unsafe_convert(Ptr{UInt8}, pointer(rng)), 4simd_integer_register_size()*P)
 end
 @inline function getrand64counter(rng::Xoshift{P}) where {P}
     vloadu(Base.unsafe_convert(Ptr{UInt8}, pointer(rng)), 4simd_integer_register_size()*P + 2)
@@ -102,35 +210,42 @@ end
     vstoreu!(Base.unsafe_convert(Ptr{UInt8}, pointer(rng)), v, 4simd_integer_register_size()*P + 3)
 end
 
-@inline function getstate(rng::Xoshift{P}) where {P}
-    ptr = pointer(rng)
+@inline function getstate(rng::AbstractXoshift{P}) where {P}
+  ptr = pointer(rng)
+  GC.@preserve rng begin
     XoshiftScalarState(
         vloadu(ptr, StaticInt{0}()),
         vloadu(ptr, simd_integer_register_size()*P),
         vloadu(ptr, 2simd_integer_register_size()*P),
         vloadu(ptr, 3simd_integer_register_size()*P)
     )
+  end
 end
-@inline function getstate(rng::Xoshift{P}, ::Val{1}, ::StaticInt{W}) where {P,W}
-    ptr = pointer(rng)
+@inline function getstate(rng::AbstractXoshift{P}, ::Val{1}, ::StaticInt{W}) where {P,W}
+  ptr = pointer(rng)
+  GC.@preserve rng begin
     XoshiftState(
         VecUnroll((vloada(ptr, MM{W,8}(StaticInt{0}())),)),
         VecUnroll((vloada(ptr, MM{W,8}(simd_integer_register_size()*P)),)),
         VecUnroll((vloada(ptr, MM{W,8}(2simd_integer_register_size()*P)),)),
         VecUnroll((vloada(ptr, MM{W,8}(3simd_integer_register_size()*P)),))
     )
+  end
 end
-@inline function getstate(rng::Xoshift{P}, ::Val{2}, ::StaticInt{W}) where {P,W}
-    ptr = pointer(rng)
+@inline function getstate(rng::AbstractXoshift{P}, ::Val{2}, ::StaticInt{W}) where {P,W}
+  ptr = pointer(rng)
+  GC.@preserve rng begin
     XoshiftState(
         VecUnroll((vloada(ptr, MM{W,8}(StaticInt{0}()  )), vloada(ptr, MM{W,8}(simd_integer_register_size()         )))),
         VecUnroll((vloada(ptr, MM{W,8}( P*simd_integer_register_size())), vloada(ptr, MM{W,8}(simd_integer_register_size()*(1 +  P))))),
         VecUnroll((vloada(ptr, MM{W,8}(2P*simd_integer_register_size())), vloada(ptr, MM{W,8}(simd_integer_register_size()*(1 + 2P))))),
         VecUnroll((vloada(ptr, MM{W,8}(3P*simd_integer_register_size())), vloada(ptr, MM{W,8}(simd_integer_register_size()*(1 + 3P)))))
     )
+  end
 end
-@inline function getstate(rng::Xoshift{P}, ::Val{4}, ::StaticInt{W}) where {P,W}
+@inline function getstate(rng::AbstractXoshift{P}, ::Val{4}, ::StaticInt{W}) where {P,W}
     ptr = pointer(rng)
+  GC.@preserve rng begin
     RS = simd_integer_register_size()
     XoshiftState(
         VecUnroll((vloada(ptr, MM{W,8}(StaticInt{0}())), vloada(ptr, MM{W,8}(RS)         ), vloada(ptr, MM{W,8}(RS* 2)      ), vloada(ptr, MM{W,8}(RS* 3      )))),
@@ -138,9 +253,11 @@ end
         VecUnroll((vloada(ptr, MM{W,8}(2P*RS)),          vloada(ptr, MM{W,8}(RS*(1 + 2P))), vloada(ptr, MM{W,8}(RS*(2 + 2P))), vloada(ptr, MM{W,8}(RS*(3 + 2P))))),
         VecUnroll((vloada(ptr, MM{W,8}(3P*RS)),          vloada(ptr, MM{W,8}(RS*(1 + 3P))), vloada(ptr, MM{W,8}(RS*(2 + 3P))), vloada(ptr, MM{W,8}(RS*(3 + 3P)))))
     )
+  end
 end
-@inline function storestate!(rng::Xoshift{P}, s::XoshiftState{N,W}) where {P,N,W}
+@inline function storestate!(rng::AbstractXoshift{P}, s::XoshiftState{N,W}) where {P,N,W}
     ptr = pointer(rng)
+  GC.@preserve rng begin
     @unpack eins, zwei, drei, vier = s
     @inbounds for n ∈ 0:N
         vstorea!(ptr, data(eins)[n], simd_integer_register_size()*n)
@@ -154,30 +271,36 @@ end
     @inbounds for n ∈ 0:N
         vstorea!(ptr, data(vier)[n], simd_integer_register_size()*(n + 3P))
     end
+  end
 end
-@inline function storestate!(rng::Xoshift{P}, s::XoshiftScalarState) where {P}
+@inline function storestate!(rng::AbstractXoshift{P}, s::XoshiftScalarState) where {P}
+  ptr = pointer(rng)
+  GC.@preserve rng begin
+    @unpack eins, zwei, drei, vier = s;
+    vstorea!(ptr, eins,       )
+    vstorea!(ptr, zwei,  P*simd_integer_register_size())
+    vstorea!(ptr, drei, 2P*simd_integer_register_size())
+    vstorea!(ptr, vier, 3P*simd_integer_register_size())
+  end
+end
+@inline function storestate!(rng::AbstractXoshift{P}, s::XoshiftState{0,W}) where {P,W}
   ptr = pointer(rng)
   @unpack eins, zwei, drei, vier = s;
-  vstorea!(ptr, eins,       )
-  vstorea!(ptr, zwei,  P*simd_integer_register_size())
-  vstorea!(ptr, drei, 2P*simd_integer_register_size())
-  vstorea!(ptr, vier, 3P*simd_integer_register_size())
-end
-@inline function storestate!(rng::Xoshift{P}, s::XoshiftState{0,W}) where {P,W}
-    ptr = pointer(rng)
-    @unpack eins, zwei, drei, vier = s;
-    _eins = data(eins); _zwei = data(zwei); _drei = data(drei); _vier = data(vier);
+  _eins = data(eins); _zwei = data(zwei); _drei = data(drei); _vier = data(vier);
+  GC.@preserve rng begin
     @inbounds begin
         vstorea!(ptr, _eins[1],       )
         vstorea!(ptr, _zwei[1],  P*simd_integer_register_size())
         vstorea!(ptr, _drei[1], 2P*simd_integer_register_size())
         vstorea!(ptr, _vier[1], 3P*simd_integer_register_size())
     end
+  end
 end
-@inline function storestate!(rng::Xoshift{P}, s::XoshiftState{1,W}) where {P,W}
-    ptr = pointer(rng)
-    @unpack eins, zwei, drei, vier = s;
-    _eins = data(eins); _zwei = data(zwei); _drei = data(drei); _vier = data(vier);
+@inline function storestate!(rng::AbstractXoshift{P}, s::XoshiftState{1,W}) where {P,W}
+  ptr = pointer(rng)
+  @unpack eins, zwei, drei, vier = s;
+  _eins = data(eins); _zwei = data(zwei); _drei = data(drei); _vier = data(vier);
+  GC.@preserve rng begin
     @inbounds begin
         vstorea!(ptr, _eins[1],                            )
         vstorea!(ptr, _eins[2],   simd_integer_register_size()          )
@@ -188,11 +311,13 @@ end
         vstorea!(ptr, _vier[1],   simd_integer_register_size()*      3P )
         vstorea!(ptr, _vier[2],   simd_integer_register_size()*(1 +  3P))
     end
+  end
 end
-@inline function storestate!(rng::Xoshift{P}, s::XoshiftState{3,W}) where {P,W}
-    ptr = pointer(rng)
-    @unpack eins, zwei, drei, vier = s;
-    _eins = data(eins); _zwei = data(zwei); _drei = data(drei); _vier = data(vier);
+@inline function storestate!(rng::AbstractXoshift{P}, s::XoshiftState{3,W}) where {P,W}
+  ptr = pointer(rng)
+  @unpack eins, zwei, drei, vier = s;
+  _eins = data(eins); _zwei = data(zwei); _drei = data(drei); _vier = data(vier);
+  GC.@preserve rng begin
     @inbounds begin
         vstorea!(ptr, _eins[1],      )
         vstorea!(ptr, _eins[2],   simd_integer_register_size())
@@ -211,6 +336,7 @@ end
         vstorea!(ptr, _vier[3],   simd_integer_register_size()*(2 +  3P))
         vstorea!(ptr, _vier[4],   simd_integer_register_size()*(3 +  3P))
     end
+  end
 end
 
 @inline function nextstate(eins, zwei, drei, vier)
