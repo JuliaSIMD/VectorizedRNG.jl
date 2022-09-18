@@ -72,7 +72,7 @@ end
 
 @testset "VectorizedRNG.jl" begin
   Aqua.test_all(VectorizedRNG)#, ambiguities = VERSION < v"1.6-DEV")
-
+  VectorizedRNG.seed!(33)
   @test isempty(detect_unbound_args(VectorizedRNG))
   @testset "Small Crush" begin 
     rngunif64 = RNGTest.wrap(local_rng(), Float64);
