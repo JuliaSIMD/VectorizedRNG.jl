@@ -21,7 +21,7 @@ struct XoshiftState{P,W} <: AbstractState{P,W}
 end
 
 Xoshift(ptr, ::StaticInt{X}) where {X} = Xoshift{X}(ptr)
-Xoshift(ptr) = Xoshift(ptr, pick_vector_width(UInt64) * StaticInt(XREGISTERS))
+Xoshift(ptr) = Xoshift(ptr, StaticInt(XREGISTERS))
 function randnonzero()
     while true
         r = rand(UInt64)
@@ -178,7 +178,7 @@ mutable struct MutableXoshift{P,W} <: AbstractXoshift{P}
   end
 end
 @inline Base.pointer(rng::MutableXoshift) = Base.unsafe_convert(Ptr{UInt64}, Base.pointer_from_objref(rng))
-Xoshiro(m::MutableXoshift{P}) where {P} = Xoshiro{P}(pointer(m))
+Xoshift(m::MutableXoshift{P}) where {P} = Xoshift{P}(pointer(m))
 
 
 
