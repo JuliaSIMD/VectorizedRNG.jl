@@ -120,10 +120,10 @@ end
   end
   if n < N # then there is odd remainder
     # we split the vector in two, gen randnormal, and then recombine.
-    Wl = (W << 3) ÷ sizeof(T) 
-    Wh = Wl >>> 1
+    Wl = (W << 3) ÷ sizeof(T)
+    Wh = W >>> 1
     t1 = Expr(:tuple); t2 = Expr(:tuple); t3 = Expr(:tuple);
-    append!(t1.args, 0:Wh-1); append!(t2.args, Wh:Wl-1); append!(t3.args, 0:Wl-1)
+    append!(t1.args, 0:Wh-1); append!(t2.args, Wh:W-1); append!(t3.args, 0:Wl-1)
     lm = Expr(:call, Expr(:curly, :Val, t1))
     um = Expr(:call, Expr(:curly, :Val, t2))
     cm = Expr(:call, Expr(:curly, :Val, t3))

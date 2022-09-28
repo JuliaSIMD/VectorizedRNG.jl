@@ -165,6 +165,21 @@ end
     randn!(local_rng(), A, VectorizedRNG.StaticInt(1), 100, 10);
     @test 190 < sum(A) / length(A) < 210
   end
+  @testset "Correct Sigma" begin
+    for T = (Float32,Float64)
+      x = Vector{T}(undef, 15);
+      s::Float64 = 0.0
+      N = 10_000;
+      vrng = local_rng()
+      σ = 0.5
+      for i = 1:N
+        randn!(vrng, x, static(0), static(0), σ)
+        s += std(x)
+      end
+      s /= N
+      @test s ≈ σ rtol = 1e-1
+    end
+  end
 end
 
 
