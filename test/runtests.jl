@@ -173,7 +173,7 @@ end
       vrng = local_rng()
       σ = 0.5
       for i = 1:N
-        randn!(vrng, x, static(0), static(0), σ)
+        randn!(vrng, x, VectorizedRNG.static(0), VectorizedRNG.static(0), σ)
         s += std(x)
       end
       s /= N
