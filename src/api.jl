@@ -95,6 +95,11 @@ end
   r = sqrt(nlog01(u2, Float64))
   s*r, c*r
 end
+@inline function randnormal(u1::UInt64, u2::UInt64, ::Type{Float32})
+  s, c = randsincos(Vec(u1), Float32)
+  r = sqrt(nlog01(Vec(u2), Float32))
+  shufflevector(s*r, Val((0,1))), shufflevector(c*r, Val((0,1)))
+end
 
 @generated function random_normal(vu::VecUnroll{Nm1,W,UInt64,Vec{W,UInt64}}, ::Type{T}) where {Nm1,W,T}
   # @assert isodd(Nm1)
