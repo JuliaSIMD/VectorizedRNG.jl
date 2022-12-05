@@ -1,39 +1,39 @@
 
 const XREGISTERS = 2
 
-abstract type AbstractXoshift{P} <: AbstractVRNG{P} end
-struct Xoshift{P} <: AbstractXoshift{P}
+abstract type AbstractXoshiro{P} <: AbstractVRNG{P} end
+struct Xoshiro{P} <: AbstractXoshiro{P}
     ptr::Ptr{UInt64}
 end
-@inline Base.pointer(rng::Xoshift) = rng.ptr
+@inline Base.pointer(rng::Xoshiro) = rng.ptr
 
-struct XoshiftScalarState <: AbstractState{1,0}
+struct XoshiroScalarState <: AbstractState{1,0}
     eins::UInt64
     zwei::UInt64
     drei::UInt64
     vier::UInt64
 end
-struct XoshiftState{P,W} <: AbstractState{P,W}
+struct XoshiroState{P,W} <: AbstractState{P,W}
     eins::VecUnroll{P,W,UInt64,Vec{W,UInt64}}
     zwei::VecUnroll{P,W,UInt64,Vec{W,UInt64}}
     drei::VecUnroll{P,W,UInt64,Vec{W,UInt64}}
     vier::VecUnroll{P,W,UInt64,Vec{W,UInt64}}
 end
 
-Xoshift(ptr, ::StaticInt{X}) where {X} = Xoshift{X}(ptr)
-Xoshift(ptr) = Xoshift(ptr, StaticInt(XREGISTERS))
+Xoshiro(ptr, ::StaticInt{X}) where {X} = Xoshiro{X}(ptr)
+Xoshiro(ptr) = Xoshiro(ptr, StaticInt(XREGISTERS))
 function randnonzero()
     while true
         r = rand(UInt64)
         iszero(r) || return r
     end
 end
-function initXoshift!(ptr::Ptr{UInt64}, P)
+function initXoshiro!(ptr::Ptr{UInt64}, P)
     e = randnonzero(); z = randnonzero();
     d = randnonzero(); v = randnonzero();
-    initXoshift!(ptr, P, e, z, d, v)
+    initXoshiro!(ptr, P, e, z, d, v)
 end
-function initXoshift!(ptr::Ptr{UInt64}, P, e::UInt64, z::UInt64, d::UInt64, v::UInt64) # P here means number of streams
+function initXoshiro!(ptr::Ptr{UInt64}, P, e::UInt64, z::UInt64, d::UInt64, v::UInt64) # P here means number of streams
     for j ∈ 1:P-1
         i = P - j
         vstoreu!(ptr, e, 8i); vstoreu!(ptr, z, 8*(i + P)); vstoreu!(ptr, d, 8*(i + 2P)); vstoreu!(ptr, v, 8*(i + 3P));
@@ -42,12 +42,12 @@ function initXoshift!(ptr::Ptr{UInt64}, P, e::UInt64, z::UInt64, d::UInt64, v::U
     vstoreu!(ptr, e); vstoreu!(ptr, z, 8P); vstoreu!(ptr, d, 8*(2P)); vstoreu!(ptr, v, 8*(3P));
     vstoreu!(Base.unsafe_convert(Ptr{UInt32}, ptr), 0x00000000, 8*(4P));
 end
-function initXoshift(::Val{P}, ::Val{W}) where {P, W}
+function initXoshiro(::Val{P}, ::Val{W}) where {P, W}
     e = randnonzero(); z = randnonzero();
     d = randnonzero(); v = randnonzero();
-    initXoshift(Val{P}(), Val{W}(), e, z, d, v)
+    initXoshiro(Val{P}(), Val{W}(), e, z, d, v)
 end
-@generated function initXoshift(::Val{P}, ::Val{W}, e_0::UInt64, z_0::UInt64, d_0::UInt64, v_0::UInt64) where {W, P}
+@generated function initXoshiro(::Val{P}, ::Val{W}, e_0::UInt64, z_0::UInt64, d_0::UInt64, v_0::UInt64) where {W, P}
   q = Expr(:block)
   et = Expr(:tuple)
   zt = Expr(:tuple)
@@ -85,7 +85,7 @@ end
     push!(dt.args, dv)
     push!(vt.args, vv)
   end
-  push!(q.args, :(XoshiftState(VecUnroll($et),VecUnroll($zt),VecUnroll($dt),VecUnroll($vt))))
+  push!(q.args, :(XoshiroState(VecUnroll($et),VecUnroll($zt),VecUnroll($dt),VecUnroll($vt))))
   q
 end
 
@@ -161,59 +161,69 @@ seed(s::Integer) = seed((s % UInt64)::UInt64)
 function seed!(s::Integer)
   e, z, d, v = seed(s)
   nstreams = XREGISTERS * Base.Threads.nthreads() * pick_vector_width(UInt64)
-  initXoshift!(GLOBAL_vRNGs[], nstreams, e, z, d, v)
+  initXoshiro!(GLOBAL_vRNGs[], nstreams, e, z, d, v)
 end
 
-mutable struct MutableXoshift{P,W} <: AbstractXoshift{P}
-  state::XoshiftState{P,W}
-  @inline function MutableXoshift(s::Integer)
-    MutableXoshift{XREGISTERS,Int(pick_vector_width(UInt64))}(s)
+mutable struct MutableXoshiro{P,W} <: AbstractXoshiro{P}
+  state::XoshiroState{P,W}
+  @inline function MutableXoshiro(s::Integer)
+    MutableXoshiro{XREGISTERS,Int(pick_vector_width(UInt64))}(s)
   end
-  @inline function MutableXoshift{P,W}(s::Integer) where {P,W}
+  @inline function MutableXoshiro{P,W}(s::Integer) where {P,W}
     e, z, d, v = seed(s)
-    state = initXoshift(Val{P}(), Val{W}(), e, z, d, v)
+    state = initXoshiro(Val{P}(), Val{W}(), e, z, d, v)
     rng = new{P,W}()
     storestate!(rng, state)
     return rng
   end
 end
-@inline Base.pointer(rng::MutableXoshift) = Base.unsafe_convert(Ptr{UInt64}, Base.pointer_from_objref(rng))
-Xoshift(m::MutableXoshift{P}) where {P} = Xoshift{P}(pointer(m))
+@inline Base.pointer(rng::MutableXoshiro) = Base.unsafe_convert(Ptr{UInt64}, Base.pointer_from_objref(rng))
+Xoshiro(m::MutableXoshiro{P}) where {P} = Xoshiro{P}(pointer(m))
+
+"""
+Oops, I got the name wrong.
+"""
+const Xoshift = Xoshiro;
+
+"""
+Oops, I got the name wrong.
+"""
+const MutableXoshift = MutableXoshiro;
 
 
 
-# @inline function getstate(rng::AbstractXoshift{P}, ::Val{N}, ::Val{W}) where {P,N,W}
+# @inline function getstate(rng::AbstractXoshiro{P}, ::Val{N}, ::Val{W}) where {P,N,W}
 #     ptr = pointer(rng)
-#     XoshiftState(
+#     XoshiroState(
 #         ntuple(n -> vloada(Vec{W,UInt64}, ptr, W64*(n - 1)), Val{N}()),
 #         ntuple(n -> vloada(Vec{W,UInt64}, ptr, W64*(n - 1) + W64*P), Val{N}()),
 #         ntuple(n -> vloada(Vec{W,UInt64}, ptr, W64*(n - 1) + 2W64*P), Val{N}()),
 #         ntuple(n -> vloada(Vec{W,UInt64}, ptr, W64*(n - 1) + 3W64*P), Val{N}())
 #     )
 # end
-@inline function getrandu64counter(rng::Xoshift{P}) where {P}
+@inline function getrandu64counter(rng::Xoshiro{P}) where {P}
   vloadu(Base.unsafe_convert(Ptr{UInt8}, pointer(rng)), 4simd_integer_register_size()*P)
 end
-@inline function getrand64counter(rng::Xoshift{P}) where {P}
+@inline function getrand64counter(rng::Xoshiro{P}) where {P}
     vloadu(Base.unsafe_convert(Ptr{UInt8}, pointer(rng)), 4simd_integer_register_size()*P + 2)
 end
-@inline function getrandn64counter(rng::Xoshift{P}) where {P}
+@inline function getrandn64counter(rng::Xoshiro{P}) where {P}
     vloadu(Base.unsafe_convert(Ptr{UInt8}, pointer(rng)), 4simd_integer_register_size()*P + 3)
 end
-@inline function setrandu64counter!(rng::Xoshift{P}, v::UInt8) where {P}
+@inline function setrandu64counter!(rng::Xoshiro{P}, v::UInt8) where {P}
     vstoreu!(Base.unsafe_convert(Ptr{UInt8}, pointer(rng)), v, 4simd_integer_register_size()*P)
 end
-@inline function setrand64counter!(rng::Xoshift{P}, v::UInt8) where {P}
+@inline function setrand64counter!(rng::Xoshiro{P}, v::UInt8) where {P}
     vstoreu!(Base.unsafe_convert(Ptr{UInt8}, pointer(rng)), v, 4simd_integer_register_size()*P + 2)
 end
-@inline function setrandn64counter!(rng::Xoshift{P}, v::UInt8) where {P}
+@inline function setrandn64counter!(rng::Xoshiro{P}, v::UInt8) where {P}
     vstoreu!(Base.unsafe_convert(Ptr{UInt8}, pointer(rng)), v, 4simd_integer_register_size()*P + 3)
 end
 
-@inline function getstate(rng::AbstractXoshift{P}) where {P}
+@inline function getstate(rng::AbstractXoshiro{P}) where {P}
   ptr = pointer(rng)
   GC.@preserve rng begin
-    XoshiftScalarState(
+    XoshiroScalarState(
         vloadu(ptr, StaticInt{0}()),
         vloadu(ptr, simd_integer_register_size()*P),
         vloadu(ptr, 2simd_integer_register_size()*P),
@@ -221,10 +231,10 @@ end
     )
   end
 end
-@inline function getstate(rng::AbstractXoshift{P}, ::Val{1}, ::StaticInt{W}) where {P,W}
+@inline function getstate(rng::AbstractXoshiro{P}, ::Val{1}, ::StaticInt{W}) where {P,W}
   ptr = pointer(rng)
   GC.@preserve rng begin
-    XoshiftState(
+    XoshiroState(
         VecUnroll((vloada(ptr, MM{W,8}(StaticInt{0}())),)),
         VecUnroll((vloada(ptr, MM{W,8}(simd_integer_register_size()*P)),)),
         VecUnroll((vloada(ptr, MM{W,8}(2simd_integer_register_size()*P)),)),
@@ -232,10 +242,10 @@ end
     )
   end
 end
-@inline function getstate(rng::AbstractXoshift{P}, ::Val{2}, ::StaticInt{W}) where {P,W}
+@inline function getstate(rng::AbstractXoshiro{P}, ::Val{2}, ::StaticInt{W}) where {P,W}
   ptr = pointer(rng)
   GC.@preserve rng begin
-    XoshiftState(
+    XoshiroState(
         VecUnroll((vloada(ptr, MM{W,8}(StaticInt{0}()  )), vloada(ptr, MM{W,8}(simd_integer_register_size()         )))),
         VecUnroll((vloada(ptr, MM{W,8}( P*simd_integer_register_size())), vloada(ptr, MM{W,8}(simd_integer_register_size()*(1 +  P))))),
         VecUnroll((vloada(ptr, MM{W,8}(2P*simd_integer_register_size())), vloada(ptr, MM{W,8}(simd_integer_register_size()*(1 + 2P))))),
@@ -243,11 +253,11 @@ end
     )
   end
 end
-@inline function getstate(rng::AbstractXoshift{P}, ::Val{4}, ::StaticInt{W}) where {P,W}
+@inline function getstate(rng::AbstractXoshiro{P}, ::Val{4}, ::StaticInt{W}) where {P,W}
     ptr = pointer(rng)
   GC.@preserve rng begin
     RS = simd_integer_register_size()
-    XoshiftState(
+    XoshiroState(
         VecUnroll((vloada(ptr, MM{W,8}(StaticInt{0}())), vloada(ptr, MM{W,8}(RS)         ), vloada(ptr, MM{W,8}(RS* 2)      ), vloada(ptr, MM{W,8}(RS* 3      )))),
         VecUnroll((vloada(ptr, MM{W,8}( P*RS)),          vloada(ptr, MM{W,8}(RS*(1 +  P))), vloada(ptr, MM{W,8}(RS*(2 +  P))), vloada(ptr, MM{W,8}(RS*(3 +  P))))),
         VecUnroll((vloada(ptr, MM{W,8}(2P*RS)),          vloada(ptr, MM{W,8}(RS*(1 + 2P))), vloada(ptr, MM{W,8}(RS*(2 + 2P))), vloada(ptr, MM{W,8}(RS*(3 + 2P))))),
@@ -255,7 +265,7 @@ end
     )
   end
 end
-@inline function storestate!(rng::AbstractXoshift{P}, s::XoshiftState{N,W}) where {P,N,W}
+@inline function storestate!(rng::AbstractXoshiro{P}, s::XoshiroState{N,W}) where {P,N,W}
     ptr = pointer(rng)
   GC.@preserve rng begin
     @unpack eins, zwei, drei, vier = s
@@ -273,7 +283,7 @@ end
     end
   end
 end
-@inline function storestate!(rng::AbstractXoshift{P}, s::XoshiftScalarState) where {P}
+@inline function storestate!(rng::AbstractXoshiro{P}, s::XoshiroScalarState) where {P}
   ptr = pointer(rng)
   GC.@preserve rng begin
     @unpack eins, zwei, drei, vier = s;
@@ -283,7 +293,7 @@ end
     vstorea!(ptr, vier, 3P*simd_integer_register_size())
   end
 end
-@inline function storestate!(rng::AbstractXoshift{P}, s::XoshiftState{0,W}) where {P,W}
+@inline function storestate!(rng::AbstractXoshiro{P}, s::XoshiroState{0,W}) where {P,W}
   ptr = pointer(rng)
   @unpack eins, zwei, drei, vier = s;
   _eins = data(eins); _zwei = data(zwei); _drei = data(drei); _vier = data(vier);
@@ -296,7 +306,7 @@ end
     end
   end
 end
-@inline function storestate!(rng::AbstractXoshift{P}, s::XoshiftState{1,W}) where {P,W}
+@inline function storestate!(rng::AbstractXoshiro{P}, s::XoshiroState{1,W}) where {P,W}
   ptr = pointer(rng)
   @unpack eins, zwei, drei, vier = s;
   _eins = data(eins); _zwei = data(zwei); _drei = data(drei); _vier = data(vier);
@@ -313,7 +323,7 @@ end
     end
   end
 end
-@inline function storestate!(rng::AbstractXoshift{P}, s::XoshiftState{3,W}) where {P,W}
+@inline function storestate!(rng::AbstractXoshiro{P}, s::XoshiroState{3,W}) where {P,W}
   ptr = pointer(rng)
   @unpack eins, zwei, drei, vier = s;
   _eins = data(eins); _zwei = data(zwei); _drei = data(drei); _vier = data(vier);
@@ -350,7 +360,7 @@ end
     eins, zwei, drei, vier
 end
 
-@generated function _unpack(s::XoshiftState{P}, ::Val{U}) where {P,U}
+@generated function _unpack(s::XoshiroState{P}, ::Val{U}) where {P,U}
     if U ≤ P
         quote
             $(Expr(:meta,:inline))
@@ -373,8 +383,8 @@ end
     end
 end
 
-@inline XoshiftState(eins::VecUnroll{N}, zwei::VecUnroll{N}, drei::VecUnroll{N}, vier::VecUnroll{N}, s::XoshiftState{N}) where {N} = XoshiftState( eins, zwei, drei, vier )
-@generated function XoshiftState(eins::VecUnroll{N}, zwei::VecUnroll{N}, drei::VecUnroll{N}, vier::VecUnroll{N}, s::XoshiftState{P}) where {N,P}
+@inline XoshiroState(eins::VecUnroll{N}, zwei::VecUnroll{N}, drei::VecUnroll{N}, vier::VecUnroll{N}, s::XoshiroState{N}) where {N} = XoshiroState( eins, zwei, drei, vier )
+@generated function XoshiroState(eins::VecUnroll{N}, zwei::VecUnroll{N}, drei::VecUnroll{N}, vier::VecUnroll{N}, s::XoshiroState{P}) where {N,P}
     @assert P > N
     q = quote
         $(Expr(:meta,:inline))
@@ -397,44 +407,44 @@ end
         push!(_drei.args, Expr(:ref, :_d, n))
         push!(_vier.args, Expr(:ref, :_v, n))
     end
-    push!(q.args, :(XoshiftState( VecUnroll($_eins), VecUnroll($_zwei), VecUnroll($_drei), VecUnroll($_vier) )))
+    push!(q.args, :(XoshiroState( VecUnroll($_eins), VecUnroll($_zwei), VecUnroll($_drei), VecUnroll($_vier) )))
     q
 end
 
-@inline function nextstate(s::XoshiftState{P}, ::Val{U}) where {P,U}
+@inline function nextstate(s::XoshiroState{P}, ::Val{U}) where {P,U}
   eins, zwei, drei, vier = _unpack(s, Val{U}())
   out = eins + vier
   out = rotate_right(out, 0x0000000000000017)
   eins, zwei, drei, vier = nextstate(eins, zwei, drei, vier)
     # out += eins
-  XoshiftState( eins, zwei, drei, vier, s ), out
+  XoshiroState( eins, zwei, drei, vier, s ), out
 end
-@inline function nextstate(s::XoshiftScalarState)
+@inline function nextstate(s::XoshiroScalarState)
   @unpack eins, zwei, drei, vier = s
   out = eins + vier
   out = rotate_right(out, 0x0000000000000017)
   eins, zwei, drei, vier = nextstate(eins, zwei, drei, vier)
   # out += eins
-  XoshiftScalarState( eins, zwei, drei, vier ), out
+  XoshiroScalarState( eins, zwei, drei, vier ), out
 end
 
-function randbuffer64(r::Xoshift{P}) where {P}
+function randbuffer64(r::Xoshiro{P}) where {P}
     ptr = pointer(r)
     Buffer256(Base.unsafe_convert(Ptr{Float64}, ptr + P * 5simd_integer_register_size()))
 end
-function randnbuffer64(r::Xoshift{P}) where {P}
+function randnbuffer64(r::Xoshiro{P}) where {P}
     ptr = pointer(r)
     Buffer256(Base.unsafe_convert(Ptr{Float64}, ptr + P * 5simd_integer_register_size() + 2048))
 end
-# function randbuffer32(r::Xoshift{P}) where {P}
+# function randbuffer32(r::Xoshiro{P}) where {P}
 #     ptr = pointer(r)
 #     Buffer256(Base.unsafe_convert(Ptr{Float64}, ptr + P * 5simd_integer_register_size() + 4096))
 # end
-function randubuffer64(r::Xoshift{P}) where {P}
+function randubuffer64(r::Xoshiro{P}) where {P}
     ptr = pointer(r)
     Buffer256(Base.unsafe_convert(Ptr{UInt64}, ptr + P * 5simd_integer_register_size() + 4096))
 end
-# function randnbuffer32(r::Xoshift{P}) where {P}
+# function randnbuffer32(r::Xoshiro{P}) where {P}
 #     ptr = pointer(r)
 #     Buffer256(Base.unsafe_convert(Ptr{Float64}, ptr + P * 5simd_integer_register_size() + 5120))
 # end

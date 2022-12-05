@@ -39,7 +39,7 @@ const GLOBAL_vRNGs = Ref{Ptr{UInt64}}()
 
 
 const RNG_MEM_SIZE = (5(simd_integer_register_size()*XREGISTERS + 2048*3))
-local_rng(i) = Xoshift{XREGISTERS}(i*(RNG_MEM_SIZE) + GLOBAL_vRNGs[])
+local_rng(i) = Xoshiro{XREGISTERS}(i*(RNG_MEM_SIZE) + GLOBAL_vRNGs[])
 local_rng() = local_rng(Base.Threads.threadid() - 1)
 
 
@@ -47,7 +47,7 @@ function __init()
   nthreads = Base.Threads.nthreads()
   GLOBAL_vRNGs[] = ptr = VectorizationBase.valloc((RNG_MEM_SIZE ÷ 8)*nthreads, UInt64)
   nstreams = XREGISTERS * nthreads * simd_integer_register_size()
-  initXoshift!(ptr, nstreams)
+  initXoshiro!(ptr, nstreams)
   for tid ∈ 0:nthreads-1
     rng = local_rng(tid)
     setrandu64counter!(rng, 0x00)
