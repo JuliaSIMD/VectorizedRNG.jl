@@ -1,6 +1,6 @@
 
 """
-   setbits(x::Unsigned, y::Unsigned, mask::Unsigned)
+setbits(x::Unsigned, y::Unsigned, mask::Unsigned)
 
 If you have AVX512, setbits of vector-arguments will select bits according to mask `m`, selecting from `y` if 0 and from `x` if `1`.
 For scalar arguments, or vector arguments without AVX512, `setbits` requires the additional restrictions on `y` that all bits for
@@ -9,14 +9,30 @@ That is for scalar arguments or vector arguments without AVX512, it requires the
 ((y ⊻ m) & m) == m
 """
 @inline setbits(x, y, m) = (x & m) | y
-@inline function setbits(x::Vec{W,U}, y, m, ::True) where {W,U<:Union{UInt32,UInt64}}
-    VectorizationBase.vpternlog(vbroadcast(Val{W}(), y), x, vbroadcast(Val{W}(), m), Val{216}())
+@inline function setbits(
+  x::Vec{W,U},
+  y,
+  m,
+  ::True
+) where {W,U<:Union{UInt32,UInt64}}
+  VectorizationBase.vpternlog(
+    vbroadcast(Val{W}(), y),
+    x,
+    vbroadcast(Val{W}(), m),
+    Val{216}()
+  )
 end
-@inline function setbits(x::VecUnroll{N,W,U}, y, m, ::True) where {N,W,U<:Union{UInt32,UInt64}}
-    VectorizationBase.VecUnroll(VectorizationBase.fmap(setbits, data(x), y, m))
+@inline function setbits(
+  x::VecUnroll{N,W,U},
+  y,
+  m,
+  ::True
+) where {N,W,U<:Union{UInt32,UInt64}}
+  VectorizationBase.VecUnroll(VectorizationBase.fmap(setbits, data(x), y, m))
 end
 @inline setbits(x, y, m, ::False) = ((x & m) | y)
-@inline setbits(x::VectorizationBase.AbstractSIMD, y, m) = setbits(x, y, m, VectorizationBase.has_feature(Val(:x86_64_avx512f)))
+@inline setbits(x::VectorizationBase.AbstractSIMD, y, m) =
+  setbits(x, y, m, VectorizationBase.has_feature(Val(:x86_64_avx512f)))
 
 """
 The masks mask off bits so that a set of bits will be within the range 1.0 and prevfloat(2.0).
@@ -47,6 +63,9 @@ Choosing other fractional intervals, eg [0.5, 1.0) or [2.0, 4.0) would take more
 Alternatively, if we tried to span multiple fractional intervals, suddenly trying to get a fairly
 uniform distribution would get complicated.
 """
-@inline floatbitmask(x, ::Type{Float64}) = reinterpret(Float64, setbits(reinterpret(UInt64, x), 0x3ff0000000000000, 0x000fffffffffffff))
-@inline floatbitmask(x, ::Type{Float32}) = reinterpret(Float32, setbits(reinterpret(UInt32, x), 0x3f800000, 0x007fffff))
-
+@inline floatbitmask(x, ::Type{Float64}) = reinterpret(
+  Float64,
+  setbits(reinterpret(UInt64, x), 0x3ff0000000000000, 0x000fffffffffffff)
+)
+@inline floatbitmask(x, ::Type{Float32}) =
+  reinterpret(Float32, setbits(reinterpret(UInt32, x), 0x3f800000, 0x007fffff))

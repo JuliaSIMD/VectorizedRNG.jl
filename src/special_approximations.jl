@@ -1,24 +1,55 @@
 # Coefficients calculated with https://github.com/simonbyrne/Remez.jl
 
-@inline function approx_sin8(x::Union{T,Vec{<:Any,T},VecUnroll{<:Any,<:Any,T}}) where {T <: Real}
+@inline function approx_sin8(
+  x::Union{T,Vec{<:Any,T},VecUnroll{<:Any,<:Any,T}}
+) where {T<:Real}
   # poly(x) ≈ (xʳ = sqrt(x); sin((xʳ*π)/2)/xʳ)
-    x² = x * x
-    c0 = T(2.22144146907918312350794048535203995923494010677251491220479906920966593121882)
-    c1 = T(-0.9135311874994298224944388934705417261765270518848695099428083902179199377101094)
-    c2 = T(0.1127023928584587596980569269678174942915399051122642981118394498722218063783927)
-    c3 = T(-0.006621000193853498898990183110992108352486751535892362800909323879419896057043918)
-    c4 = T(0.0002268980994233557245363541171760472387529757765245978583128895641498725296271051)
-    c5 = T(-5.089532691384021959110856232473979525292167742059549332987900223626864039349914e-06)
-    c6 = T(8.049906344315649609313027324977744156866597923196983008950128144505665619892402e-08)
-    c7 = T(-9.453796623737636858301034347145347814693537235132105505794304057287442064404052e-10)
-    c8 = T(8.320735422342537824261297491878000532726851750329165722059039816086266315937799e-12)
-    p = vfmadd(vfmadd(vfmadd(
-        vfmadd(vfmadd(vfmadd(
-            vfmadd(vfmadd(
-                c8, x², c7),
-            x², c6), x², c5), x², c4),
-        x², c3), x², c2), x², c1), x², c0)
-    p * x
+  x² = x * x
+  c0 = T(
+    2.22144146907918312350794048535203995923494010677251491220479906920966593121882
+  )
+  c1 = T(
+    -0.9135311874994298224944388934705417261765270518848695099428083902179199377101094
+  )
+  c2 = T(
+    0.1127023928584587596980569269678174942915399051122642981118394498722218063783927
+  )
+  c3 = T(
+    -0.006621000193853498898990183110992108352486751535892362800909323879419896057043918
+  )
+  c4 = T(
+    0.0002268980994233557245363541171760472387529757765245978583128895641498725296271051
+  )
+  c5 = T(
+    -5.089532691384021959110856232473979525292167742059549332987900223626864039349914e-06
+  )
+  c6 = T(
+    8.049906344315649609313027324977744156866597923196983008950128144505665619892402e-08
+  )
+  c7 = T(
+    -9.453796623737636858301034347145347814693537235132105505794304057287442064404052e-10
+  )
+  c8 = T(
+    8.320735422342537824261297491878000532726851750329165722059039816086266315937799e-12
+  )
+  p = vfmadd(
+    vfmadd(
+      vfmadd(
+        vfmadd(
+          vfmadd(vfmadd(vfmadd(vfmadd(c8, x², c7), x², c6), x², c5), x², c4),
+          x²,
+          c3
+        ),
+        x²,
+        c2
+      ),
+      x²,
+      c1
+    ),
+    x²,
+    c0
+  )
+  p * x
 end
 # @inline function approx_sin12(x::Union{T,Vec{<:Any,T}}) where {T <: Real}
 #     # poly(x) ≈ (xʳ = sqrt(x); sin((xʳ*π)/2)/xʳ)
@@ -56,11 +87,10 @@ end
   sininput = vsub(r, ooc)
   cosinput = vfnmadd(ooc, r, suboneopenconst(T))
   sc = data(approx_sin8(VecUnroll((sininput, cosinput))))
-  s = copysign( getfield(sc,1), reinterpret(T, u))
-  c = copysign( getfield(sc,2), reinterpret(T, u << 1))
+  s = copysign(getfield(sc, 1), reinterpret(T, u))
+  c = copysign(getfield(sc, 2), reinterpret(T, u << 1))
   s, c
 end
-
 
 # @inline function log12_7(x) # each extra coef cuts max error by about 6.5
 #     c0 = -3.245537891437475818527978529229908008038541532632077901681793316955253799627853
@@ -128,7 +158,7 @@ end
 #     n3 = 52.7756604934258744605387726053489962661521090040028567523770922726855897228027
 #     n4 = 23.016711670393619896797584282375610751405740717936585553335237271483200924596
 #     n5 = 1.256864725247499354645915543743422456498233774923938832688724623689696616505147
-    
+
 #     d0 = 1.0
 #     d1 = 17.89075270582490509520473828435679777182649663126891381927673222776567771555027
 #     d2 = 50.90705741116772592703914300524183279313383357917248215823723397522708772511337
@@ -154,10 +184,10 @@ end
 # unlikely to do anything, but avoids bias when more than 12 of the leading bits are 0
 # @inline function shift_excess_zeros(u::AbstractSIMD{W,UInt64}, lz::AbstractSIMD{W,UInt64}) where {W}
 @inline function shift_excess_zeros(u, lz)
-    lzsub = reinterpret(Int64, lz) - 11
-    bitmask = lzsub > 0
-    lzshift = reinterpret(UInt64, lzsub)
-    ifelse(bitmask, ( u << lzshift ), u)
+  lzsub = reinterpret(Int64, lz) - 11
+  bitmask = lzsub > 0
+  lzshift = reinterpret(UInt64, lzsub)
+  ifelse(bitmask, (u << lzshift), u)
 end
 # @inline function shift_excess_zerosv2(u::AbstractSIMD{W,UInt64}, lz::AbstractSIMD{W,UInt64}) where {W}
 #     lzsub = reinterpret(Int64, lz) - 11
@@ -176,7 +206,7 @@ end
 
 @inline function log2_3q(v, e)
   T = eltype(v)
-  m1 = v * v 
+  m1 = v * v
   fma1 = muladd(m1, T(0.22119417504560815), T(0.22007686931522777))
   fma2 = muladd(fma1, m1, T(0.26237080574885147))
   fma3 = muladd(fma2, m1, T(0.32059774779444955))
@@ -194,11 +224,16 @@ end
   muladd(fma6, m3, a4)
 end
 @inline function nlog01(u, ::Type{Float64})
-  lz = reinterpret(Base.uinttype(Float64), leading_zeros( u ))
+  lz = reinterpret(Base.uinttype(Float64), leading_zeros(u))
   f = floatbitmask(shift_excess_zeros(u, lz), Float64) # shift by lz
-  f = ( f - (1.3333333333333333) ) / ( f + (1.3333333333333333) )
+  f = (f - (1.3333333333333333)) / (f + (1.3333333333333333))
   # l2h = log12_9(f)
-  l2 = log2_3q(f, (-0.5849625007211561814537389439478165087598144076924810604557526545410982277943579) - lz)
+  l2 = log2_3q(
+    f,
+    (
+      -0.5849625007211561814537389439478165087598144076924810604557526545410982277943579
+    ) - lz
+  )
   (-0.6931471805599453) * l2
 end
 # TODO: don't depend on SLEEFPirates.jl
@@ -207,10 +242,8 @@ end
   -Base.FastMath.log_fast(floatbitmask(u, Float32) - oneopenconst(Float32))
 end
 
-
 # TODO: Add support for Float32 
 
 # @inline function nlog01(u::AbstractSIMD{W,UInt64}, ::Type{Float32}) where {W}
 #     -log(mask(u, Float32) - oneopenconst(Float32))
 # end
-
