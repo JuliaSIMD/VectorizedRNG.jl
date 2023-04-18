@@ -233,14 +233,14 @@ end
 ) where {K} = vload(ptr, args...)
 @inline _vload(x::Number, args::Vararg{Any,K}) where {K} = x
 
-function random_sample_u2!(
+@inline function samplevector!(
   f::F,
   rng::AbstractVRNG{P},
   x::AbstractArray{T},
   α,
   β,
   γ,
-  g::G = identity
+  g::G
 ) where {F,P,T,G}
   state = getstate(rng, Val{2}(), pick_vector_width(UInt64))
   GC.@preserve x begin
@@ -290,14 +290,14 @@ function random_sample_u2!(
   end # GC preserve
   x
 end
-function random_sample_u2!(
+@inline function samplevector!(
   f::F,
   rng::AbstractVRNG{P},
   x::AbstractArray{T},
   ::StaticInt{0},
   β,
   γ,
-  g::G = identity
+  g::G
 ) where {F,P,T,G}
   state = getstate(rng, Val{2}(), pick_vector_width(UInt64))
   GC.@preserve x begin
@@ -353,7 +353,7 @@ function Random.rand!(
   β = StaticInt{0}(),
   γ = StaticInt{1}()
 ) where {T<:Union{Float32,Float64},F}
-  random_sample_u2!(random_uniform, rng, x, α, β, γ, f)
+  samplevector!(random_uniform, rng, x, α, β, γ, f)
 end
 
 function Random.rand!(
@@ -363,7 +363,7 @@ function Random.rand!(
   β = StaticInt{0}(),
   γ = StaticInt{1}()
 ) where {T<:Union{Float32,Float64}}
-  random_sample_u2!(random_uniform, rng, x, α, β, γ, identity)
+  samplevector!(random_uniform, rng, x, α, β, γ, identity)
 end
 
 function Random.randn!(
@@ -373,7 +373,7 @@ function Random.randn!(
   β = StaticInt{0}(),
   γ = StaticInt{1}()
 ) where {T<:Union{Float32,Float64}}
-  random_sample_u2!(random_normal, rng, x, α, β, γ)
+  samplevector!(random_normal, rng, x, α, β, γ, identity)
 end
 @inline function random_unsigned(
   state::AbstractState,
@@ -383,13 +383,14 @@ end
   nextstate(state, Val{N}())
 end
 function Random.rand!(rng::AbstractVRNG, x::AbstractArray{UInt64})
-  random_sample_u2!(
+  samplevector!(
     random_unsigned,
     rng,
     x,
     StaticInt{0}(),
     StaticInt{0}(),
-    StaticInt{1}()
+    StaticInt{1}(),
+    identity
   )
 end
 
@@ -399,7 +400,7 @@ function Random.rand!(
   x::StaticArraysCore.MArray{<:Tuple,T}
 ) where {T<:Union{Float32,Float64}}
   GC.@preserve x begin
-    random_sample_u2!(random_uniform, rng, PtrArray(x), α, β, γ)
+    samplevector!(random_uniform, rng, PtrArray(x), α, β, γ, identity)
   end
   return x
 end
@@ -413,7 +414,7 @@ function Random.rand!(
 }
   a = MArray{S,UInt64}(undef)
   GC.@preserve a begin
-    random_sample_u2!(random_uniform, rng, PtrArray(a), α, β, γ)
+    samplevector!(random_uniform, rng, PtrArray(a), α, β, γ, identity)
   end
   x .= a
 end
@@ -422,7 +423,7 @@ function Random.randn!(
   x::StaticArraysCore.MArray{<:Tuple,T}
 ) where {T<:Union{Float32,Float64}}
   GC.@preserve x begin
-    random_sample_u2!(random_normal, rng, PtrArray(x), α, β, γ)
+    samplevector!(random_normal, rng, PtrArray(x), α, β, γ, identity)
   end
   return x
 end
@@ -436,7 +437,7 @@ function Random.randn!(
 }
   a = MArray{S,UInt64}(undef)
   GC.@preserve a begin
-    random_sample_u2!(random_normal, rng, PtrArray(a), α, β, γ)
+    samplevector!(random_normal, rng, PtrArray(a), α, β, γ, identity)
   end
   x .= a
 end
@@ -445,13 +446,14 @@ function Random.rand!(
   rng::AbstractVRNG,
   x::StaticArraysCore.MArray{<:Tuple,UInt64}
 )
-  random_sample_u2!(
+  samplevector!(
     random_unsigned,
     rng,
     x,
     StaticInt{0}(),
     StaticInt{0}(),
-    StaticInt{1}()
+    StaticInt{1}(),
+    identity
   )
 end
 function Random.rand!(
@@ -460,13 +462,14 @@ function Random.rand!(
 ) where {S<:Tuple,SA<:StaticArraysCore.StaticArray{S,UInt64}}
   a = MArray{S,UInt64}(undef)
   GC.@preserve a begin
-    random_sample_u2!(
+    samplevector!(
       random_unsigned,
       rng,
       PtrArray(a),
       StaticInt{0}(),
       StaticInt{0}(),
-      StaticInt{1}()
+      StaticInt{1}(),
+      identity
     )
   end
   x .= a

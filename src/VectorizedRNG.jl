@@ -123,18 +123,4 @@ function __init__()
   __init()
 end
 
-@static if VERSION >= v"1.8.0-beta1"
-  let
-    while false
-    end
-    __init()
-    x64 = Vector{Float64}(undef, 16)
-    rand!(local_rng(), x64)
-    randn!(local_rng(), x64)
-    x32 = Vector{Float32}(undef, 16)
-    rand!(local_rng(), x32)
-    randn!(local_rng(), x32)
-  end
-end
-
 end # module
