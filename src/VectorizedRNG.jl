@@ -97,6 +97,10 @@ include("api.jl")
 include("special_approximations.jl")
 include("xoshiro.jl")
 # const GLOBAL_vPCGs = Ref{Ptr{UInt64}}()
+if !isdefined(Base, :get_extension)
+  include("../ext/VectorizedRNGStaticArraysExt.jl")
+end
+
 
 const GLOBAL_vRNGs = Ref{Ptr{UInt64}}()
 
@@ -119,6 +123,11 @@ function __init()
   end
 end
 function __init__()
+  @static if !isdefined(Base, :get_extension)
+    @require StaticArraysCore = "1e83bf80-4336-4d27-bf5d-d5a4f845583c" begin
+        include("../ext/VectorizedRNGStaticArraysExt.jl")
+    end
+  end 
   ccall(:jl_generating_output, Cint, ()) == 1 && return
   __init()
 end

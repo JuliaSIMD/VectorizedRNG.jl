@@ -4,7 +4,7 @@ using Test
 using InteractiveUtils: versioninfo
 versioninfo(; verbose = true)
 
-using RNGTest, Random, SpecialFunctions, Aqua, Distributions
+using RNGTest, Random, SpecialFunctions, Aqua, Distributions, StaticArrays
 
 const α = 1e-4
 
@@ -171,11 +171,36 @@ end
       vrng = local_rng()
       σ = 0.5
       for i = 1:N
-        randn!(vrng, x, VectorizedRNG.static(0), VectorizedRNG.static(0), σ)
+        randn!(vrng, x, VectorizedRNG.StaticInt(0), VectorizedRNG.StaticInt(0), σ)
         s += std(x)
       end
       s /= N
       @test s ≈ σ rtol = 1e-1
     end
   end
-end
+
+  @testset "StaticArrays" begin
+    seed = 1234
+    rng = local_rng()
+    for T in (Float32, Float64, UInt64, Int)
+      for dim in ((10),(10,10), (10,10,10))
+        A = zeros(T, dim)
+        mA = MArray{Tuple{dim...}}(A)
+        VectorizedRNG.seed!(seed)
+        rand!(rng, A)
+        VectorizedRNG.seed!(seed)
+        rand!(rng, mA)
+        @test all(A .== mA)
+
+        if T <: AbstractFloat
+          VectorizedRNG.seed!(seed)
+          randn!(rng, A)
+          VectorizedRNG.seed!(seed)
+          randn!(rng, mA)
+          @test all(A .== mA)
+        end
+      end 
+    end   
+  end 
+
+end 
