@@ -12,6 +12,7 @@ UnPack = "3a884ed6-31ef-47d7-9d2a-63182c4928ed"
 VectorizationBase = "3d5dd08c-fd9d-11e8-17fa-ed2836048c2f"
 
 [weakdeps]
+Requires = "ae029012-a4dd-5104-9daa-d747884805df"
 StaticArraysCore = "1e83bf80-4336-4d27-bf5d-d5a4f845583c"
 
 [extensions]
@@ -20,6 +21,7 @@ VectorizedRNGStaticArraysExt = ["StaticArraysCore"]
 [compat]
 Requires = "1"
 SLEEFPirates = "0.6.29"
+StaticArraysCore = "1"
 UnPack = "1"
 VectorizationBase = "0.19.38, 0.20.1, 0.21"
 julia = "1.6"
@@ -27,6 +29,7 @@ julia = "1.6"
 [extras]
 RNGTest = "97cc5700-e6cb-5ca1-8fb2-7f6b45264ecd"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
+StaticArraysCore = "1e83bf80-4336-4d27-bf5d-d5a4f845583c"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]

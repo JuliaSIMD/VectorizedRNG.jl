@@ -1,11 +1,10 @@
 module VectorizedRNGStaticArraysExt
 
-
-using StaticArraysCore
+using VectorizedRNG: samplevector!, random_uniform, random_normal, AbstractVRNG, random_unsigned
 if isdefined(Base, :get_extension)
-    using VectorizedRNG: samplevector!, random_uniform, random_normal, AbstractVRNG, random_unsigned
+  using StaticArraysCore
 else
-    using ..VectorizedRNG: samplevector!, random_uniform, random_normal, AbstractVRNG, random_unsigned
+  using ..StaticArraysCore
 end
 using VectorizationBase: StaticInt
 import Random
