@@ -29,6 +29,10 @@ using SLEEFPirates
 
 using Distributed: myid
 
+if !isdefined(Base, :get_extension)
+  using Requires
+end
+
 export local_rng, rand!, randn!#, randexp, randexp!
 
 abstract type AbstractVRNG{N} <: Random.AbstractRNG end
@@ -119,6 +123,11 @@ function __init()
   end
 end
 function __init__()
+  @static if !isdefined(Base, :get_extension)
+    @require StaticArraysCore = "1e83bf80-4336-4d27-bf5d-d5a4f845583c" begin
+      include("../ext/VectorizedRNGStaticArraysExt.jl")
+    end
+  end
   ccall(:jl_generating_output, Cint, ()) == 1 && return
   __init()
 end

@@ -375,6 +375,7 @@ function Random.randn!(
 ) where {T<:Union{Float32,Float64}}
   samplevector!(random_normal, rng, x, α, β, γ, identity)
 end
+
 @inline function random_unsigned(
   state::AbstractState,
   ::Val{N},
@@ -382,6 +383,7 @@ end
 ) where {N,T}
   nextstate(state, Val{N}())
 end
+
 function Random.rand!(rng::AbstractVRNG, x::AbstractArray{UInt64})
   samplevector!(
     random_unsigned,
@@ -392,87 +394,6 @@ function Random.rand!(rng::AbstractVRNG, x::AbstractArray{UInt64})
     StaticInt{1}(),
     identity
   )
-end
-
-using StaticArraysCore, StrideArraysCore
-function Random.rand!(
-  rng::AbstractVRNG,
-  x::StaticArraysCore.MArray{<:Tuple,T}
-) where {T<:Union{Float32,Float64}}
-  GC.@preserve x begin
-    samplevector!(random_uniform, rng, PtrArray(x), α, β, γ, identity)
-  end
-  return x
-end
-function Random.rand!(
-  rng::AbstractVRNG,
-  x::SA
-) where {
-  S<:Tuple,
-  T<:Union{Float32,Float64},
-  SA<:StaticArraysCore.StaticArray{S,T}
-}
-  a = MArray{S,UInt64}(undef)
-  GC.@preserve a begin
-    samplevector!(random_uniform, rng, PtrArray(a), α, β, γ, identity)
-  end
-  x .= a
-end
-function Random.randn!(
-  rng::AbstractVRNG,
-  x::StaticArraysCore.MArray{<:Tuple,T}
-) where {T<:Union{Float32,Float64}}
-  GC.@preserve x begin
-    samplevector!(random_normal, rng, PtrArray(x), α, β, γ, identity)
-  end
-  return x
-end
-function Random.randn!(
-  rng::AbstractVRNG,
-  x::SA
-) where {
-  S<:Tuple,
-  T<:Union{Float32,Float64},
-  SA<:StaticArraysCore.StaticArray{S,T}
-}
-  a = MArray{S,UInt64}(undef)
-  GC.@preserve a begin
-    samplevector!(random_normal, rng, PtrArray(a), α, β, γ, identity)
-  end
-  x .= a
-end
-
-function Random.rand!(
-  rng::AbstractVRNG,
-  x::StaticArraysCore.MArray{<:Tuple,UInt64}
-)
-  samplevector!(
-    random_unsigned,
-    rng,
-    x,
-    StaticInt{0}(),
-    StaticInt{0}(),
-    StaticInt{1}(),
-    identity
-  )
-end
-function Random.rand!(
-  rng::AbstractVRNG,
-  x::SA
-) where {S<:Tuple,SA<:StaticArraysCore.StaticArray{S,UInt64}}
-  a = MArray{S,UInt64}(undef)
-  GC.@preserve a begin
-    samplevector!(
-      random_unsigned,
-      rng,
-      PtrArray(a),
-      StaticInt{0}(),
-      StaticInt{0}(),
-      StaticInt{1}(),
-      identity
-    )
-  end
-  x .= a
 end
 
 Random.rand(rng::AbstractVRNG, d1::Integer, dims::Vararg{Integer,N}) where {N} =

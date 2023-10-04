@@ -4,7 +4,7 @@ using Documenter
 makedocs(;
   modules = [VectorizedRNG],
   authors = "Chris Elrod",
-  repo = "https://github.com/JuliaSIMD/VectorizedRNG.jl/blob/{commit}{path}#L{line}",
+  repo = Remotes.GitHub("JuliaSIMD","VectorizedRNG.jl"),
   sitename = "VectorizedRNG.jl",
   format = Documenter.HTML(;
     prettyurls = get(ENV, "CI", "false") == "true",
@@ -12,7 +12,7 @@ makedocs(;
     assets = String[]
   ),
   pages = ["Home" => "index.md"],
-  strict = false
+  warnonly = true
 )
 
 deploydocs(; repo = "github.com/JuliaSIMD/VectorizedRNG.jl")
