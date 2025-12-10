@@ -123,92 +123,49 @@ end
 end
 
 # https://prng.di.unimi.it/xoshiro256starstar.c
-@static if VERSION >= v"1.8"
-  Base.@assume_effects total function jump(
-    eins::UInt64,
-    zwei::UInt64,
-    drei::UInt64,
-    vier::UInt64
+Base.@assume_effects total function jump(
+  eins::UInt64,
+  zwei::UInt64,
+  drei::UInt64,
+  vier::UInt64
+)
+  e = zero(UInt64)
+  z = zero(UInt64)
+  d = zero(UInt64)
+  v = zero(UInt64)
+  for u ∈ (
+    0x180ec6d33cfd0aba,
+    0xd5a61266f0c9392c,
+    0xa9582618e03fc9aa,
+    0x39abdc4529b1661c
   )
-    e = zero(UInt64)
-    z = zero(UInt64)
-    d = zero(UInt64)
-    v = zero(UInt64)
-    for u ∈ (
-      0x180ec6d33cfd0aba,
-      0xd5a61266f0c9392c,
-      0xa9582618e03fc9aa,
-      0x39abdc4529b1661c
-    )
-      for _ ∈ 0:63
-        if u % Bool
-          e ⊻= eins
-          z ⊻= zwei
-          d ⊻= drei
-          v ⊻= vier
-        end
-        u >>>= 1
-        e, z, d, v = nextstate(e, z, d, v)
+    for _ ∈ 0:63
+      if u % Bool
+        e ⊻= eins
+        z ⊻= zwei
+        d ⊻= drei
+        v ⊻= vier
       end
+      u >>>= 1
+      e, z, d, v = nextstate(e, z, d, v)
     end
-    e, z, d, v
   end
-else
-  function jump(eins::UInt64, zwei::UInt64, drei::UInt64, vier::UInt64)
-    e = zero(UInt64)
-    z = zero(UInt64)
-    d = zero(UInt64)
-    v = zero(UInt64)
-    for u ∈ (
-      0x180ec6d33cfd0aba,
-      0xd5a61266f0c9392c,
-      0xa9582618e03fc9aa,
-      0x39abdc4529b1661c
-    )
-      for _ ∈ 0:63
-        if u % Bool
-          e ⊻= eins
-          z ⊻= zwei
-          d ⊻= drei
-          v ⊻= vier
-        end
-        u >>>= 1
-        e, z, d, v = nextstate(e, z, d, v)
-      end
-    end
-    e, z, d, v
-  end
+  e, z, d, v
 end
-@static if VERSION >= v"1.8"
-  Base.@assume_effects consistent nothrow terminates_globally function seed(
-    s::Base.BitInteger
-  )
-    i = s % UInt64
-    e = z = d = v = zero(UInt64)
-    increment = 0xa04de531e612e1b9
-    while any(iszero, (e, z, d, v))
-      e = ((i * 0x90ce6ecbad5e33b5) + increment)
-      z = ((e * 0x90ce6ecbad5e33b5) + increment)
-      d = ((z * 0x90ce6ecbad5e33b5) + increment)
-      v = ((d * 0x90ce6ecbad5e33b5) + increment)
-      increment += 0x0000000000000002
-    end
-    e, z, d, v
+Base.@assume_effects consistent nothrow terminates_globally function seed(
+  s::Base.BitInteger
+)
+  i = s % UInt64
+  e = z = d = v = zero(UInt64)
+  increment = 0xa04de531e612e1b9
+  while any(iszero, (e, z, d, v))
+    e = ((i * 0x90ce6ecbad5e33b5) + increment)
+    z = ((e * 0x90ce6ecbad5e33b5) + increment)
+    d = ((z * 0x90ce6ecbad5e33b5) + increment)
+    v = ((d * 0x90ce6ecbad5e33b5) + increment)
+    increment += 0x0000000000000002
   end
-else
-  function seed(s::Base.BitInteger)
-    i = s % UInt64
-    e = z = d = v = zero(UInt64)
-    increment = 0xa04de531e612e1b9
-    while any(iszero, (e, z, d, v))
-      e = ((i * 0x90ce6ecbad5e33b5) + increment)
-      z = ((e * 0x90ce6ecbad5e33b5) + increment)
-      d = ((z * 0x90ce6ecbad5e33b5) + increment)
-      v = ((d * 0x90ce6ecbad5e33b5) + increment)
-      increment += 0x0000000000000002
-    end
-    e, z, d, v
-  end
+  e, z, d, v
 end
 seed(s::Integer) = seed((s % UInt64)::UInt64)
 
