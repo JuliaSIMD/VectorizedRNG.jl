@@ -346,7 +346,7 @@ end
 ) where {P,N,W}
   ptr = pointer(rng)
   GC.@preserve rng begin
-    @unpack eins, zwei, drei, vier = s
+    (; eins, zwei, drei, vier) = s
     @inbounds for n ∈ 0:N
       vstorea!(ptr, data(eins)[n], simd_integer_register_size() * n)
     end
@@ -367,7 +367,7 @@ end
 ) where {P}
   ptr = pointer(rng)
   GC.@preserve rng begin
-    @unpack eins, zwei, drei, vier = s
+    (; eins, zwei, drei, vier) = s
     vstorea!(ptr, eins)
     vstorea!(ptr, zwei, P * simd_integer_register_size())
     vstorea!(ptr, drei, 2P * simd_integer_register_size())
@@ -379,7 +379,7 @@ end
   s::XoshiroState{0,W}
 ) where {P,W}
   ptr = pointer(rng)
-  @unpack eins, zwei, drei, vier = s
+  (; eins, zwei, drei, vier) = s
   _eins = data(eins)
   _zwei = data(zwei)
   _drei = data(drei)
@@ -398,7 +398,7 @@ end
   s::XoshiroState{1,W}
 ) where {P,W}
   ptr = pointer(rng)
-  @unpack eins, zwei, drei, vier = s
+  (; eins, zwei, drei, vier) = s
   _eins = data(eins)
   _zwei = data(zwei)
   _drei = data(drei)
@@ -421,7 +421,7 @@ end
   s::XoshiroState{3,W}
 ) where {P,W}
   ptr = pointer(rng)
-  @unpack eins, zwei, drei, vier = s
+  (; eins, zwei, drei, vier) = s
   _eins = data(eins)
   _zwei = data(zwei)
   _drei = data(drei)
@@ -463,7 +463,7 @@ end
   if U ≤ P
     quote
       $(Expr(:meta, :inline))
-      @unpack eins, zwei, drei, vier = s
+      (; eins, zwei, drei, vier) = s
       _eins = data(eins)
       _zwei = data(zwei)
       _drei = data(drei)
@@ -548,7 +548,7 @@ end
   XoshiroState(eins, zwei, drei, vier, s), out
 end
 @inline function nextstate(s::XoshiroScalarState)
-  @unpack eins, zwei, drei, vier = s
+  (; eins, zwei, drei, vier) = s
   out = eins + vier
   out = rotate_right(out, 0x0000000000000017)
   eins, zwei, drei, vier = nextstate(eins, zwei, drei, vier)

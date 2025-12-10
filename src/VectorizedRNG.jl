@@ -4,7 +4,7 @@ if isdefined(Base, :Experimental) &&
     @eval Base.Experimental.@max_methods 1
 end
 
-using VectorizationBase, Random, UnPack
+using VectorizationBase, Random
 using VectorizationBase:
   simd_integer_register_size,
   gep,
