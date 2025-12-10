@@ -65,7 +65,7 @@ function test_serial_rng(f)
 end
 
 @testset "VectorizedRNG.jl" begin
-  Aqua.test_all(VectorizedRNG)#, ambiguities = VERSION < v"1.6-DEV")
+  Aqua.test_all(VectorizedRNG)
   VectorizedRNG.seed!(33)
   @test isempty(detect_unbound_args(VectorizedRNG))
   @testset "Small Crush" begin

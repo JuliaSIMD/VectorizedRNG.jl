@@ -123,92 +123,49 @@ end
 end
 
 # https://prng.di.unimi.it/xoshiro256starstar.c
-@static if VERSION >= v"1.8"
-  Base.@assume_effects total function jump(
-    eins::UInt64,
-    zwei::UInt64,
-    drei::UInt64,
-    vier::UInt64
+Base.@assume_effects total function jump(
+  eins::UInt64,
+  zwei::UInt64,
+  drei::UInt64,
+  vier::UInt64
+)
+  e = zero(UInt64)
+  z = zero(UInt64)
+  d = zero(UInt64)
+  v = zero(UInt64)
+  for u ∈ (
+    0x180ec6d33cfd0aba,
+    0xd5a61266f0c9392c,
+    0xa9582618e03fc9aa,
+    0x39abdc4529b1661c
   )
-    e = zero(UInt64)
-    z = zero(UInt64)
-    d = zero(UInt64)
-    v = zero(UInt64)
-    for u ∈ (
-      0x180ec6d33cfd0aba,
-      0xd5a61266f0c9392c,
-      0xa9582618e03fc9aa,
-      0x39abdc4529b1661c
-    )
-      for _ ∈ 0:63
-        if u % Bool
-          e ⊻= eins
-          z ⊻= zwei
-          d ⊻= drei
-          v ⊻= vier
-        end
-        u >>>= 1
-        e, z, d, v = nextstate(e, z, d, v)
+    for _ ∈ 0:63
+      if u % Bool
+        e ⊻= eins
+        z ⊻= zwei
+        d ⊻= drei
+        v ⊻= vier
       end
+      u >>>= 1
+      e, z, d, v = nextstate(e, z, d, v)
     end
-    e, z, d, v
   end
-else
-  function jump(eins::UInt64, zwei::UInt64, drei::UInt64, vier::UInt64)
-    e = zero(UInt64)
-    z = zero(UInt64)
-    d = zero(UInt64)
-    v = zero(UInt64)
-    for u ∈ (
-      0x180ec6d33cfd0aba,
-      0xd5a61266f0c9392c,
-      0xa9582618e03fc9aa,
-      0x39abdc4529b1661c
-    )
-      for _ ∈ 0:63
-        if u % Bool
-          e ⊻= eins
-          z ⊻= zwei
-          d ⊻= drei
-          v ⊻= vier
-        end
-        u >>>= 1
-        e, z, d, v = nextstate(e, z, d, v)
-      end
-    end
-    e, z, d, v
-  end
+  e, z, d, v
 end
-@static if VERSION >= v"1.8"
-  Base.@assume_effects consistent nothrow terminates_globally function seed(
-    s::Base.BitInteger
-  )
-    i = s % UInt64
-    e = z = d = v = zero(UInt64)
-    increment = 0xa04de531e612e1b9
-    while any(iszero, (e, z, d, v))
-      e = ((i * 0x90ce6ecbad5e33b5) + increment)
-      z = ((e * 0x90ce6ecbad5e33b5) + increment)
-      d = ((z * 0x90ce6ecbad5e33b5) + increment)
-      v = ((d * 0x90ce6ecbad5e33b5) + increment)
-      increment += 0x0000000000000002
-    end
-    e, z, d, v
+Base.@assume_effects consistent nothrow terminates_globally function seed(
+  s::Base.BitInteger
+)
+  i = s % UInt64
+  e = z = d = v = zero(UInt64)
+  increment = 0xa04de531e612e1b9
+  while any(iszero, (e, z, d, v))
+    e = ((i * 0x90ce6ecbad5e33b5) + increment)
+    z = ((e * 0x90ce6ecbad5e33b5) + increment)
+    d = ((z * 0x90ce6ecbad5e33b5) + increment)
+    v = ((d * 0x90ce6ecbad5e33b5) + increment)
+    increment += 0x0000000000000002
   end
-else
-  function seed(s::Base.BitInteger)
-    i = s % UInt64
-    e = z = d = v = zero(UInt64)
-    increment = 0xa04de531e612e1b9
-    while any(iszero, (e, z, d, v))
-      e = ((i * 0x90ce6ecbad5e33b5) + increment)
-      z = ((e * 0x90ce6ecbad5e33b5) + increment)
-      d = ((z * 0x90ce6ecbad5e33b5) + increment)
-      v = ((d * 0x90ce6ecbad5e33b5) + increment)
-      increment += 0x0000000000000002
-    end
-    e, z, d, v
-  end
+  e, z, d, v
 end
 seed(s::Integer) = seed((s % UInt64)::UInt64)
 
@@ -389,7 +346,7 @@ end
 ) where {P,N,W}
   ptr = pointer(rng)
   GC.@preserve rng begin
-    @unpack eins, zwei, drei, vier = s
+    (; eins, zwei, drei, vier) = s
     @inbounds for n ∈ 0:N
       vstorea!(ptr, data(eins)[n], simd_integer_register_size() * n)
     end
@@ -410,7 +367,7 @@ end
 ) where {P}
   ptr = pointer(rng)
   GC.@preserve rng begin
-    @unpack eins, zwei, drei, vier = s
+    (; eins, zwei, drei, vier) = s
     vstorea!(ptr, eins)
     vstorea!(ptr, zwei, P * simd_integer_register_size())
     vstorea!(ptr, drei, 2P * simd_integer_register_size())
@@ -422,7 +379,7 @@ end
   s::XoshiroState{0,W}
 ) where {P,W}
   ptr = pointer(rng)
-  @unpack eins, zwei, drei, vier = s
+  (; eins, zwei, drei, vier) = s
   _eins = data(eins)
   _zwei = data(zwei)
   _drei = data(drei)
@@ -441,7 +398,7 @@ end
   s::XoshiroState{1,W}
 ) where {P,W}
   ptr = pointer(rng)
-  @unpack eins, zwei, drei, vier = s
+  (; eins, zwei, drei, vier) = s
   _eins = data(eins)
   _zwei = data(zwei)
   _drei = data(drei)
@@ -464,7 +421,7 @@ end
   s::XoshiroState{3,W}
 ) where {P,W}
   ptr = pointer(rng)
-  @unpack eins, zwei, drei, vier = s
+  (; eins, zwei, drei, vier) = s
   _eins = data(eins)
   _zwei = data(zwei)
   _drei = data(drei)
@@ -506,7 +463,7 @@ end
   if U ≤ P
     quote
       $(Expr(:meta, :inline))
-      @unpack eins, zwei, drei, vier = s
+      (; eins, zwei, drei, vier) = s
       _eins = data(eins)
       _zwei = data(zwei)
       _drei = data(drei)
@@ -591,7 +548,7 @@ end
   XoshiroState(eins, zwei, drei, vier, s), out
 end
 @inline function nextstate(s::XoshiroScalarState)
-  @unpack eins, zwei, drei, vier = s
+  (; eins, zwei, drei, vier) = s
   out = eins + vier
   out = rotate_right(out, 0x0000000000000017)
   eins, zwei, drei, vier = nextstate(eins, zwei, drei, vier)
