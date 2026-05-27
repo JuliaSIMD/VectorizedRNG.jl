@@ -19,9 +19,14 @@ StaticArraysCore = "1e83bf80-4336-4d27-bf5d-d5a4f845583c"
 VectorizedRNGStaticArraysExt = ["StaticArraysCore"]
 
 [compat]
+Distributed = "1"
+RNGTest = "1"
+Random = "1"
 Requires = "1"
 SLEEFPirates = "0.6.29"
+StaticArrays = "1"
 StaticArraysCore = "1"
+Test = "1"
 UnPack = "1"
 VectorizationBase = "0.19.38, 0.20.1, 0.21"
 julia = "1.6"
